@@ -1,0 +1,4 @@
+<ul><li><b>From a short name</b>: This is a redirect from a title that is a shortened form of a person's full name, a book title or other more complete article title.
+<ul><li>Use this rcat (<i>not</i> {{R from initialism}}) to tag redirects that are the initials of a <b>person's name</b>.</li>
+</ul></li>
+</ul>

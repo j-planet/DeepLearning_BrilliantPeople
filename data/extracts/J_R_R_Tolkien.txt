@@ -1,0 +1,5 @@
+<ul><li><b>From a misspelling</b>: This is a redirect from a misspelling or typographical error. The correct form is given by the target of the redirect.
+<ul><li>This redirect is made available to aid searches. Pages that use this link should be updated to link directly to the target without the use of a piped link that hides the correct details.</li>
+<li>This template tags redirects with a subcategory of the Redirects from incorrect names category, so template {{R from incorrect name}} should not be used with this template.</li>
+</ul></li>
+</ul>
