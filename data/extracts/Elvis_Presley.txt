@@ -201,8 +201,10 @@
 
 
 <p><b>TV concert specials</b></p>
-
-<h2><span id="See_also">See also</span></h2>
+<ul><li><i>Elvis</i> (1968)</li>
+<li><i>Elvis: Aloha from Hawaii via Satellite</i> (1973)</li>
+<li><i>Elvis in Concert</i> (1977)</li>
+</ul><h2><span id="See_also">See also</span></h2>
 
 <h2><span id="Notes">Notes</span></h2>
 

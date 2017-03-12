@@ -241,7 +241,7 @@
 <li>First and only player to appear in the FIFPro World XI for two different clubs.</li>
 <li>Only player to have won more than one FIFA Club World Cup Silver Ball.</li>
 <li>Guinness World Record for Most Liked Person on Facebook: 2015</li>
-<li>Only player in the world who has scored in the 2004, 2008, 2012 and 2016 editions of the European Championship; and in the 2006, 2010 and 2014 editions of the World Cup.</li>
+<li>Only player in the world who has scored in 7 consecutive major international tournaments : the 2004, 2008, 2012 and 2016 editions of the European Championship; and the 2006, 2010 and 2014 editions of the World Cup.</li>
 </ul><h4><span id="Europe">Europe</span></h4>
 <ul><li>Most goals scored in the UEFA Champions League: 95 goals</li>
 <li>Most goals scored in a UEFA Champions League/European Cup season: 17 goals in 2013–14</li>
@@ -252,13 +252,13 @@
 <li>The first player in the history of UEFA Champions League to score three hat-tricks in a single season: in 2015–16</li>
 <li>First footballer to have won the European Golden Shoe in two different leagues: English Premier League (2007–08) and Spanish La Liga (2010–11, 2013–14, 2014–15)</li>
 <li>Most goals scored in the UEFA European Championship, including qualifying: 29 goals, for Portugal</li>
-<li>Most career goals at UEFA European Championship finals: 9 goals, for Portugal (tied with Michel Platini)</li>
+<li>Most career goals at UEFA European Championship finals: 9 goals, for Portugal (shared with Michel Platini)</li>
 <li>Only player to have scored at four UEFA European Championship finals: 2004, 2008, 2012, 2016</li>
 <li>Only player to have scored three or above (goals) at more than one UEFA European Championship finals: 3 goals in 2012 and in 2016</li>
 <li>Most headed goals at UEFA European Championship finals: 5</li>
 <li>Highest appearance-maker at UEFA European Championship finals: 20 appearances</li>
 <li>First player to appear in three UEFA European Championship semi-finals: 2004, 2012, 2016 (Germany's Bastian Schweinsteiger featured in his third last-four clash 24 hours later)</li>
-<li>First player to ever score 10 goals in four consecutive UEFA Champions League seasons: 2011–12 to 2014–15</li>
+<li>First player to ever score 10 goals in five consecutive UEFA Champions League seasons: 2011–12 to 2015–16</li>
 <li>Only player to score for two different winning teams in the European Cup: Manchester United (2007–08) and Real Madrid (2013–14)</li>
 <li>Most away goals scored in Champions League history: 42 goals</li>
 <li>Most consecutive UEFA Champions League away games scored in: 12</li>
@@ -267,7 +267,7 @@
 <li>Most European Golden Shoe awards: 4</li>
 <li>Most UEFA Team of the Year appearances: 10 times</li>
 <li>Most consecutive appearances in the UEFA Team of the Year: 9 (2007–2015)</li>
-<li>Only player to appear in more than position in the UEFA Team of the Year.</li>
+<li>Only player to appear in more than one position in the UEFA Team of the Year.</li>
 <li>Only player to be among the finalists for all the editions of the UEFA Best Player in Europe Award: 2010–11 to 2015–16</li>
 <li>Fastest player to score 350 goals for one club (335 games)</li>
 <li>Most UEFA Best Player in Europe awards: 3 (2008, 2014, 2016) (shared with Lionel Messi)</li>
@@ -286,8 +286,8 @@
 <li>Most La Liga hat-tricks in a season: 8 hat-tricks (shared with Lionel Messi)</li>
 <li>Most hat-tricks scored in all competitions: 36</li>
 </ul><h4><span id="Real_Madrid_2">Real Madrid</span></h4>
-<ul><li>Real Madrid all-time top goalscorer: 376 goals</li>
-<li>Top goalscorer in La Liga: 270 goals</li>
+<ul><li>Real Madrid all-time top goalscorer: 389 goals</li>
+<li>Top goalscorer in La Liga: 278 goals</li>
 <li>Fastest player to reach 50 league goals</li>
 <li>Fastest player to reach 100 league goals</li>
 <li>Fastest player to reach 200 official goals</li>
@@ -311,5 +311,5 @@
 <li>Cristiano Ronaldo – UEFA competition record</li>
 <li>Cristiano Ronaldo – FIFA competition record</li>
 <li>Cristiano Ronaldo at National-Football-Teams.com</li>
-<li>Cristiano Ronaldo profile at BDFutbol</li>
+<li>Cristiano Ronaldo at BDFutbol</li>
 </ul>
