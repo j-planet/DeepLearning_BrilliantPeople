@@ -1,2 +1,0 @@
-<ul><li><b>From a longer title</b>: This is a redirect from a title that is a complete, more complete or longer version of the name of a person, organization, legislative act, etc. It leads to the title in accordance with the naming conventions for common names and can help writing and searches. However, do not replace these redirected links with a piped link unless the page is updated for another reason.</li>
-</ul>
