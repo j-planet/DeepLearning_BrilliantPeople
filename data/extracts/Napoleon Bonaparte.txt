@@ -1,5 +1,0 @@
-<ul><li><b>From an alternative name</b>: This is a redirect from a title that is another name such as a pseudonym, a nickname, or a synonym of the target, or of a name associated with the target.
-<ul><li>This redirect leads to the title in accordance with the naming conventions for common names to aid searches and writing. It is not necessary to replace these redirected links with a piped link.</li>
-<li>If this redirect is an incorrect name for the target, then use {{R from incorrect name}} <i>instead</i>.</li>
-</ul></li>
-</ul>

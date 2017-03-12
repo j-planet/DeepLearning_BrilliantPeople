@@ -1,4 +1,0 @@
-<ul><li><b>To the <i>same page name</i> with diacritics</b>: This is a redirect from a page name that <i><b>does not have diacritical marks</b></i> (accents, umlauts, etc.) to essentially the same page name with diacritical marks or a "List of..." page anchored to a promising list item name with diacritics.
-<ul><li>This redirect aids in searches and may be applied (without piping) when the subject page concerns language translation or foreign language equivalents. Other pages that use this redirect should be updated with a direct link to the redirect target (again, without piping).</li>
-</ul></li>
-</ul>

@@ -11,7 +11,7 @@ def process_one_name(name):
 
     # pprint(extract, width=200)
 
-    with open('./data/extracts/' + name + '.txt', 'w', encoding='utf-8') as ofile:
+    with open('./data/extracts/' + name.replace(' ', '_') + '.txt', 'w', encoding='utf-8') as ofile:
         ofile.writelines(extract)
 
 # process_one_name('albert einstein')
