@@ -1,1 +1,3 @@
-<center><span><i><b>The template below has been deprecated. Please convert to or use its replacement template instead.</b></i></span></center>
+version https://git-lfs.github.com/spec/v1
+oid sha256:d8106bb9cb2953c5fbb022b4f705da58779c438b8d0150f43e4fcea46101b1f7
+size 36206

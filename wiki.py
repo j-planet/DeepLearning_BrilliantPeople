@@ -4,7 +4,7 @@ from pprint import pprint
 
 def process_one_name(name):
     name = name.title()
-    url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&meta=&titles=' + name.replace(' ', '+')
+    url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&meta=&titles=' + name.replace(' ', '+') + '&redirects=1'
     t = requests.get(url)
     fullD = json.loads(str(t.content, 'utf-8'))
     extract = list(fullD['query']['pages'].items())[0][1]['extract']

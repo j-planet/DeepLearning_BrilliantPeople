@@ -1,4 +1,3 @@
-<ul><li><b>From a modification</b>: This is a redirect from a modification of the target's title; for example, its words are rearranged, or punctuation in the name is changed. In cases of modification from distinctly longer or shorter names, please use {{R from long name}} or {{R from short name}}, respectively.
-<ul><li>Use this rcat instead of {{R from other capitalisation}} and {{R from plural}} in namespaces other than mainspace for those types of modification.</li>
-</ul></li>
-</ul>
+version https://git-lfs.github.com/spec/v1
+oid sha256:c26f94c90d082aa69b31da58111097731291e6973440878eec36d14cf5e7d049
+size 49008
