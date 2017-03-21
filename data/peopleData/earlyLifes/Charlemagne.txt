@@ -1,3 +1,5 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:fe047da9dcf6bba13d26765c23e137d22d360bd27b9755a5d8b36836b5369b14
-size 1427
+Date of birth
+The most likely date of Charlemagne's birth is reconstructed from several sources. The date of 742 — calculated from Einhard's date of death of January 814 at age 72 - predates the marriage of his parents in 744. The year given in the Annales Petaviani, 747, would be more likely, except that it contradicts Einhard and a few other sources in making Charlemagne seventy years old at his death. The month and day of April 2 are established by a calendar from Lorsch Abbey.
+In 747, Easter fell on April 2, a coincidence that likely would have been remarked upon by chroniclers but was not. If Easter was being used as the beginning of the calendar year, then 2 April 747 could have been, by modern reckoning, 2 April 748 (not on Easter). The date favoured by the preponderance of evidence is 2 April 742, based on Charlemagne's age at the time of his death. This date would appear to support the idea that Charlemagne was illegitimate, although that is not mentioned by Einhard.
+Place of birth
+Charlemagne's exact birthplace is unknown, although historians have suggested Aachen in modern-day Germany, and Liège (Herstal) in present-day Belgium as possible locations. Aachen and Liège are close to the region from where the Merovingian and Carolingian families originated. Other cities have been suggested, including Düren, Gauting, Mürlenbach, Quierzy and Prüm. No definitive evidence resolves the question.

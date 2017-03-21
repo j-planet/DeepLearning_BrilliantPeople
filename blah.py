@@ -1,4 +1,11 @@
+import nltk
+from pprint import pprint
+
+text = '''
 Grouès was born on 5 August 1912 in Lyon, France to a wealthy Catholic family of silk traders, the fifth of eight children. He spent his childhood in Irigny, near Lyon. He was twelve when he met François Chabbey and went for the first time with his father to an Order circle, the brotherhood of the "Hospitaliers veilleurs" in which the mainly middle-class members would serve the poor by providing barber services.
 Grouès became a member of the Scouts de France in which he was nicknamed "Meditative Beaver" (Castor méditatif). In 1928, aged 16, he made the decision to join a monastic order, but he had to wait until he was seventeen and a half to fulfill this ambition. In 1931 Grouès entered the Capuchin Order, the principal offshoot of the Franciscans, renouncing his inheritances and offering all his possessions to charities.
 Known as frère Philippe (Brother Philippe), he entered the monastery of Crest in 1932, where he lived seven years. He had to leave in 1939 after developing severe lung infections, which made the strict and hard monastic life difficult to cope with. He became chaplain in the hospital of La Mure (Isère), and then of an orphanage in the Côte-Saint-André (also in the Isère department). After being ordained a Roman Catholic priest on 24 August 1938, he became curate of Grenoble's cathedral in April 1939, only a few months before the invasion of Poland.
-The Jesuit Fr. Henri de Lubac told him on the day of his priestly ordination: "ask the Holy Spirit to grant you the same anti-clericalism of the saints."
+The Jesuit Fr. Henri de Lubac told him on the day of his priestly ordination: "ask the Holy Spirit to grant you the same anti-clericalism of the saints."'''
+
+pprint(nltk.pos_tag(nltk.word_tokenize(text)))
+# ignoredWords = ['the', 'of', 'and', 'in', 'a', 'to', 'is', 'as','for', 's', 'was', 'by', 'that', 'four', 'six', 'seven', 'with', 'on', 'are', 'it', 'from', 'or', 'his', 'an', 'be', 'this', 'which', 'at', 'he', 'also', 'not', 'have', 'were', 'has', 'but', 'other', 'their', 'its', 'first', 'they', 'some', 'had', 'all', 'more', 'most', 'can', 'been', 'such', 'many', 'who', 'new', 'used', 'there', 'after', 'when', 'into', 'american', 'time', 'these', 'only', 'see', 'may', 'than', 'world', 'i', 'b', 'would', 'd', 'no', 'however', 'between', 'about', 'over', 'years', 'states', 'people', 'war', 'during', 'united', 'known', 'if', 'called', 'use', 'th', 'system', 'often', 'state', 'so', 'history', 'will', 'up', 'while', 'where']

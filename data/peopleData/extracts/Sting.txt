@@ -1,3 +1,52 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:1475de1eeffdb48ccbe40c7c0d1e2b076b6048a9526906716b04d8ea178a6eeb
-size 3366
+<p><b>Sting</b> may refer to:</p>
+
+<h2><span id="Sting_.28biology.29">Sting (biology)</span></h2>
+<ul><li>Stinger / Sting, a structure of an animal to inject venom, or the injury produced by a stinger.</li>
+<li>The irritating hairs or prickles of a stinging plant or the plant itself.</li>
+</ul><h2><span id="People">People</span></h2>
+<ul><li>Sting (musician) (born 1951)</li>
+<li>Sting (wrestler) (born 1959)</li>
+<li>Cheeseekau or Sting (1760–1792), a war chief of the Kispoko division of the Shawnee Nation</li>
+</ul><h2><span id="Film_and_television">Film and television</span></h2>
+<ul><li><i>The Sting</i>, a 1973 film starring Paul Newman and Robert Redford</li>
+<li><i>The Sting</i> (1992 film)</li>
+<li>"The Sting" (<i>Futurama</i>), a television episode</li>
+<li>"The Sting" (<i>The Office</i>), a television episode</li>
+<li>"The Sting" (<i>The Legend of Korra</i>), a television episode</li>
+<li>"The Sting", an episode of the TV series <i>Lovejoy</i></li>
+</ul><h2><span id="Music">Music</span></h2>
+<ul><li>Sting (musical phrase), a short sequence of music used in films &amp; TV as a form of punctuation</li>
+<li>Sting (percussion), a brief burst of percussion used as a comedy punchline</li>
+<li>"Sting" (song), 2015, by Eric Saade</li>
+<li><i>The Sting</i> (Wu-Tang Clan album), 2002</li>
+<li><i>The Sting</i> (Gabriella Cilmi album), or its title song</li>
+</ul><h2><span id="Sports_teams">Sports teams</span></h2>
+<ul><li>Arizona Sting, an NLL lacrosse team (2004-2007)</li>
+<li>Charlotte Sting, a WNBA basketball team (1997–2006)</li>
+<li>Chicago Sting, an American soccer team (1975–1988)</li>
+<li>Las Vegas Sting, an Arena Football League team (1994–1995)</li>
+<li>Sarnia Sting, an Ontario Hockey League junior team</li>
+<li>Southern Sting, a New Zealand netball team (1998–2007)</li>
+<li>Trenton Sting, an Ontario Provincial Junior A Hockey League team</li>
+</ul><h2><span id="Video_games">Video games</span></h2>
+<ul><li><i>The Sting!</i>, a single player burglary simulator</li>
+<li><i>Sting: The Secret Operations</i>, an online first person shooter</li>
+</ul><h2><span id="Fictional_characters_.2F_artefacts">Fictional characters / artefacts</span></h2>
+<ul><li>Sting (Middle-earth), a fictional sword in J. R. R. Tolkien's <i>The Hobbit</i> and <i>The Lord of the Rings</i></li>
+<li>Sting Oakley, a character in <i>Gundam Seed Destiny</i></li>
+<li>Peter "Sting" Stanchek, a character in the Valiant Comics universe</li>
+<li>Trixie Sting, a character in the TV series <i>Slugterra</i></li>
+</ul><h2><span id="Other_uses">Other uses</span></h2>
+<ul><li>Sting, a plant disease caused by <i>Belonolaimus longicaudatus</i></li>
+<li>STING, a software suite for protein analysis</li>
+<li>Stimulator of interferon genes, a protein</li>
+<li>Sting (fixture), a wind tunnel part</li>
+<li>Sting (horse) (born 1921), an American Thoroughbred racehorse</li>
+<li>STING (productivity), a five-point approach for task completion</li>
+<li>Airborne Sting, a hang glider</li>
+<li>Sting operation, an undercover operation staged by law enforcement to catch a person committing a crime</li>
+<li>Sting Entertainment, a video game development company</li>
+<li>Sting Energy Drink, a Philippines/Pakistani energy drink</li>
+</ul><h2><span id="See_also">See also</span></h2>
+<ul><li>"Sting ≠3", a song by Si Berg from <i>A Bugged Out Mix</i></li>
+</ul>

@@ -1,3 +1,55 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:d62a21741b64b9be78aeaaa5c4027168c1a1ee133761ef090e72ba5f8e642ab7
-size 3046
+<p><b>Susan</b> is a feminine given name, from French <i>Susanne</i>, from Late Latin <i>Susanna</i>, from Greek <i>Sousanna</i>, from Hebrew <i>Šošanna</i>, literally meaning "lily", a term derived from <i>Susa</i> (Persian: <i>Šuš</i>), a city in southwest Iran that was the ancient capital of the Elamite kingdom and Achaemenid empire.</p>
+<p></p>
+<h2><span id="Variations">Variations</span></h2>
+<ul><li>Susana, Susanna, Susannah</li>
+<li>Suzana, Suzanna, Suzannah</li>
+<li>Susann, Suzan, Suzann</li>
+<li>Susanne, Suzanne</li>
+<li>Susanne</li>
+<li>Suzan</li>
+<li>Suzette</li>
+</ul><h2><span id="Nicknames">Nicknames</span></h2>
+<p>Common nicknames for Susan include:</p>
+<ul><li>Sue, Susie, Suzi, Suzy, Suzie, Sanna</li>
+</ul><h2><span id="In_other_languages">In other languages</span></h2>
+<ul><li>Persian: <span lang="fa" dir="rtl" xml:lang="fa">سوسن</span>‎‎ (Sousan, Susan) / Tajik: <span lang="tg" xml:lang="tg">Савсан</span> (Savsan), Tajik: <span lang="tg" xml:lang="tg">Сӯсан</span> (Süsan)</li>
+<li>Arabic: <span lang="ar" dir="rtl" xml:lang="ar">سوسن</span>‎‎ (Sawsan)</li>
+<li>Armenian: <span lang="hy" xml:lang="hy">Շուշան</span> (Šušan)</li>
+<li>Chinese: <span lang="zh" xml:lang="zh">苏珊</span> (Sushan)</li>
+<li>Sujan in Korean (수잔)</li>
+</ul><p>• 蘇珊 in Cantonese ( Soshan)</p>
+<ul><li>Suzanne in French and Dutch</li>
+<li>Susanne in German, Danish and Norwegian</li>
+<li>Hebrew: <span lang="he" dir="rtl" xml:lang="he">שושנה</span>‎‎ Shoshana (often shortened to Hebrew: <span lang="he" dir="rtl" xml:lang="he">שוש</span>‎‎ Shosh, Hebrew: <span lang="he" dir="rtl" xml:lang="he">שושי</span>‎‎ Shoshi)</li>
+<li>Sosamma in Malayalam</li>
+<li>Zsuzsanna in Hungarian</li>
+<li>Susanna in Italian</li>
+<li>Japanese: <span lang="ja" xml:lang="ja">スーザン</span> (Sūzan)</li>
+<li>Susanna, Sanna and Susanne in Swedish</li>
+<li>Xuxa in Latin origin</li>
+<li>Zuzanna or Zane in Latvian</li>
+<li>Zuzana in Czech and Slovak</li>
+<li>Zuzanna, Zuzia in Polish</li>
+<li>Susana in Portuguese, Spanish</li>
+<li>Susanna in Catalan</li>
+<li>Suzana in Romanian</li>
+<li>Susanna in Estonian</li>
+<li>Сузана in Serbian</li>
+<li>Susen in Switzerland</li>
+<li>Сюзанна in Russian</li>
+<li>Σουζάνα (Souzana) or Σωσσάνα (Sosana) or Σουσάννα (Sousanna) in Greek</li>
+<li>ܫܘܫܢ or ܫܘܫܢܬ (Shushan or Shushaneh) in Assyrian/Chaldean/Aramaic/Syriac</li>
+<li>Suzan in Turkish</li>
+<li>Сусанна in Ukrainian</li>
+<li>Urdu: <span lang="ur" dir="rtl" xml:lang="ur">کنول</span>‎</li>
+</ul><h2><span id="See_also">See also</span></h2>
+<ul><li>Sweet Nectar</li>
+<li>Lazy Susan</li>
+<li>Black-eyed Susan (disambiguation)</li>
+<li>List of Susans</li>
+<li>The SUSAN corner detector, a computer vision algorithm.</li>
+</ul><h2><span id="References">References</span></h2>
+<h2><span id="External_links">External links</span></h2>
+<ul><li>Famous Susans</li>
+<li>Etymology of Hebrew "shoshana" – basis of the name "Susan"</li>
+</ul>
