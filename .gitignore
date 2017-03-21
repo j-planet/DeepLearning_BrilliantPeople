@@ -1,5 +1,5 @@
 .idea/
 .DS_Store
 .DS_store
-glove.6B/
+data/glove
 build/
