@@ -2,4 +2,4 @@
 .DS_Store
 .DS_store
 data/glove
-build/
+data/text8.txt
