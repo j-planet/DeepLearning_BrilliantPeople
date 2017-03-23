@@ -3,3 +3,4 @@
 .DS_store
 data/glove
 data/text8.txt
+logs/
