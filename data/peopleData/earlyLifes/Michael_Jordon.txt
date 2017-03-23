@@ -1,2 +1,3 @@
-Jordan was born in Brooklyn, New York, to Deloris (née Peoples), who worked in banking, and James R. Jordan, Sr., an equipment supervisor. His family moved to Wilmington, North Carolina, when he was a toddler.
-Jordan is the fourth of five children. He has two older brothers, Larry Jordan and James R. Jordan, Jr., one older sister, Deloris, and a younger sister, Roslyn. Jordan's brother James retired in 2006 as the Command Sergeant Major of the 35th Signal Brigade of the XVIII Airborne Corps in the U.S. Army.
+version https://git-lfs.github.com/spec/v1
+oid sha256:ab9a946b4ddb596d6e06102c60e282b12b5d846af07c91b1db73e06ceed21ea0
+size 514
