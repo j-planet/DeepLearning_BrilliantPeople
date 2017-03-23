@@ -1,11 +1,126 @@
+import glob
+import json
 import nltk
 from pprint import pprint
+import numpy as np
+import collections
+from sklearn.cluster import KMeans
 
-text = '''
-Grouès was born on 5 August 1912 in Lyon, France to a wealthy Catholic family of silk traders, the fifth of eight children. He spent his childhood in Irigny, near Lyon. He was twelve when he met François Chabbey and went for the first time with his father to an Order circle, the brotherhood of the "Hospitaliers veilleurs" in which the mainly middle-class members would serve the poor by providing barber services.
-Grouès became a member of the Scouts de France in which he was nicknamed "Meditative Beaver" (Castor méditatif). In 1928, aged 16, he made the decision to join a monastic order, but he had to wait until he was seventeen and a half to fulfill this ambition. In 1931 Grouès entered the Capuchin Order, the principal offshoot of the Franciscans, renouncing his inheritances and offering all his possessions to charities.
-Known as frère Philippe (Brother Philippe), he entered the monastery of Crest in 1932, where he lived seven years. He had to leave in 1939 after developing severe lung infections, which made the strict and hard monastic life difficult to cope with. He became chaplain in the hospital of La Mure (Isère), and then of an orphanage in the Côte-Saint-André (also in the Isère department). After being ordained a Roman Catholic priest on 24 August 1938, he became curate of Grenoble's cathedral in April 1939, only a few months before the invasion of Poland.
-The Jesuit Fr. Henri de Lubac told him on the day of his priestly ordination: "ask the Holy Spirit to grant you the same anti-clericalism of the saints."'''
 
-pprint(nltk.pos_tag(nltk.word_tokenize(text)))
-# ignoredWords = ['the', 'of', 'and', 'in', 'a', 'to', 'is', 'as','for', 's', 'was', 'by', 'that', 'four', 'six', 'seven', 'with', 'on', 'are', 'it', 'from', 'or', 'his', 'an', 'be', 'this', 'which', 'at', 'he', 'also', 'not', 'have', 'were', 'has', 'but', 'other', 'their', 'its', 'first', 'they', 'some', 'had', 'all', 'more', 'most', 'can', 'been', 'such', 'many', 'who', 'new', 'used', 'there', 'after', 'when', 'into', 'american', 'time', 'these', 'only', 'see', 'may', 'than', 'world', 'i', 'b', 'would', 'd', 'no', 'however', 'between', 'about', 'over', 'years', 'states', 'people', 'war', 'during', 'united', 'known', 'if', 'called', 'use', 'th', 'system', 'often', 'state', 'so', 'history', 'will', 'up', 'while', 'where']
+EMBEDDINGS_FILENAME = './data/glove/glove.6B/glove.6B.50d.txt'
+# EMBEDDINGS_FILENAME = './data/glove/glove.42B.300d.txt'
+# EMBEDDINGS_FILENAME = './data/peopleData/earlyLifeEmbeddings.128d_alltokens.txt'
+
+
+words_with_embeddings = set()
+
+# first pass: get available words first
+with open(EMBEDDINGS_FILENAME, encoding='utf8') as ifile:
+    for line in ifile.readlines():
+        token = line.split()[0]
+        words_with_embeddings.add(token)
+
+
+IGNORED_TOKENS = ['was', 'time', 'later', 'is', 'were', 'be', 'been', 'have', 'became', 'year', 'life', 'died', 'born', 'had', 'did', 'do', 'said', 'are', 'has', 'such', 'father', 'mother', 'death', 'while', 'including', 'whose', 'whom', 'known', '-', '–', "''"]
+IGNORED_POS = [',', '.', ':', '``', '(', ')', '', "''",
+               'IN', 'EX', 'TO', 'DT', 'WRB', 'WDT', 'WP', 'CC', 'PRP', 'PRP$', 'MD', 'POS', 'RB', 'RBR', 'RBS']
+
+tokensByPerson = {}     # { person: [non-ignored tokens...] }
+noVectorTokens = set()
+allTokens = []
+
+
+def knn_contexts(numContexts, vectorMat, tokens):
+
+    assert vectorMat.shape[0] == len(tokens), vectorMat.shape
+
+    kmeans = KMeans(n_clusters=numContexts, max_iter=1000).fit(vectorMat)
+    contextByCount = []
+
+    for i in range(numContexts):
+        curTokens = np.array(tokens)[kmeans.labels_==i]
+        c = curTokens[:, 1].astype(int).sum()
+        tks = curTokens[:, 0]
+        contextByCount.append((c, tks))
+
+        # for tagcrowd (text visualization)
+        # with open('data/peopleData/contexts/%d.txt' % i, 'w', encoding='utf8') as ofile:
+        #     ofile.write(' '.join((p + ' ') * int(c) for p, c in curTokens))
+
+
+    contextByCount.sort(key=lambda k: k[0])
+    pprint(contextByCount)
+
+
+def create_contexts(peopleNames):
+
+    for filename in glob.glob('./data/peopleData/earlyLifes/*.txt'):    # only process those for whom we have early life texts
+
+        person = filename.split('/')[-1].split('.')[0]
+
+        if ' '.join(person.lower().split('_')) not in peopleNames: continue
+
+        with open(filename, encoding='utf8') as ifile:
+            text = ifile.read()
+
+        tokensByPerson[person] = []
+
+        taggedTokens = nltk.pos_tag(nltk.word_tokenize(text))
+
+        for token, pos in taggedTokens:
+            lowercasedToken = token.lower()
+
+            if pos not in IGNORED_POS \
+                    and lowercasedToken not in IGNORED_TOKENS \
+                    and lowercasedToken not in person.lower():
+
+                tokensByPerson[person].append(token)
+
+                if lowercasedToken in words_with_embeddings:
+                    allTokens.append(lowercasedToken)
+                else:
+                    noVectorTokens.add(token)
+
+
+    TOKENS_TO_CONSIDER = None   # 'None' means all (how philosophical...)
+    tokensChosen = collections.Counter(allTokens).most_common(TOKENS_TO_CONSIDER)
+
+
+    # second pass: get vectors
+    word2vecData = {}
+    tokensChosen_hash = set(p[0] for p in tokensChosen)   # for fast lookup
+
+    with open(EMBEDDINGS_FILENAME, encoding='utf8') as ifile:
+        for line in ifile.readlines():
+
+            token = line.split()[0]
+
+            if token in tokensChosen_hash:
+                word2vecData[token] = [float(d) for d in line.split()[1:]]
+
+    del tokensChosen_hash
+
+    X = np.array([word2vecData[t] for t in [p[0] for p in tokensChosen]])
+    del word2vecData
+
+    numContexts = 100
+    knn_contexts(numContexts, X, tokensChosen)
+
+
+# TODO: contexts: that contain:
+# family
+# rich
+# school
+# work
+# ---> visualize!!
+# TODO: remove the really common (how to define?) words from a given context to make visualization useful. TFIDF...?
+#       e.g. the 'family' context will have a lot of 'son', 'children', etc, which are not useful
+
+
+with open('data/peopleData/processed_names.json', encoding='utf8') as ifile:
+    peoplesData = json.load(ifile)
+
+occupations = np.unique([p[1]['occupation'][-1] for p in peoplesData.items()]) # all unique occupations
+occupation = occupations[1]
+create_contexts({k for (k, v) in peoplesData.items() if occupation in v['occupation']})
+print(occupation)
