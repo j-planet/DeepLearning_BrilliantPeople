@@ -1,36 +1,19 @@
-import glob
+import glob, os, pathlib
 import json
 import nltk
 from pprint import pprint
 import numpy as np
 import collections
+from orderedset import OrderedSet
 from sklearn.cluster import KMeans
-
-
-EMBEDDINGS_FILENAME = './data/glove/glove.6B/glove.6B.50d.txt'
-# EMBEDDINGS_FILENAME = './data/glove/glove.42B.300d.txt'
-# EMBEDDINGS_FILENAME = './data/peopleData/earlyLifeEmbeddings.128d_alltokens.txt'
-
-
-words_with_embeddings = set()
-
-# first pass: get available words first
-with open(EMBEDDINGS_FILENAME, encoding='utf8') as ifile:
-    for line in ifile.readlines():
-        token = line.split()[0]
-        words_with_embeddings.add(token)
 
 
 IGNORED_TOKENS = ['was', 'time', 'later', 'is', 'were', 'be', 'been', 'have', 'became', 'year', 'life', 'died', 'born', 'had', 'did', 'do', 'said', 'are', 'has', 'such', 'father', 'mother', 'death', 'while', 'including', 'whose', 'whom', 'known', '-', '–', "''"]
 IGNORED_POS = [',', '.', ':', '``', '(', ')', '', "''",
                'IN', 'EX', 'TO', 'DT', 'WRB', 'WDT', 'WP', 'CC', 'PRP', 'PRP$', 'MD', 'POS', 'RB', 'RBR', 'RBS']
 
-tokensByPerson = {}     # { person: [non-ignored tokens...] }
-noVectorTokens = set()
-allTokens = []
 
-
-def knn_contexts(numContexts, vectorMat, tokens):
+def knn_contexts(numContexts, vectorMat, tokens, outputDir=None):
 
     assert vectorMat.shape[0] == len(tokens), vectorMat.shape
 
@@ -44,15 +27,42 @@ def knn_contexts(numContexts, vectorMat, tokens):
         contextByCount.append((c, tks))
 
         # for tagcrowd (text visualization)
-        # with open('data/peopleData/contexts/%d.txt' % i, 'w', encoding='utf8') as ofile:
-        #     ofile.write(' '.join((p + ' ') * int(c) for p, c in curTokens))
+        if outputDir:
+            with open('%s/%d.txt' % (outputDir, i), 'w', encoding='utf8') as ofile:
+                ofile.write(' '.join((p + ' ') * int(c) for p, c in curTokens))
 
 
     contextByCount.sort(key=lambda k: k[0])
     pprint(contextByCount)
 
 
-def create_contexts(peopleNames):
+def read_word2vec_data(peopleNames, embeddingsFilename, extraTokens = set(), numMostCommonTokens = None):
+    '''
+    :param peopleNames: ['abraham lincoln', ...]
+    :param extraTokens: tokens to get vectors for, even if they are not in the corpuses (corpi...? corpa...?)
+    :param numMostCommonTokens: return only the x most common tokens. if None returns all.
+    :return: word2vec vectors dictionary,
+            chosenTokensNCounts (list),
+            allVectorsMat (2D np.array), extraTokensMat (2D np.array),
+            noVectorTokens (set)
+            Note: chosenTokensNCounts correspond to the columns of allVectorsMat
+    '''
+
+    words_with_embeddings = set()
+
+    # first pass: get available words first
+    with open(embeddingsFilename, encoding='utf8') as ifile:
+        for line in ifile.readlines():
+            token = line.split()[0]
+            words_with_embeddings.add(token)
+
+    tokensByPerson = {}  # { person: [non-ignored tokens...] }
+    noVectorTokens = set()
+    allTokens = []
+
+    numTotalTokens = 0
+    numIgnored = 0
+    numNoVector = 0
 
     for filename in glob.glob('./data/peopleData/earlyLifes/*.txt'):    # only process those for whom we have early life texts
 
@@ -66,6 +76,7 @@ def create_contexts(peopleNames):
         tokensByPerson[person] = []
 
         taggedTokens = nltk.pos_tag(nltk.word_tokenize(text))
+        numTotalTokens += len(taggedTokens)
 
         for token, pos in taggedTokens:
             lowercasedToken = token.lower()
@@ -80,47 +91,118 @@ def create_contexts(peopleNames):
                     allTokens.append(lowercasedToken)
                 else:
                     noVectorTokens.add(token)
+                    numNoVector += 1
+            else:
+                numIgnored += 1
 
+    print('>>> Out of a total of %d tokens (non-uniqued), %d are ignored, %d have no vectors.'
+          % (numTotalTokens, numIgnored, numNoVector))
+    print('Tokens with no existing vectors:', noVectorTokens, '\n')
 
-    TOKENS_TO_CONSIDER = None   # 'None' means all (how philosophical...)
-    tokensChosen = collections.Counter(allTokens).most_common(TOKENS_TO_CONSIDER)
-
+    chosenTokensNCounts = collections.Counter(allTokens).most_common(numMostCommonTokens)
 
     # second pass: get vectors
     word2vecData = {}
-    tokensChosen_hash = set(p[0] for p in tokensChosen)   # for fast lookup
+    tokensChosen_hash = set(p[0] for p in chosenTokensNCounts)   # for fast lookup
 
-    with open(EMBEDDINGS_FILENAME, encoding='utf8') as ifile:
+    for extraToken in extraTokens:
+        if extraToken not in tokensChosen_hash:
+            chosenTokensNCounts.append((extraToken, 0))
+
+    with open(embeddingsFilename, encoding='utf8') as ifile:
         for line in ifile.readlines():
 
             token = line.split()[0]
 
-            if token in tokensChosen_hash:
+            if token in tokensChosen_hash or token in extraTokens:
                 word2vecData[token] = [float(d) for d in line.split()[1:]]
 
     del tokensChosen_hash
 
-    X = np.array([word2vecData[t] for t in [p[0] for p in tokensChosen]])
-    del word2vecData
+    allVectorsMat = np.array([word2vecData[t] for t in [p[0] for p in chosenTokensNCounts]])
+    extraTokensMat = np.array([word2vecData[p] for p in extraTokens])
 
-    numContexts = 100
-    knn_contexts(numContexts, X, tokensChosen)
-
-
-# TODO: contexts: that contain:
-# family
-# rich
-# school
-# work
-# ---> visualize!!
-# TODO: remove the really common (how to define?) words from a given context to make visualization useful. TFIDF...?
-#       e.g. the 'family' context will have a lot of 'son', 'children', etc, which are not useful
+    return word2vecData, chosenTokensNCounts, allVectorsMat, extraTokensMat, noVectorTokens
 
 
-with open('data/peopleData/processed_names.json', encoding='utf8') as ifile:
-    peoplesData = json.load(ifile)
+def read_people_names(inputFilename ='data/peopleData/processed_names.json', occupation=None):
+    '''
+    :param occupation: if None, returns all occupations
+    :return: set of people names
+    '''
 
-occupations = np.unique([p[1]['occupation'][-1] for p in peoplesData.items()]) # all unique occupations
-occupation = occupations[1]
-create_contexts({k for (k, v) in peoplesData.items() if occupation in v['occupation']})
-print(occupation)
+    with open(inputFilename, encoding='utf8') as ifile:
+        peoplesData = json.load(ifile)
+
+    return {k for (k, v) in peoplesData.items() if occupation in v['occupation']} if occupation \
+        else {k for (k, v) in peoplesData.items()}
+
+
+def read_occupations(inputFilename ='data/peopleData/processed_names.json'):
+    with open(inputFilename, encoding='utf8') as ifile:
+        peoplesData = json.load(ifile)
+
+    return np.unique([p[1]['occupation'][-1] for p in peoplesData.items()])  # all unique occupations
+
+
+def keyword_contexts(numTopSimilarTokens, clusterKeywords, occupation=None, outputDir=None):
+    '''
+    :param numTopSimilarTokens: if None, takes all tokens
+    :param outputDir: if None, does not output any files
+    :param occupation: if None, all occupations LUMPED together
+    :return:
+    '''
+
+    assert numTopSimilarTokens is not None, \
+        'Taking all tokens means the outcome will be the same for all keywords, defeating the purpose of this function.'
+
+    _, tokensNCounts, allVectorsMat, keywordVectorsMat, _ = \
+        read_word2vec_data(read_people_names(occupation=occupation),
+                           embeddingsFilename=EMBEDDINGS_NAME_FILE[EMBEDDINGS_NAME],
+                           extraTokens=clusterKeywords)
+
+    similarityMatrix = np.matmul(keywordVectorsMat, allVectorsMat.T)
+
+    for i, clusterKeyword in enumerate(clusterKeywords):
+
+        topIndices = (-similarityMatrix[i, :]).argsort()[:(numTopSimilarTokens+1)] if numTopSimilarTokens \
+            else (-similarityMatrix[i, :]).argsort()
+
+        topTokens = np.array(tokensNCounts)[topIndices]
+
+        assert topTokens[0][0] == clusterKeyword, \
+            'A word must have the highest similarity with itself. %s vs %s' %(topTokens[0][0], clusterKeyword)
+
+        print(clusterKeyword, ':\n', topTokens[1:], '\n')
+
+        # write to file
+        pathlib.Path(outputDir).mkdir(parents=True, exist_ok=True)
+
+        with open(outputDir + '/' + clusterKeyword + '.txt', 'w', encoding='utf8') as ofile:
+            tagwordText = ' '.join((t + ' ') * int(c) for t, c in topTokens[1:])
+            ofile.write(tagwordText)
+
+
+# =========== keyword-based context clusters ===========
+EMBEDDINGS_NAME_FILE = {'6B300d': './data/glove/glove.6B/glove.6B.300d.txt',
+                        '42B300d': './data/glove/glove.42B.300d.txt',
+                        'earlylife128d': './data/peopleData/earlyLifeEmbeddings.128d_alltokens.txt'}
+EMBEDDINGS_NAME = 'earlylife128d'
+
+for occupation in [None] + list(read_occupations()):
+    print('\n', '>'*10, occupation)
+    keyword_contexts(
+        numTopSimilarTokens=50,
+        clusterKeywords=OrderedSet(['school', 'work', 'family', 'money', 'love', 'rich', 'poor']),
+        occupation=occupation,
+        outputDir='data/peopleData/contexts/keyword_contexts/%s/%s' % (EMBEDDINGS_NAME, occupation or 'ALL'))
+
+
+# =========== KNN context clusters ===========
+# _, tokensNCounts, allVectorsMat, _, _ = read_word2vec_data(peopleNames)
+# numContexts = 100
+# knn_contexts(numContexts, allVectorsMat, tokensNCounts, outputDir)
+
+
+
+
