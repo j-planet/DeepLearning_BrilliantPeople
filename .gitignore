@@ -4,3 +4,4 @@
 data/glove
 data/text8.txt
 logs/
+__pycache__/
