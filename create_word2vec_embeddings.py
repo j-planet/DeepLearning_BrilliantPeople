@@ -9,6 +9,8 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import placeholder, Variable, reduce_mean, reduce_sum, matmul, summary
 
+from blah import read_occupations
+
 data_index = 0
 
 def build_dataset(words, vocabulary_size):
@@ -55,7 +57,7 @@ def generate_batch(data, batchSize, numSkips, skipWindow):
     TOTAL_DATA_LEN = len(data)
     batch = np.ndarray(shape=(batchSize), dtype=np.int32)
     labels = np.ndarray(shape=(batchSize, 1), dtype=np.int32)
-    span = 2 * skipWindow + 1  # [ skipWindow target skipWindow]
+    span = 2 * skipWindow + 1  # [ skipWindow target skipWindow ]
     buffer = collections.deque(maxlen=span)
 
     for _ in range(span):
@@ -81,7 +83,7 @@ def generate_batch(data, batchSize, numSkips, skipWindow):
     return batch, labels
 
 def create_embeddings(corpusFilename, outputFilename,
-                      batchSize, embeddingDimension, numNegativeExamples, numSteps,
+                      vocabSize, batchSize, embeddingDimension, numNegativeExamples, numSteps,
                       validationExamples,
                       skipWindow = 1, numSkips = 2):
     '''
@@ -97,6 +99,9 @@ def create_embeddings(corpusFilename, outputFilename,
     :return: 
     '''
 
+    print('SETUP: batchSize: %d, embeddingDimension: %d, numNegativeExamples: %d, numSteps: %d, corpusFilename: %s' %
+          (batchSize, embeddingDimension, numNegativeExamples, numSteps, corpusFilename))
+
     global data_index
     data_index = 0
     tf.reset_default_graph()
@@ -110,9 +115,14 @@ def create_embeddings(corpusFilename, outputFilename,
 
     ##### step 2: build the dictionary -> replace rare words with UNK token
     # VOCAB_SIZE = len(np.unique(words)) + 1  # +1 for the UNK token
-    VOCAB_SIZE = int(len(np.unique(words)) * 0.8)  # don't use the rare words (most likely people's names in this case)
+    # vocabSize = int(len(np.unique(words)) * 0.8)  # don't use the rare words (most likely people's names in this case)
 
-    data, count, dictionary, reverse_dictionary = build_dataset(words, VOCAB_SIZE)
+    if type(vocabSize)==float:  # a portion
+        vocabSize = int(len(np.unique(words)) * vocabSize)
+    elif type(vocabSize)==None: # max
+        vocabSize = len(np.unique(words)) + 1
+
+    data, count, dictionary, reverse_dictionary = build_dataset(words, vocabSize)
     del words   # save memory
     print('Most common words (+UNK)', count[:5])
     print('Sample data', data[:10], [reverse_dictionary[i] for i in data[:10]])
@@ -135,7 +145,11 @@ def create_embeddings(corpusFilename, outputFilename,
     if type(validationExamples)==int:
         validationExamples = np.random.choice(100, validationExamples, replace=False)
     else:
-        validationExamples = [dictionary[w] for w in validationExamples]
+        for w in validationExamples:
+            if w not in dictionary:
+                print('>>>>> Validation word %s is NOT in the corpus!' % w)
+
+        validationExamples = [dictionary[w] for w in validationExamples if w in dictionary]
 
     # graph = tf.Graph()
     sess = tf.InteractiveSession()
@@ -148,21 +162,21 @@ def create_embeddings(corpusFilename, outputFilename,
     # Ops and variables pinned to the CPU because of missing GPU implementation
     with tf.device('/cpu:0'):
         # initialize embeddings to uniform randoms, used for looking up embeddings for inputs
-        embeddings = Variable(tf.random_uniform([VOCAB_SIZE, embeddingDimension], -1., 1.))    # ~Unif(-1, 1)
+        embeddings = Variable(tf.random_uniform([vocabSize, embeddingDimension], -1., 1.))    # ~Unif(-1, 1)
         embed = tf.nn.embedding_lookup(embeddings, train_inputs)
 
         # construct the variables for the NCE loss
         # nce_weights ~ N(0, 1/sqrt(embedding size)) of size vocab_size x embedding_size
-        nce_weights = Variable(tf.truncated_normal([VOCAB_SIZE, embeddingDimension], stddev=1. / math.sqrt(embeddingDimension)))
+        nce_weights = Variable(tf.truncated_normal([vocabSize, embeddingDimension], stddev=1. / math.sqrt(embeddingDimension)))
         # nce_biases ~ vector of zeros of size vocab_size
-        nce_biases = Variable(tf.zeros([VOCAB_SIZE]))
+        nce_biases = Variable(tf.zeros([vocabSize]))
 
     # define loss function
     # tf.nn.nce_loss automatically draws a new sample of the negative labels each time we evaluate the loss
     loss = reduce_mean(tf.nn.nce_loss(weights = nce_weights, biases = nce_biases,
                                       inputs = embed, labels = train_labels,
                                       num_sampled=numNegativeExamples,
-                                      num_classes=VOCAB_SIZE))
+                                      num_classes=vocabSize))
     summary.scalar('loss', loss)
 
 
@@ -227,25 +241,20 @@ def create_embeddings(corpusFilename, outputFilename,
             for i, token in enumerate(tokens):
                 ofile.write('%s %s\n' % (token, ' '.join(str(d) for d in final_embeddings[i, :])))
 
+
 EMBEDDING_SIZE = 200
-EMBEDDING_FILENAME = './data/peopleData/earlyLifeEmbeddings.%dd_80pc.txt' % EMBEDDING_SIZE  # output file
 
-# main(corpusFilename='data/peopleData/earlyLifeCorpus.txt',
-#      outputFilename='./data/peopleData/earlyLifeEmbeddings.%dd_80pc.txt' % EMBEDDING_SIZE,
-#      batchSize=100, embeddingDimension=EMBEDDING_SIZE, numNegativeExamples=32,
-#      validationExamples=['school', 'work', 'family', 'money', 'love', 'rich', 'poor', 'life']
-#      )
+for occupation in read_occupations():
+    # occupation = 'scientist'
+    corpusFilename = 'data/peopleData/earlyLifeCorpus_%s.txt' % occupation
+    # corpusFilename = 'data/text8.txt'
 
-# corpusFilename = 'data/peopleData/earlyLifeCorpus.txt'
-corpusFilename = 'data/text8.txt'
-print('============', 'TRIAL #1')
-create_embeddings(corpusFilename=corpusFilename, outputFilename=None,
-                  batchSize=100, embeddingDimension=EMBEDDING_SIZE, numNegativeExamples=64,
-                  numSteps = 10001, validationExamples=2
-                  )
+    if os.path.exists('./data/peopleData/earlyLifeEmbeddings.%dd_80pc_%s.txt' % (EMBEDDING_SIZE, occupation)):
+        print('already done %s, moving on.' % occupation)
 
-print('\n============', 'TRIAL #2')
-create_embeddings(corpusFilename=corpusFilename, outputFilename=None,
-                  batchSize=100, embeddingDimension=EMBEDDING_SIZE, numNegativeExamples=64,
-                  numSteps = 10001, validationExamples=2
-                  )
+    create_embeddings(corpusFilename=corpusFilename,
+                      outputFilename='./data/peopleData/earlyLifeEmbeddings.%dd_80pc_%s.txt' % (EMBEDDING_SIZE, occupation),
+                      vocabSize=0.8, batchSize=700, embeddingDimension=EMBEDDING_SIZE, numNegativeExamples=32,
+                      numSteps = 30001,
+                      validationExamples=['school', 'work', 'family', 'money', 'love', 'rich', 'poor', 'life', 'friend']
+                      )
