@@ -9,7 +9,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import placeholder, Variable, reduce_mean, reduce_sum, matmul, summary
 
-from blah import read_occupations
+from contexts import read_occupations
 
 data_index = 0
 
@@ -244,7 +244,7 @@ def create_embeddings(corpusFilename, outputFilename,
 
 EMBEDDING_SIZE = 200
 
-for occupation in read_occupations():
+for occupation in ['scientist', 'social']:
     # occupation = 'scientist'
     corpusFilename = 'data/peopleData/earlyLifeCorpus_%s.txt' % occupation
     # corpusFilename = 'data/text8.txt'
