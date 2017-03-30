@@ -1,7 +1,7 @@
 import glob
 import string
 
-from blah import read_people_names, read_occupations
+from whenThereArentEnoughSamplesInABatch import read_people_names, read_occupations
 
 
 def remove_punctuations(s):

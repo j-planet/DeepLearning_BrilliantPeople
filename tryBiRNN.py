@@ -12,7 +12,7 @@ mnist = input_data.read_data_sets('./data/mnist/', one_hot=True)
 # iteration parameters
 learning_rate = 1e-3
 training_iters = 100000 # total number of data points (i.e. sum of step * batch_size)
-batch_size = 128
+batch_size = 100
 print_training_stats_period = 10        # every x steps
 print_validation_stats_period = 100    # every x steps
 
@@ -54,7 +54,7 @@ def BiRNN(x_, weights_, biases_):
         outputs = rnn.static_bidirectional_rnn(lstm_fw_cell, lstm_bw_cell, x_, dtype=tf.float32)
 
     # activation: linear, using rnn inner loop's last output
-    return tf.matmul(outputs[-1], weights_) + biases_     # unscaled log probabilities
+    return tf.matmul(outputs[-1], weights_) + biases_, outputs     # unscaled log probabilities
 
 
 def log_str(x_, y_):
@@ -66,7 +66,7 @@ def log_str(x_, y_):
            tuple(sess.run([cost, accuracy], feed_dict={x: x_, y: y_}))
 
 
-pred = BiRNN(x, weights, biases)    # unscaled log probabilities
+pred, outputs = BiRNN(x, weights, biases)    # unscaled log probabilities
 
 # define loss and the optimizer to minimize it
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=y))
@@ -94,6 +94,7 @@ while step * batch_size < training_iters:
 
     # train
     sess.run(optimizer, feed_dict)
+    sess.run(outputs, feed_dict)
 
     # print evaluations
     if step % print_training_stats_period == 0:
