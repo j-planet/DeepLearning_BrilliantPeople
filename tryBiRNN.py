@@ -2,8 +2,6 @@
 
 import tensorflow as tf
 from tensorflow.contrib import rnn
-import numpy as np
-
 
 sess = tf.InteractiveSession()
 
@@ -31,20 +29,17 @@ y = tf.placeholder('float', [None, n_classes])
 weights = tf.Variable(tf.random_normal([2*n_hidden_layer_features, n_classes]))    # *2 for forward + backward cells
 biases = tf.Variable(tf.random_normal([n_classes]))
 
-def BiRNN(x, weights, biases):
+def BiRNN(x_, weights_, biases_):
     """
-    :param x:
-    :param weights:
-    :param biases:
     :return: unscaled log probabilities
     """
 
     # reshape stuff
     # input shape: (batch_size x n_steps x n_input)
     # output shape: n_steps tensors, each of shape (batch_size x n_input)
-    x = tf.split(
+    x_ = tf.split(
         tf.reshape(
-            tf.transpose(x, [1, 0, 2]),
+            tf.transpose(x_, [1, 0, 2]),
             [-1, n_input]),
         n_steps, 0)
 
@@ -54,23 +49,20 @@ def BiRNN(x, weights, biases):
 
     # get lstm cell output
     try:
-        outputs, _, _ = rnn.static_bidirectional_rnn(lstm_fw_cell, lstm_bw_cell, x, dtype=tf.float32)
+        outputs, _, _ = rnn.static_bidirectional_rnn(lstm_fw_cell, lstm_bw_cell, x_, dtype=tf.float32)
     except Exception:   # old TF version returns only outputs not states
-        outputs = rnn.static_bidirectional_rnn(lstm_fw_cell, lstm_bw_cell, x, dtype=tf.float32)
+        outputs = rnn.static_bidirectional_rnn(lstm_fw_cell, lstm_bw_cell, x_, dtype=tf.float32)
 
     # activation: linear, using rnn inner loop's last output
-    return tf.matmul(outputs[-1], weights) + biases     # unscaled log probabilities
+    return tf.matmul(outputs[-1], weights_) + biases_     # unscaled log probabilities
 
 
 def log_str(x_, y_):
     """
-    prints loss and accuracy
-    :return a string
+    :return a string of loss and accuracy
     """
 
-    # [costNum, accuracyNum] = sess.run([cost, accuracy], feed_dict={x: x_, y: y_})
-
-    return 'loss = %.6f, accuracy = %06f' % \
+    return 'loss = %.3f, accuracy = %.3f' % \
            tuple(sess.run([cost, accuracy], feed_dict={x: x_, y: y_}))
 
 
@@ -94,6 +86,7 @@ valid_x = mnist.validation.images.reshape(x_shape)
 valid_y = mnist.validation.labels
 
 while step * batch_size < training_iters:
+
     # fetch batch data
     batch_x, batch_y = mnist.train.next_batch(batch_size)
     batch_x = batch_x.reshape(x_shape)
@@ -104,10 +97,11 @@ while step * batch_size < training_iters:
 
     # print evaluations
     if step % print_training_stats_period == 0:
-        print('Iter %d, mini batch #%d. Training:' % (step*batch_size, step), log_str(batch_x, batch_y))
+        print('Step %d, %d data points Training:' % (step, step*batch_size))
+        print('Training:', log_str(batch_x, batch_y))
 
         if step % print_validation_stats_period == 0:   # assumes training freq is a multiple of valid freq
-            print('Validation:', log_str(valid_x, valid_y))
+            print('Validation:', log_str(valid_x, valid_y), '\n')
 
     step += 1
 
