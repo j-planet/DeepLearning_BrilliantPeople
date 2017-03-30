@@ -16,7 +16,7 @@ learning_rate = 1e-3
 training_iters = 100000 # total number of data points (i.e. sum of step * batch_size)
 batch_size = 128
 print_training_stats_period = 10        # every x steps
-print_validation_stats_period = 1000    # every x steps
+print_validation_stats_period = 100    # every x steps
 
 # network parameters
 n_input = 28    # an image has 784 pixels, transformed into 28 sequences of length 28
@@ -104,12 +104,10 @@ while step * batch_size < training_iters:
 
     # print evaluations
     if step % print_training_stats_period == 0:
-        print('Iter %d, mini batch #%d. Training:', log_str(batch_x, batch_y))
-        # print('Iter %d, mini batch #%d: training loss = %.6f, training accuracy = %06f' %
-        #       (step*batch_size, step, sess.run(cost, feed_dict), sess.run(accuracy, feed_dict)))
+        print('Iter %d, mini batch #%d. Training:' % (step*batch_size, step), log_str(batch_x, batch_y))
 
         if step % print_validation_stats_period == 0:   # assumes training freq is a multiple of valid freq
-            print(log_str(valid_x, valid_y))
+            print('Validation:', log_str(valid_x, valid_y))
 
     step += 1
 
