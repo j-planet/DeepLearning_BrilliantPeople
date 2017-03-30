@@ -3,6 +3,7 @@
 .DS_store
 data/glove
 data/text8.txt
+data/mnist
 *Embedding*.txt
 logs/
 __pycache__/
