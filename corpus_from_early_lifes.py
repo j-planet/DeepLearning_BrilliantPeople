@@ -1,14 +1,14 @@
 import glob
 import string
 
-from whenThereArentEnoughSamplesInABatch import read_people_names, read_occupations
+from contexts import read_people_names, read_occupations
 
 
 def remove_punctuations(s):
     return s.translate(str.maketrans({key: ' ' for key in string.punctuation + '\n'}))
 
 
-def create_early_life_corpus(filenames, outputFname):
+def create_early_life_corpus(filenames, outputFname, removePunctuations):
 
     res = ''
     numSkipped = 0
@@ -16,7 +16,8 @@ def create_early_life_corpus(filenames, outputFname):
     for file in filenames:
         try:
             with open(file, encoding='utf8') as ifile:
-                text = ' '.join(remove_punctuations(ifile.read()).lower().split())
+                text = ' '.join(remove_punctuations(ifile.read()).lower().split()) \
+                    if removePunctuations else ' '.join(ifile.read().lower().split())
         except Exception as e:
             print(e)
             numSkipped += 1
@@ -32,7 +33,7 @@ def create_early_life_corpus(filenames, outputFname):
     return res
 
 
-def create_early_life_corpus_by_occupation(occupation, outputFname):
+def create_early_life_corpus_by_occupation(occupation, outputFname, removePunctuations):
 
     filenames = []
 
@@ -41,20 +42,20 @@ def create_early_life_corpus_by_occupation(occupation, outputFname):
         convertedName = '_'.join([t.capitalize() for t in name.split()])
         filenames.append('./data/peopleData/earlyLifes/' + convertedName + '.txt')
 
-    return create_early_life_corpus(filenames, outputFname)
+    return create_early_life_corpus(filenames, outputFname, removePunctuations)
 
 
-def create_early_life_corpus_for_all(outputFname):
+def create_early_life_corpus_for_all(outputFname, removePunctuations):
     return create_early_life_corpus(
         glob.glob('./data/peopleData/earlyLifes/*.txt'),
-        outputFname
+        outputFname, removePunctuations
     )
 
 
 if __name__ == '__main__':
-    # create_early_life_corpus_for_all('./data/peopleData/earlyLifeCorpus.txt')
+    create_early_life_corpus_for_all('./data/peopleData/earlyLifeCorpus.txt', removePunctuations=False)
 
-    for occupation in read_occupations():
-        print('\n========', occupation)
-        create_early_life_corpus_by_occupation(occupation,
-                                               outputFname='./data/peopleData/earlyLifeCorpus_' + occupation + '.txt')
+    # for occupation in read_occupations():
+    #     print('\n========', occupation)
+    #     create_early_life_corpus_by_occupation(occupation,
+    #                                            outputFname='./data/peopleData/earlyLifeCorpus_' + occupation + '.txt')
