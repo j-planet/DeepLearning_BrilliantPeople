@@ -74,5 +74,7 @@ if __name__ == '__main__':
             numNotFound += 1
             notFoundTokens.append(token)
             print(token, 'not found.')
-    '‌'
+
     print('%d out of %d, or %.1f%% not found.' % (numNotFound, len(extractedTokens), 100.*numNotFound/len(extractedTokens)))
+
+    # How to encode tokens that are missing from the embeddings file? Use 'unk' (which exists in the Glove embeddings file) for now
