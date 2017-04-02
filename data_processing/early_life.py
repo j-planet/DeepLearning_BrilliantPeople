@@ -31,14 +31,16 @@ def is_smaller_header(large, small):
 
     if largeName[1] < smallName[1]: return True
 
-EARLY_LIFE_STRINGS = ['early years', 'early life', 'youth', 'childhood', 'personal life', 'life', 'birth and family', 'biography']
+# in order of search
+EARLY_LIFE_STRINGS = ['early years', 'early life', 'youth', 'childhood', 'personal life', 'life',
+                      'birth and family', 'biography', 'origin']
 
 
 total = 0
 processed = 0
 failed = 0
 
-for filename in glob.glob('./data/extracts/*.txt'):
+for filename in glob.glob('../data/peopleData/extracts/*.txt'):
 
     print('----', filename)
     file = open(filename, encoding='UTF-8')
@@ -72,7 +74,7 @@ for filename in glob.glob('./data/extracts/*.txt'):
                         else:
                             earlyLifeContent[-1] += curContent
 
-                    with open('./data/earlyLifes/' + filename.split('/')[-1], 'w', encoding='utf-8') as outputFile:
+                    with open('../data/peopleData/earlyLifes/' + filename.split('/')[-1], 'w', encoding='utf-8') as outputFile:
                         outputFile.writelines('\n'.join(earlyLifeContent))
 
                     break
