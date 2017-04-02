@@ -7,21 +7,29 @@ ALL_PUNCTUATIONS_EXCEPT_SINGLE_PERIOD = MULTI_PERIODS \
                                         + ['—', '–', '£', '€', '’', '‘', '“', 'ˈ'] \
                                         + [p for p in list(string.punctuation) if p != '.']
 
-def extract_all_tokens(inputFilename):
+
+def extract_tokenset_from_file(inputFilename):
+    """ 
+    :return: a set 
+    """
 
     # read all possible tokens
     with open(inputFilename, encoding='utf8') as ifile:
-        text = ifile.read().lower()
+        text = ifile.read()
 
-        for joiner in ZERO_WIDTH_UNICODES:  # remove things like <200c> (u'\u200c')
-            text = text.replace(joiner, ' ')
+    return set(insert_spaces_into_corpus(text).split())
 
-        tokens = text.split()     # '‌' is not an empty string. It's <200c> (actually of length 1)
 
-    tokenSet = set()
+def insert_spaces_into_corpus(text_):
 
-    # separate out punctuations
-    for token in tokens:
+    text_ = text_.lower()
+
+    for joiner in ZERO_WIDTH_UNICODES:  # remove things like <200c> (u'\u200c')
+        text_ = text_.replace(joiner, ' ')
+
+    res = ''
+
+    for token in text_.split():
 
         for punc in ALL_PUNCTUATIONS_EXCEPT_SINGLE_PERIOD:
             token = token.replace(punc, ' ' + punc + ' ')
@@ -29,19 +37,45 @@ def extract_all_tokens(inputFilename):
         parts = token.split()
 
         for part in parts:  # round 2 for a single period
+
             if '.' in part and part not in MULTI_PERIODS:
-                parts.remove(part)
-                parts += part.replace('.', ' . ').split()
+                res += ' '.join(part.replace('.', ' . ').split()) + ' '
 
-        tokenSet.update(parts)
+            else:
+                res += part + ' '
 
-    del tokens
+    return res
 
-    return tokenSet
+
+def extract_relevant_embedding(embeddingsFilename, relevantTokens):
+
+    embeddings = {}
+
+    with open(embeddingsFilename, encoding='utf8') as ifile:
+        for line in ifile.readlines():
+            tokens = line.split(' ')
+            word = tokens[0]
+
+            if word not in relevantTokens: continue
+
+            vec = [float(t) for t in tokens[1:]]
+            embeddings[word] = vec
+
+    numNotFound = 0
+    notFoundTokens = []
+
+    for token in relevantTokens:
+        if token not in embeddings:
+            numNotFound += 1
+            notFoundTokens.append(token)
+            print(token, 'not found.')
+
+    print('%d out of %d, or %.1f%% not found.' % (numNotFound, len(relevantTokens), 100.*numNotFound/len(relevantTokens)))
+
+    return embeddings
 
 
 if __name__ == '__main__':
-    extractedTokens = extract_all_tokens('./data/peopleData/earlyLifeCorpus.txt')
 
     EMBEDDINGS_NAME_FILE = {'6B50d': './data/glove/glove.6B/glove.6B.50d.txt',
                             '6B300d': './data/glove/glove.6B/glove.6B.300d.txt',
@@ -52,29 +86,22 @@ if __name__ == '__main__':
                             'earlylife200d_alltokens': './data/peopleData/earlyLifeEmbeddings.200d_alltokens.txt',
                             'earlylife200d_80pc': './data/peopleData/earlyLifeEmbeddings.200d_80pc.txt'
                             }
-    EMBEDDINGS_FILE = EMBEDDINGS_NAME_FILE['6B50d']
 
-    embeddings = {}
-
-    with open(EMBEDDINGS_FILE, encoding='utf8') as ifile:
-        for line in ifile.readlines():
-            tokens = line.split(' ')
-            word = tokens[0]
-
-            if word not in extractedTokens: continue
-
-            vec = [float(t) for t in tokens[1:]]
-            embeddings[word] = vec
-
-    numNotFound = 0
-    notFoundTokens = []
-
-    for token in extractedTokens:
-        if token not in embeddings:
-            numNotFound += 1
-            notFoundTokens.append(token)
-            print(token, 'not found.')
-
-    print('%d out of %d, or %.1f%% not found.' % (numNotFound, len(extractedTokens), 100.*numNotFound/len(extractedTokens)))
+    relevantTokens = extract_tokenset_from_file('./data/peopleData/earlyLifeCorpus.txt').union({'unk'})
 
     # How to encode tokens that are missing from the embeddings file? Use 'unk' (which exists in the Glove embeddings file) for now
+    embeddings = extract_relevant_embedding(
+        embeddingsFilename=EMBEDDINGS_NAME_FILE['6B50d'],
+        relevantTokens=extract_tokenset_from_file('./data/peopleData/earlyLifeCorpus.txt').union({'unk'}))
+
+
+
+    file = open('data/peopleData/earlyLifes/Abbe_Pierre.txt', encoding='utf8')
+    lines = file.readlines()
+    line = lines[0]
+
+
+
+
+
+
