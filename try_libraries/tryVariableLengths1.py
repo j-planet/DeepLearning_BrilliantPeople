@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 
 X = np.random.randn(2, 10, 8)
-X[1, 6:] = 0
+X[1, 6:] = 0        # i.e. "only 6 samples/data points have sequence/step 2"
 real_x_lengths = [10, 6]
 
 outputs, last_states = tf.nn.dynamic_rnn(
