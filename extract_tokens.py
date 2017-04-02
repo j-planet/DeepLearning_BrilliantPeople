@@ -1,4 +1,5 @@
 import string
+import numpy as np
 
 
 ZERO_WIDTH_UNICODES = [u'\u200d', u'\u200c', u'\u200b']
@@ -13,9 +14,8 @@ def extract_tokenset_from_file(inputFilename):
     :return: a set 
     """
 
-    # read all possible tokens
     with open(inputFilename, encoding='utf8') as ifile:
-        text = ifile.read()
+        text = ' '.join(line.strip() for line in ifile.readlines())      # removes the new line character
 
     return set(insert_spaces_into_corpus(text).split())
 
@@ -47,32 +47,47 @@ def insert_spaces_into_corpus(text_):
     return res
 
 
-def extract_relevant_embedding(embeddingsFilename, relevantTokens):
+def extract_embedding(embeddingsFilename_, relevantTokens_, includeUnk_ = True):
 
-    embeddings = {}
+    res = {}
 
-    with open(embeddingsFilename, encoding='utf8') as ifile:
+    if includeUnk_:
+        if type(relevantTokens_)==set:
+            relevantTokens_.add('unk')
+        elif type(relevantTokens_)==list:
+            relevantTokens_.append('unk')
+        else:
+            raise Exception('Unknown input tokens type:', type(relevantTokens_))
+
+    with open(embeddingsFilename_, encoding='utf8') as ifile:
         for line in ifile.readlines():
             tokens = line.split(' ')
             word = tokens[0]
 
-            if word not in relevantTokens: continue
+            if word not in relevantTokens_: continue
 
             vec = [float(t) for t in tokens[1:]]
-            embeddings[word] = vec
+            res[word] = vec
 
     numNotFound = 0
     notFoundTokens = []
 
-    for token in relevantTokens:
-        if token not in embeddings:
+    for token in relevantTokens_:
+        if token not in res:
             numNotFound += 1
             notFoundTokens.append(token)
             print(token, 'not found.')
 
-    print('%d out of %d, or %.1f%% not found.' % (numNotFound, len(relevantTokens), 100.*numNotFound/len(relevantTokens)))
+    print('%d out of %d, or %.1f%% not found.' % (numNotFound, len(relevantTokens_), 100. * numNotFound / len(relevantTokens_)))
 
-    return embeddings
+    return res
+
+
+def file2vec(filename, embeddings_):
+    with open(filename, encoding='utf8') as ifile:
+        text = ' '.join(line.strip() for line in ifile.readlines())
+
+    return np.array([embeddings_.get(token, embeddings_['unk']) for token in insert_spaces_into_corpus(text).split()])
 
 
 if __name__ == '__main__':
@@ -87,19 +102,14 @@ if __name__ == '__main__':
                             'earlylife200d_80pc': './data/peopleData/earlyLifeEmbeddings.200d_80pc.txt'
                             }
 
-    relevantTokens = extract_tokenset_from_file('./data/peopleData/earlyLifeCorpus.txt').union({'unk'})
-
     # How to encode tokens that are missing from the embeddings file? Use 'unk' (which exists in the Glove embeddings file) for now
-    embeddings = extract_relevant_embedding(
-        embeddingsFilename=EMBEDDINGS_NAME_FILE['6B50d'],
-        relevantTokens=extract_tokenset_from_file('./data/peopleData/earlyLifeCorpus.txt').union({'unk'}))
+    embeddings = extract_embedding(
+        embeddingsFilename_=EMBEDDINGS_NAME_FILE['6B50d'],
+        relevantTokens_=extract_tokenset_from_file('./data/peopleData/earlyLifeCorpus.txt'),
+        includeUnk_=True
+    )
 
-
-
-    file = open('data/peopleData/earlyLifes/Abbe_Pierre.txt', encoding='utf8')
-    lines = file.readlines()
-    line = lines[0]
-
+    print(file2vec('data/peopleData/earlyLifes/Abbe_Pierre.txt', embeddings))
 
 
 
