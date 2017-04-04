@@ -47,7 +47,8 @@ def insert_spaces_into_corpus(text_):
     return res
 
 
-def extract_embedding(embeddingsFilename_, relevantTokens_, includeUnk_ = True):
+def extract_embedding(embeddingsFilename_, relevantTokens_, includeUnk_ = True,
+                      verbose = True):
 
     res = {}
 
@@ -70,17 +71,18 @@ def extract_embedding(embeddingsFilename_, relevantTokens_, includeUnk_ = True):
             res[word] = vec
 
     numNotFound = 0
-    notFoundTokens = []
+    notFoundTokens = set()
 
     for token in relevantTokens_:
         if token not in res:
             numNotFound += 1
-            notFoundTokens.append(token)
-            print(token, 'not found.')
+            notFoundTokens.add(token)
+
+            if verbose: print(token, 'not found.')
 
     print('%d out of %d, or %.1f%% not found.' % (numNotFound, len(relevantTokens_), 100. * numNotFound / len(relevantTokens_)))
 
-    return res
+    return res, notFoundTokens
 
 
 def file2vec(filename, embeddings_):
@@ -103,7 +105,7 @@ if __name__ == '__main__':
                             }
 
     # How to encode tokens that are missing from the embeddings file? Use 'unk' (which exists in the Glove embeddings file) for now
-    embeddings = extract_embedding(
+    embeddings, _ = extract_embedding(
         embeddingsFilename_=EMBEDDINGS_NAME_FILE['6B50d'],
         relevantTokens_=extract_tokenset_from_file('./data/peopleData/earlyLifeCorpus.txt'),
         includeUnk_=True
