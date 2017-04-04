@@ -94,7 +94,7 @@ while step * batch_size < training_iters:
 
     # train
     sess.run(optimizer, feed_dict)
-    sess.run(outputs, feed_dict)
+    # sess.run(outputs, feed_dict)
 
     # print evaluations
     if step % print_training_stats_period == 0:
