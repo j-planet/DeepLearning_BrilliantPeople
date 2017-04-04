@@ -98,6 +98,9 @@ class DataReader(object):
         self.YData_train = YData_train[orders]
 
 
+    def start_batch_from_beginning(self):
+        self.globalBatchIndex = 0
+
     def wherechu_at(self):
         return self.globalBatchIndex
 
@@ -146,6 +149,9 @@ class DataReader(object):
         assert len(x) == len(y)
 
         return x, y
+
+    def get_classes(self):
+        return set(self.YData)
 
 
 if __name__ == '__main__':
