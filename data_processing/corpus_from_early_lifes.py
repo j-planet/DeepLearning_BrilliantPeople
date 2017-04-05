@@ -40,14 +40,14 @@ def create_early_life_corpus_by_occupation(occupation, outputFname, removePunctu
     for name in read_people_names(occupation=occupation):
 
         convertedName = '_'.join([t.capitalize() for t in name.split()])
-        filenames.append('./data/peopleData/earlyLifes/' + convertedName + '.txt')
+        filenames.append('./data/peopleData/earlyLifesTexts/' + convertedName + '.txt')
 
     return create_early_life_corpus(filenames, outputFname, removePunctuations)
 
 
 def create_early_life_corpus_for_all(outputFname, removePunctuations):
     return create_early_life_corpus(
-        glob.glob('./data/peopleData/earlyLifes/*.txt'),
+        glob.glob('./data/peopleData/earlyLifesTexts/*.txt'),
         outputFname, removePunctuations
     )
 

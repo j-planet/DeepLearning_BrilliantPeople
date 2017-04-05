@@ -14,9 +14,10 @@ def one_hot(ind, vecLen):
 
     return np.array(res)
 
-def patch_arrays(arrays):
+def patch_arrays(arrays, numrows=None):
     """
     patch all arrays to have the same number of rows
+    :numrows: if None, patch to the max number of rows in the arrays
     :param arrays: 
     :return:  
     """
@@ -25,6 +26,11 @@ def patch_arrays(arrays):
 
     lengths = [arr.shape[0] for arr in arrays]
     padLen = max(lengths)
+
+    assert numrows is None or numrows >= padLen, 'numrows is fewer than the max number of rows: %d vs %d.' % (numrows, padLen)
+
+    padLen = numrows or padLen
+
 
     for arr in arrays:
         res.append(np.append(arr, np.zeros((padLen - arr.shape[0], arr.shape[1])), axis=0))
@@ -64,41 +70,80 @@ def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=T
 
 class DataReader(object):
 
-    def __init__(self, embeddingsFilename, peopleDataDir_ ='./data/peopleData'):
+    def _read_data_from_files(self, vectorFilesDir=None, embeddingsFilename=None, peopleDataDir_ ='./data/peopleData'):
+        assert vectorFilesDir is not None or embeddingsFilename is not None, 'Must provide either converted files or the embeddings file.'
 
-        self.globalBatchIndex = 0
-
-        # ======= EXTRACT EMBEDDING & WORD2VEC =======
-        print('======= Extracting embedding...')
-        EMBEDDINGS, _ = extract_embedding(
-            embeddingsFilename_= embeddingsFilename,
-            relevantTokens_=extract_tokenset_from_file(peopleDataDir_.strip('/') + '/earlyLifeCorpus.txt'),
-            includeUnk_=True,
-            verbose=False
-        )
-
-        with open(peopleDataDir_.strip('/') + '/processed_names.json', encoding='utf8') as ifile:
+        with open(os.path.join(peopleDataDir_, 'processed_names.json'), encoding='utf8') as ifile:
             self._peopleData = json.load(ifile)
 
         XData = []
         YData = []
         nonexist = 0
 
-        for name, d in self._peopleData.items():
-            occupation = d['occupation'][-1]
-            filename = './data/peopleData/earlyLifes/%s.txt' % name
+        if vectorFilesDir:
+            print('======= Reading pre-made vector files... =======')
 
-            if os.path.exists(filename):
-                mat = file2vec(filename, EMBEDDINGS)
-                XData.append(mat)
-                YData.append(occupation)
+            for name, d in self._peopleData.items():
 
-            else:
-                print(filename, 'does not exist.')
-                nonexist += 1
+                occupation = d['occupation'][-1]
+                filename = os.path.join(vectorFilesDir, name + '.json')
+
+                if os.path.exists(filename):
+                    with open(filename, encoding='utf8') as ifile:
+                        d = json.load(ifile)
+
+                    mat = np.array(d['mat'])
+                    assert occupation == d['occupation']
+
+                    XData.append(mat)
+                    YData.append(occupation)
+
+                else:
+                    print(filename, 'does not exist.')
+                    nonexist += 1
+
+        else:
+            print('======= Extracting embedding... =======')
+            EMBEDDINGS, _ = extract_embedding(
+                embeddingsFilename_= embeddingsFilename,
+                relevantTokens_=extract_tokenset_from_file(os.path.join(peopleDataDir_, 'earlyLifeCorpus.txt')),
+                includeUnk_=True,
+                verbose=False
+            )
+
+            for name, d in self._peopleData.items():
+
+                occupation = d['occupation'][-1]
+                filename = './data/peopleData/earlyLifesTexts/%s.txt' % name
+
+                if os.path.exists(filename):
+                    mat = file2vec(filename, EMBEDDINGS)
+                    XData.append(mat)
+                    YData.append(occupation)
+
+                else:
+                    print(filename, 'does not exist.')
+                    nonexist += 1
+
+        print('%d / %d do not exist.' % (nonexist, len(self._peopleData)))
 
         self.XData = np.array(XData)
         self.YData_raw_labels = np.array(YData)
+        self.maxXLen = max([d.shape[0] for d in self.XData])
+
+
+    def __init__(self, vectorFilesDir=None, embeddingsFilename=None, peopleDataDir_ ='./data/peopleData'):
+        """
+        
+        :param vectorFilesDir: if files have already been converted to vectors, provide this directory. embeddingsFilename will be ignored 
+        :param embeddingsFilename: if files have not been provided, convert files on the fly
+        :param peopleDataDir_: 
+        """
+
+        self.globalBatchIndex = 0
+
+        # extract word2vec from files
+        self._read_data_from_files(vectorFilesDir, embeddingsFilename, peopleDataDir_)
 
         # transform Y data into a one-hot matrix
         self.yEncoder = LabelEncoder()
@@ -110,14 +155,12 @@ class DataReader(object):
 
         # ======= TRAIN-VALIDATION-TEST SPLIT=======
 
-        print('%d / %d do not exist.' % (nonexist, len(self._peopleData)))
         train_indices, valid_indices, test_indices = train_valid_test_split(self.YData_raw_labels, 0.7, 0.15, 0.15)
 
-
-        self.XData_valid, self.xLengths_valid = patch_arrays(self.XData[valid_indices])
+        self.XData_valid = self.XData[valid_indices]
         self.YData_valid = self.YData[valid_indices]
 
-        self.XData_test, self.xLengths_test = patch_arrays(self.XData[test_indices])
+        self.XData_test = self.XData[test_indices]
         self.YData_test = self.YData[test_indices]
 
 
@@ -136,7 +179,7 @@ class DataReader(object):
     def wherechu_at(self):
         return self.globalBatchIndex
 
-    def get_raw_data(self):
+    def get_people_data(self):
         return self._peopleData
 
     def get_next_training_batch(self, batchSize_, verbose_ = True):
@@ -157,9 +200,8 @@ class DataReader(object):
         np.random.shuffle(batchIndices)
 
         # pad the x batch
-        XBatch, xLengths = patch_arrays(self.XData_train[batchIndices])
+        XBatch, xLengths = patch_arrays(self.XData_train[batchIndices], self.maxXLen)
         YBatch = self.YData_train[batchIndices]
-
 
         if verbose_:
             print('Indices:', batchIndices, '--> # tokens:', [len(d) for d in XBatch], '--> Y values:', YBatch)
@@ -167,33 +209,34 @@ class DataReader(object):
         return XBatch, YBatch, xLengths
 
     def get_all_training_data(self):
-        x, y = self.XData_train, self.YData_train
-        assert len(x)==len(y)
+        x, xlengths = patch_arrays(self.XData_train, self.maxXLen)
 
-        x, xLengths = patch_arrays(x)
-
-        return x, y, xLengths
+        return x, self.YData_train, xlengths
 
     def get_validation_data(self):
-        x, y = self.XData_valid, self.YData_valid
-        assert len(x) == len(y)
+        x, xlengths = patch_arrays(self.XData_valid, self.maxXLen)
 
-        return x, y, self.xLengths_valid
+        return x, self.YData_valid, xlengths
 
     def get_test_data(self):
-        x, y = self.XData_test, self.YData_test
-        assert len(x) == len(y)
+        x, xlengths = patch_arrays(self.XData_test, self.maxXLen)
 
-        return x, y, self.xLengths_test
+        return x, self.YData_test, xlengths
 
     def get_classes_labels(self):
         return self.classLabels
 
+    def get_max_len(self):
+        """
+        :return: the maximum number of rows across ALL x's (including training, valid and testing) 
+        """
+        return self.maxXLen
+
 
 if __name__ == '__main__':
-    dataReader = DataReader(embeddingsFilename='data/glove/glove.6B/glove.6B.50d.txt')
+    dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats')
 
-    x, y = dataReader.get_next_training_batch(5)
-    dataReader.get_all_training_data()
-    dataReader.get_validation_data()
-    dataReader.get_test_data()
+    # x, y, xlengths = dataReader.get_next_training_batch(5)
+    # dataReader.get_all_training_data()
+    # dataReader.get_validation_data()
+    # dataReader.get_test_data()

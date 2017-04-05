@@ -63,7 +63,7 @@ def read_word2vec_data(peopleNames, embeddingsFilename, extraTokens = [], numMos
     numIgnored = 0
     numNoVector = 0
 
-    for filename in glob.glob('./data/peopleData/earlyLifes/*.txt'):    # only process those for whom we have early life texts
+    for filename in glob.glob('./data/peopleData/earlyLifesTexts/*.txt'):    # only process those for whom we have early life texts
 
         person = filename.split('/')[-1].split('.')[0]
 

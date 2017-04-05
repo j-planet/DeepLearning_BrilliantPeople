@@ -19,7 +19,7 @@ logger_train = tensorflowFilewriter('./logs/train')
 logger_train.add_graph(sess.graph)
 
 # ================== DATA ===================
-dataReader = DataReader('./data/peopleData/embeddings/smallGlove.42B300d.txt')
+dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats')
 
 # ================== CONFIG ===================
 
@@ -37,7 +37,8 @@ logTrainingEvery = 10
 logValidationEvery = 100
 
 # ================== GRAPH ===================
-x = tf.placeholder('float', [None, None, stepSize])
+numSequences = dataReader.get_max_len()
+x = tf.placeholder('float', [None, numSequences, stepSize])
 y = tf.placeholder('float', [None, numClasses])
 
 weights = tf.Variable(tf.random_normal([2*numHiddenLayerFeatures, numClasses]))
@@ -47,7 +48,7 @@ transformedX = tf.split(
     tf.reshape(
         tf.transpose(x, [1, 0, 2]),
         [-1, stepSize]),
-    x.shape[1], 0
+    numSequences, 0
 )
 
 # make LSTM cells
@@ -56,7 +57,9 @@ lstmCell_backward = rnn.BasicLSTMCell(numHiddenLayerFeatures)
 
 # wrap RNN around LSTM cells
 outputs, _, _ = rnn.static_bidirectional_rnn(lstmCell_forward, lstmCell_backward,
-                                             transformedX, dtype=tf.float32)
+                                             transformedX, dtype=tf.float32,
+                                             sequence_length=5
+                                             )
 
 # cost and optimize
 logits = tf.matmul(outputs[-1], weights) + biases

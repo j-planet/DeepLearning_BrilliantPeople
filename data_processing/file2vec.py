@@ -1,4 +1,6 @@
 import string
+import os
+import json
 import numpy as np
 
 
@@ -85,11 +87,17 @@ def extract_embedding(embeddingsFilename_, relevantTokens_, includeUnk_ = True,
     return res, notFoundTokens
 
 
-def file2vec(filename, embeddings_):
+def file2vec(filename, embeddings_, outputFilename = None):
     with open(filename, encoding='utf8') as ifile:
         text = ' '.join(line.strip() for line in ifile.readlines())
 
-    return np.array([embeddings_.get(token, embeddings_['unk']) for token in insert_spaces_into_corpus(text).split()])
+    mat = np.array([embeddings_.get(token, embeddings_['unk']) for token in insert_spaces_into_corpus(text).split()])
+
+    if outputFilename:
+        with open(outputFilename, 'w', encoding='utf8') as ofile:
+            json.dump({'occupation': occupation, 'mat': [list(l) for l in list(mat)]}, ofile)
+
+    return mat
 
 
 def create_custom_embeddings_file(inputEmbeddingFilename, tokensFilename, outputFilename):
@@ -106,6 +114,8 @@ def create_custom_embeddings_file(inputEmbeddingFilename, tokensFilename, output
             outputFile.write(k + ' ' + ' '.join([str(n) for n in v]) + '\n')
 
 
+
+
 if __name__ == '__main__':
 
     EMBEDDINGS_NAME_FILE = \
@@ -120,18 +130,33 @@ if __name__ == '__main__':
          }
 
     # How to encode tokens that are missing from the embeddings file? Use 'unk' (which exists in the Glove embeddings file) for now
-    # embeddings, _ = extract_embedding(
-    #     embeddingsFilename_=EMBEDDINGS_NAME_FILE['6B50d'],
-    #     relevantTokens_=extract_tokenset_from_file('../data/peopleData/earlyLifeCorpus.txt'),
-    #     includeUnk_=True
-    # )
+    embeddings, _ = extract_embedding(
+        embeddingsFilename_=EMBEDDINGS_NAME_FILE['42B300d'],
+        relevantTokens_=extract_tokenset_from_file('../data/peopleData/earlyLifeCorpus.txt'),
+        includeUnk_=True
+    )
 
-    # print(file2vec('data/peopleData/earlyLifes/abbe pierre.txt', embeddings))
-    create_custom_embeddings_file(EMBEDDINGS_NAME_FILE['42B300d'],
-                                  '../data/peopleData/earlyLifeCorpus.txt',
-                                  '../data/peopleData/embeddings/smallGlove.42B300d.txt')
+    # print(file2vec('../data/peopleData/earlyLifesTexts/abbe pierre.txt', embeddings))
 
+    'data/peopleData/earlyLifesWordMats'
 
+    with open('../data/peopleData/processed_names.json', encoding='utf8') as ifile:
+        peopleData = json.load(ifile)
 
+    nonexist = 0
 
+    for name, d in peopleData.items():
+        occupation = d['occupation'][-1]
+        filename = '../data/peopleData/earlyLifesTexts/%s.txt' % name
 
+        if os.path.exists(filename):
+
+            mat = file2vec(filename, embeddings)
+            # d = {'mat': mat, 'occupation': occupation}
+
+            with open('../data/peopleData/earlyLifesWordMats/' + name + '.json', 'w', encoding='utf8') as ofile:
+                json.dump({'occupation':occupation, 'mat':[list(l) for l in list(mat)]}, ofile)
+
+        else:
+            print(filename, 'does not exist.')
+            nonexist += 1

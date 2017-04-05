@@ -74,7 +74,7 @@ for filename in glob.glob('../data/peopleData/extracts/*.txt'):
                         else:
                             earlyLifeContent[-1] += curContent
 
-                    with open('../data/peopleData/earlyLifes/' + filename.split('/')[-1], 'w', encoding='utf-8') as outputFile:
+                    with open('../data/peopleData/earlyLifesTexts/' + filename.split('/')[-1], 'w', encoding='utf-8') as outputFile:
                         outputFile.writelines('\n'.join(earlyLifeContent))
 
                     break

@@ -26,7 +26,8 @@ inputs = [tf.reshape(i, (batch_size, seq_width)) for i in tf.split(seq_input, n_
 
 cell = LSTMCell(size, seq_width, initializer=initializer)
 initial_state = cell.zero_state(batch_size, tf.float32)
-outputs, states = rnn.BasicRNNCell(cell, inputs, initial_state=initial_state, sequence_length=early_stop)
+outputs, states = rnn.BasicRNNCell(cell, inputs, initial_state=initial_state,
+                                   sequence_length=early_stop)
 #set up lstm
 
 iop = tf.initialize_all_variables()
