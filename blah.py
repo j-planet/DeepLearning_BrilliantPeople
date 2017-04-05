@@ -47,7 +47,7 @@ transformedX = tf.split(
     tf.reshape(
         tf.transpose(x, [1, 0, 2]),
         [-1, stepSize]),
-    -1, 0
+    x.shape[1], 0
 )
 
 # make LSTM cells
@@ -76,7 +76,7 @@ dataReader.start_batch_from_beginning()     # technically unnecessary
 for step in range(numSteps):
 
     # will prob need some shape mangling here
-    batch_x, batch_y = dataReader.get_next_training_batch(batchSize, verbose_=False)
+    batch_x, batch_y, xLengths = dataReader.get_next_training_batch(batchSize, verbose_=False)
 
     sess.run(optimizer, {x: batch_x, y: batch_y})
 

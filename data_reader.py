@@ -14,6 +14,24 @@ def one_hot(ind, vecLen):
 
     return np.array(res)
 
+def patch_arrays(arrays):
+    """
+    patch all arrays to have the same number of rows
+    :param arrays: 
+    :return:  
+    """
+
+    res = []
+
+    lengths = [arr.shape[0] for arr in arrays]
+    padLen = max(lengths)
+
+    for arr in arrays:
+        res.append(np.append(arr, np.zeros((padLen - arr.shape[0], arr.shape[1])), axis=0))
+
+    return np.array(res), lengths
+
+
 def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=True):
     """
     :return: train_indices, valid_indices, test_indices 
@@ -96,10 +114,10 @@ class DataReader(object):
         train_indices, valid_indices, test_indices = train_valid_test_split(self.YData_raw_labels, 0.7, 0.15, 0.15)
 
 
-        self.XData_valid = self.XData[valid_indices]
+        self.XData_valid, self.xLengths_valid = patch_arrays(self.XData[valid_indices])
         self.YData_valid = self.YData[valid_indices]
 
-        self.XData_test = self.XData[test_indices]
+        self.XData_test, self.xLengths_test = patch_arrays(self.XData[test_indices])
         self.YData_test = self.YData[test_indices]
 
 
@@ -133,36 +151,40 @@ class DataReader(object):
             newBatchIndex = self.globalBatchIndex + batchSize_ - totalNumData
             batchIndices = list(range(self.globalBatchIndex, totalNumData)) + list(range(0, newBatchIndex))
 
+        self.globalBatchIndex = newBatchIndex
+
         # randomize within a batch (does this actually make a difference...? Don't think so.)
         np.random.shuffle(batchIndices)
 
-        XBatch = self.XData_train[batchIndices]
+        # pad the x batch
+        XBatch, xLengths = patch_arrays(self.XData_train[batchIndices])
         YBatch = self.YData_train[batchIndices]
 
-        self.globalBatchIndex = newBatchIndex
 
         if verbose_:
             print('Indices:', batchIndices, '--> # tokens:', [len(d) for d in XBatch], '--> Y values:', YBatch)
 
-        return XBatch, YBatch
+        return XBatch, YBatch, xLengths
 
     def get_all_training_data(self):
         x, y = self.XData_train, self.YData_train
         assert len(x)==len(y)
 
-        return x, y
+        x, xLengths = patch_arrays(x)
+
+        return x, y, xLengths
 
     def get_validation_data(self):
         x, y = self.XData_valid, self.YData_valid
         assert len(x) == len(y)
 
-        return x, y
+        return x, y, self.xLengths_valid
 
     def get_test_data(self):
         x, y = self.XData_test, self.YData_test
         assert len(x) == len(y)
 
-        return x, y
+        return x, y, self.xLengths_test
 
     def get_classes_labels(self):
         return self.classLabels
@@ -171,7 +193,7 @@ class DataReader(object):
 if __name__ == '__main__':
     dataReader = DataReader(embeddingsFilename='data/glove/glove.6B/glove.6B.50d.txt')
 
-    x, y = dataReader.get_next_training_batch(1)
+    x, y = dataReader.get_next_training_batch(5)
     dataReader.get_all_training_data()
     dataReader.get_validation_data()
     dataReader.get_test_data()
