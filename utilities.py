@@ -5,7 +5,7 @@ import tensorflow as tf
 def tensorflowFilewriter(writerDir):
 
     # clear existing logs first
-    for f in glob.glob(writerDir):
+    for f in glob.glob(writerDir.strip('/') + '/*'):
         os.remove(f)
 
     # for f in glob.glob('./logs/word2vec/validation/*'): os.remove(f)
