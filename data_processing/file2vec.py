@@ -111,7 +111,7 @@ if __name__ == '__main__':
         includeUnk_=True
     )
 
-    print(file2vec('data/peopleData/earlyLifes/Abbe_Pierre.txt', embeddings))
+    print(file2vec('data/peopleData/earlyLifes/abbe pierre.txt', embeddings))
 
 
 

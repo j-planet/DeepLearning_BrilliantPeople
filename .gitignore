@@ -4,6 +4,6 @@
 data/glove
 data/text8.txt
 data/mnist
-*Embedding*.txt
+embeddings/
 logs/
 __pycache__/
