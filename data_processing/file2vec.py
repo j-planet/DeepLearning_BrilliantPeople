@@ -92,26 +92,44 @@ def file2vec(filename, embeddings_):
     return np.array([embeddings_.get(token, embeddings_['unk']) for token in insert_spaces_into_corpus(text).split()])
 
 
-if __name__ == '__main__':
-
-    EMBEDDINGS_NAME_FILE = {'6B50d': './data/glove/glove.6B/glove.6B.50d.txt',
-                            '6B300d': './data/glove/glove.6B/glove.6B.300d.txt',
-                            '42B300d': './data/glove/glove.42B.300d.txt',
-                            '840B300d': './data/glove/glove.840B.300d.txt',
-                            'earlylife128d_alltokens': './data/peopleData/earlyLifeEmbeddings.128d_alltokens.txt',
-                            'earlylife128d_80pc': './data/peopleData/earlyLifeEmbeddings.128d_80pc.txt',
-                            'earlylife200d_alltokens': './data/peopleData/earlyLifeEmbeddings.200d_alltokens.txt',
-                            'earlylife200d_80pc': './data/peopleData/earlyLifeEmbeddings.200d_80pc.txt'
-                            }
+def create_custom_embeddings_file(inputEmbeddingFilename, tokensFilename, outputFilename):
 
     # How to encode tokens that are missing from the embeddings file? Use 'unk' (which exists in the Glove embeddings file) for now
     embeddings, _ = extract_embedding(
-        embeddingsFilename_=EMBEDDINGS_NAME_FILE['6B50d'],
-        relevantTokens_=extract_tokenset_from_file('./data/peopleData/earlyLifeCorpus.txt'),
+        embeddingsFilename_=inputEmbeddingFilename,
+        relevantTokens_=extract_tokenset_from_file(tokensFilename),
         includeUnk_=True
     )
 
-    print(file2vec('data/peopleData/earlyLifes/abbe pierre.txt', embeddings))
+    with open(outputFilename, 'w', encoding='utf8') as outputFile:
+        for k, v in embeddings.items():
+            outputFile.write(k + ' ' + ' '.join([str(n) for n in v]) + '\n')
+
+
+if __name__ == '__main__':
+
+    EMBEDDINGS_NAME_FILE = \
+        {'6B50d': '../data/glove/glove.6B/glove.6B.50d.txt',
+         '6B300d': '../data/glove/glove.6B/glove.6B.300d.txt',
+         '42B300d': '../data/glove/glove.42B.300d.txt',
+         '840B300d': '../data/glove/glove.840B.300d.txt',
+         'earlylife128d_alltokens': '../data/peopleData/earlyLifeEmbeddings.128d_alltokens.txt',
+         'earlylife128d_80pc': '../data/peopleData/earlyLifeEmbeddings.128d_80pc.txt',
+         'earlylife200d_alltokens': '../data/peopleData/earlyLifeEmbeddings.200d_alltokens.txt',
+         'earlylife200d_80pc': '../data/peopleData/earlyLifeEmbeddings.200d_80pc.txt'
+         }
+
+    # How to encode tokens that are missing from the embeddings file? Use 'unk' (which exists in the Glove embeddings file) for now
+    # embeddings, _ = extract_embedding(
+    #     embeddingsFilename_=EMBEDDINGS_NAME_FILE['6B50d'],
+    #     relevantTokens_=extract_tokenset_from_file('../data/peopleData/earlyLifeCorpus.txt'),
+    #     includeUnk_=True
+    # )
+
+    # print(file2vec('data/peopleData/earlyLifes/abbe pierre.txt', embeddings))
+    create_custom_embeddings_file(EMBEDDINGS_NAME_FILE['42B300d'],
+                                  '../data/peopleData/earlyLifeCorpus.txt',
+                                  '../data/peopleData/embeddings/smallGlove.42B300d.txt')
 
 
 
