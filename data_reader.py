@@ -2,10 +2,17 @@ import json, os
 from pprint import pprint
 import numpy as np
 from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.preprocessing import LabelEncoder
 from collections import Counter
 
-from data_processing.extract_tokens import file2vec, extract_embedding, extract_tokenset_from_file
+from data_processing.file2vec import file2vec, extract_embedding, extract_tokenset_from_file
 
+
+def one_hot(ind, vecLen):
+    res = [0] * vecLen
+    res[ind] = 1
+
+    return np.array(res)
 
 def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=True):
     """
@@ -73,13 +80,20 @@ class DataReader(object):
                 nonexist += 1
 
         self.XData = np.array(XData)
-        self.YData = np.array(YData)
+        self.YData_raw_labels = np.array(YData)
+
+        # transform Y data into a one-hot matrix
+        self.yEncoder = LabelEncoder()
+        self.YData = self.yEncoder.fit_transform(self.YData_raw_labels) # just list of indices here
+        self.classLabels = self.yEncoder.classes_
+
+        self.YData = np.array([one_hot(v, len(self.classLabels)) for v in self.YData])
 
 
         # ======= TRAIN-VALIDATION-TEST SPLIT=======
 
         print('%d / %d do not exist.' % (nonexist, len(self._peopleData)))
-        train_indices, valid_indices, test_indices = train_valid_test_split(self.YData, 0.7, 0.15, 0.15)
+        train_indices, valid_indices, test_indices = train_valid_test_split(self.YData_raw_labels, 0.7, 0.15, 0.15)
 
 
         self.XData_valid = self.XData[valid_indices]
@@ -150,8 +164,8 @@ class DataReader(object):
 
         return x, y
 
-    def get_classes(self):
-        return set(self.YData)
+    def get_classes_labels(self):
+        return self.classLabels
 
 
 if __name__ == '__main__':
