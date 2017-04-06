@@ -1,3 +1,4 @@
+from pprint import pprint
 import tensorflow as tf
 from tensorflow.contrib.rnn import BasicLSTMCell
 
@@ -5,13 +6,21 @@ from data_reader import DataReader
 from utilities import tensorflowFilewriter
 
 
-def log_str(x_, y_, xLengths_):
+def print_log_str(x_, y_, xLengths_):
     """
     :return a string of loss and accuracy
     """
 
-    return 'loss = %.3f, accuracy = %.3f' % \
-           tuple(sess.run([cost, accuracy], feed_dict={x: x_, y: y_, sequenceLength: xLengths_}))
+    feedDict = {x: x_, y: y_, sequenceLength: xLengths_}
+
+    print('loss = %.3f, accuracy = %.3f' % \
+          tuple(sess.run([cost, accuracy], feed_dict=feedDict)))
+
+    print('True label became... --> ?')
+    pprint(['%s --> %s' % (dataReader.get_classes_labels()[t], dataReader.get_classes_labels()[p]) for t, p in
+            zip(*sess.run([trueY, pred], feed_dict=feedDict))])
+
+
 
 sess = tf.InteractiveSession()
 logger_train = tensorflowFilewriter('./logs/train')
@@ -30,26 +39,21 @@ numClasses = len(dataReader.get_classes_labels())
 # --------- running ---------
 learningRate = 0.001
 numSteps = 1000     # 1 step runs 1 batch
-batchSize = 10
+batchSize = 5
 
 logTrainingEvery = 10
 logValidationEvery = 100
 
+print('====== CONFIG: batch size %d, learning rate %.3f' % (batchSize, learningRate))
+
 # ================== GRAPH ===================
 # numSequences = dataReader.get_max_len()
-x = tf.placeholder('float', [batchSize, None, vecDim])
+x = tf.placeholder('float', [None, None, vecDim])
 y = tf.placeholder('float', [None, numClasses])
 sequenceLength = tf.placeholder(tf.int32)
 
 weights = tf.Variable(tf.random_normal([2*numHiddenLayerFeatures, numClasses]))
 biases = tf.Variable(tf.random_normal([numClasses]))
-
-# transformedX = tf.split(
-#     tf.reshape(
-#         tf.transpose(x, [1, 0, 2]),
-#         [-1, stepSize]),
-#     numSequences, 0
-# )
 
 # make LSTM cells
 lstmCell_forward = BasicLSTMCell(numHiddenLayerFeatures)
@@ -58,19 +62,18 @@ lstmCell_backward = BasicLSTMCell(numHiddenLayerFeatures)
 # wrap RNN around LSTM cells
 outputs, _ = tf.nn.bidirectional_dynamic_rnn(lstmCell_forward, lstmCell_backward,
                                              time_major=False, inputs=x, dtype=tf.float32,
-                                             sequence_length=sequenceLength
-                                             )
+                                             sequence_length=sequenceLength)
 
 # cost and optimize
 logits = tf.matmul(tf.concat(outputs, 2)[:,-1,:], weights) + biases
-# logits = tf.matmul(outputs[-1], weights) + biases
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=y))
 optimizer = tf.train.AdamOptimizer(learning_rate=learningRate).minimize(cost)
 
 # predictions and accuracy
 pred = tf.argmax(logits, 1)
+trueY = tf.argmax(y, 1)
 accuracy = tf.reduce_mean(tf.cast(
-    tf.equal(pred, tf.argmax(y, 1))
+    tf.equal(pred, trueY)
     , tf.float32))
 
 # train
@@ -80,21 +83,23 @@ dataReader.start_batch_from_beginning()     # technically unnecessary
 for step in range(numSteps):
 
     # will prob need some shape mangling here
-    batch_x, batch_y, xLengths = dataReader.get_next_training_batch(batchSize, verbose_=False)
+    batchX, batchY, xLengths = dataReader.get_next_training_batch(batchSize, verbose_=False)
+    feedDict = {x: batchX, y: batchY, sequenceLength: xLengths}
 
-    sess.run(optimizer, {x: batch_x, y: batch_y, sequenceLength: xLengths})
+    sess.run(optimizer, feed_dict=feedDict)
 
     # print evaluations
     if step % logTrainingEvery == 0:
         print('\nStep %d (%d data points):' % (step, step*batchSize))
-        print('Training:', log_str(batch_x, batch_y, xLengths))
+        print_log_str(batchX, batchY, xLengths)
 
-        # if step % logValidationEvery == 0:
-        #     print('>>> Validation:', log_str(*(dataReader.get_validation_data())))
+        if step % logValidationEvery == 0:
+            print('>>> Validation:')
+            print_log_str(*(dataReader.get_validation_data()))
 
 
 
-print('\n>>>>>> Test:', log_str(*(dataReader.get_test_data())))
+print('\n>>>>>> Test:', print_log_str(*(dataReader.get_test_data())))
 
 
 
