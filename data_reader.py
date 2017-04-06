@@ -182,7 +182,7 @@ class DataReader(object):
     def get_people_data(self):
         return self._peopleData
 
-    def get_next_training_batch(self, batchSize_, verbose_ = True):
+    def get_next_training_batch(self, batchSize_, patchTofull_=False, verbose_ = True):
 
         totalNumData = len(self.XData_train)
 
@@ -200,7 +200,7 @@ class DataReader(object):
         np.random.shuffle(batchIndices)
 
         # pad the x batch
-        XBatch, xLengths = patch_arrays(self.XData_train[batchIndices], self.maxXLen)
+        XBatch, xLengths = patch_arrays(self.XData_train[batchIndices], self.maxXLen if patchTofull_ else None)
         YBatch = self.YData_train[batchIndices]
 
         if verbose_:
@@ -208,18 +208,18 @@ class DataReader(object):
 
         return XBatch, YBatch, xLengths
 
-    def get_all_training_data(self):
-        x, xlengths = patch_arrays(self.XData_train, self.maxXLen)
+    def get_all_training_data(self, patchTofull_=False,):
+        x, xlengths = patch_arrays(self.XData_train, self.maxXLen if patchTofull_ else None)
 
         return x, self.YData_train, xlengths
 
-    def get_validation_data(self):
-        x, xlengths = patch_arrays(self.XData_valid, self.maxXLen)
+    def get_validation_data(self, patchTofull_=False,):
+        x, xlengths = patch_arrays(self.XData_valid, self.maxXLen if patchTofull_ else None)
 
         return x, self.YData_valid, xlengths
 
-    def get_test_data(self):
-        x, xlengths = patch_arrays(self.XData_test, self.maxXLen)
+    def get_test_data(self, patchTofull_=False,):
+        x, xlengths = patch_arrays(self.XData_test, self.maxXLen if patchTofull_ else None)
 
         return x, self.YData_test, xlengths
 
