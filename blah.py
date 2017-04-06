@@ -27,7 +27,8 @@ logger_train = tensorflowFilewriter('./logs/train')
 logger_train.add_graph(sess.graph)
 
 # ================== DATA ===================
-dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats')
+# dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats')
+dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats/politician_scientist')
 
 # ================== CONFIG ===================
 
@@ -37,14 +38,14 @@ numHiddenLayerFeatures = 128
 numClasses = len(dataReader.get_classes_labels())
 
 # --------- running ---------
-learningRate = 0.001
+learningRate = 0.1
 numSteps = 1000     # 1 step runs 1 batch
 batchSize = 5
 
 logTrainingEvery = 10
 logValidationEvery = 100
 
-print('====== CONFIG: batch size %d, learning rate %.3f' % (batchSize, learningRate))
+print('====== CONFIG: SHUFFLED batch size %d, learning rate %.3f' % (batchSize, learningRate))
 
 # ================== GRAPH ===================
 # numSequences = dataReader.get_max_len()

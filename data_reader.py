@@ -70,7 +70,7 @@ def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=T
 
 class DataReader(object):
 
-    def _read_data_from_files(self, vectorFilesDir=None, embeddingsFilename=None, peopleDataDir_ ='./data/peopleData'):
+    def _read_data_from_files(self, vectorFilesDir=None, embeddingsFilename=None, peopleDataDir_ ='./data/peopleData', verbose_=False):
         assert vectorFilesDir is not None or embeddingsFilename is not None, 'Must provide either converted files or the embeddings file.'
 
         with open(os.path.join(peopleDataDir_, 'processed_names.json'), encoding='utf8') as ifile:
@@ -99,7 +99,9 @@ class DataReader(object):
                     YData.append(occupation)
 
                 else:
-                    print(filename, 'does not exist.')
+                    if verbose_:
+                        print(filename, 'does not exist.')
+
                     nonexist += 1
 
         else:
@@ -132,7 +134,7 @@ class DataReader(object):
         self.maxXLen = max([d.shape[0] for d in self.XData])
 
 
-    def __init__(self, vectorFilesDir=None, embeddingsFilename=None, peopleDataDir_ ='./data/peopleData'):
+    def __init__(self, vectorFilesDir=None, embeddingsFilename=None, peopleDataDir_ ='./data/peopleData', verbose_=False):
         """
         
         :param vectorFilesDir: if files have already been converted to vectors, provide this directory. embeddingsFilename will be ignored 
@@ -143,7 +145,7 @@ class DataReader(object):
         self.globalBatchIndex = 0
 
         # extract word2vec from files
-        self._read_data_from_files(vectorFilesDir, embeddingsFilename, peopleDataDir_)
+        self._read_data_from_files(vectorFilesDir, embeddingsFilename, peopleDataDir_, verbose_)
 
         # transform Y data into a one-hot matrix
         self.yEncoder = LabelEncoder()
@@ -168,7 +170,11 @@ class DataReader(object):
         XData_train = self.XData[train_indices]
         YData_train = self.YData[train_indices]
 
-        orders = np.argsort([len(d) for d in XData_train])    # increasing order of number of tokens
+        # orders = np.argsort([len(d) for d in XData_train])    # increasing order of number of tokens
+
+        # give up bucketing. try just random orders.
+        orders = list(range(len(XData_train)))
+        np.random.shuffle(orders)
         self.XData_train = XData_train[orders]
         self.YData_train = YData_train[orders]
 
