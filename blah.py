@@ -1,16 +1,28 @@
 from pprint import pprint
+from time import time
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL']='0'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import tensorflow as tf
-from tensorflow.contrib.rnn import BasicLSTMCell
+from tensorflow.contrib.rnn import BasicLSTMCell, static_bidirectional_rnn
 
 from data_reader import DataReader
 from utilities import tensorflowFilewriter
 
+
+st = time()
+sess = tf.InteractiveSession()
+
+DEVICE = '/gpu:0'
+PATCH_TO_FULL = False
+
+# with tf.device(DEVICE):
 
 def print_log_str(x_, y_, xLengths_):
     """
     :return a string of loss and accuracy
     """
 
+    # feedDict = {x: x_, y: y_}
     feedDict = {x: x_, y: y_, sequenceLength: xLengths_}
 
     print('loss = %.3f, accuracy = %.3f' % \
@@ -21,8 +33,6 @@ def print_log_str(x_, y_, xLengths_):
             zip(*sess.run([trueY, pred], feed_dict=feedDict))])
 
 
-
-sess = tf.InteractiveSession()
 logger_train = tensorflowFilewriter('./logs/train')
 logger_train.add_graph(sess.graph)
 
@@ -39,18 +49,18 @@ numClasses = len(dataReader.get_classes_labels())
 
 # --------- running ---------
 learningRate = 0.1
-numSteps = 1000     # 1 step runs 1 batch
-batchSize = 5
+numSteps = 10     # 1 step runs 1 batch
+batchSize = 10
 
-logTrainingEvery = 10
-logValidationEvery = 100
+logTrainingEvery = 1
+logValidationEvery = 3
 
 print('====== CONFIG: SHUFFLED batch size %d, learning rate %.3f' % (batchSize, learningRate))
 
 # ================== GRAPH ===================
-# numSequences = dataReader.get_max_len()
-x = tf.placeholder('float', [None, None, vecDim])
-y = tf.placeholder('float', [None, numClasses])
+x = tf.placeholder(tf.float32, [None, None, vecDim])
+# x = tf.placeholder(tf.float32, [None, dataReader.get_max_len(), vecDim])
+y = tf.placeholder(tf.float32, [None, numClasses])
 sequenceLength = tf.placeholder(tf.int32)
 
 weights = tf.Variable(tf.random_normal([2*numHiddenLayerFeatures, numClasses]))
@@ -63,7 +73,11 @@ lstmCell_backward = BasicLSTMCell(numHiddenLayerFeatures)
 # wrap RNN around LSTM cells
 outputs, _ = tf.nn.bidirectional_dynamic_rnn(lstmCell_forward, lstmCell_backward,
                                              time_major=False, inputs=x, dtype=tf.float32,
-                                             sequence_length=sequenceLength)
+                                             sequence_length=sequenceLength,
+                                             swap_memory=True)
+
+# outputs, _ = static_bidirectional_rnn(lstmCell_forward, lstmCell_backward,
+#                                       inputs=x, dtype=tf.float32)
 
 # cost and optimize
 logits = tf.matmul(tf.concat(outputs, 2)[:,-1,:], weights) + biases
@@ -83,26 +97,27 @@ dataReader.start_batch_from_beginning()     # technically unnecessary
 
 for step in range(numSteps):
 
+    print('\nStep %d (%d data points):' % (step, step * batchSize))
+
     # will prob need some shape mangling here
-    batchX, batchY, xLengths = dataReader.get_next_training_batch(batchSize, verbose_=False)
+    batchX, batchY, xLengths = dataReader.get_next_training_batch(batchSize, patchTofull_=PATCH_TO_FULL, verbose_=False)
+    # feedDict = {x: batchX, y: batchY}
     feedDict = {x: batchX, y: batchY, sequenceLength: xLengths}
 
     sess.run(optimizer, feed_dict=feedDict)
 
     # print evaluations
     if step % logTrainingEvery == 0:
-        print('\nStep %d (%d data points):' % (step, step*batchSize))
         print_log_str(batchX, batchY, xLengths)
 
         if step % logValidationEvery == 0:
             print('>>> Validation:')
-            print_log_str(*(dataReader.get_validation_data()))
+            print_log_str(*(dataReader.get_validation_data(patchTofull_=PATCH_TO_FULL)))
 
 
+print('\n>>>>>> Test:')
+print_log_str(*(dataReader.get_test_data(patchTofull_=PATCH_TO_FULL)))
 
-print('\n>>>>>> Test:', print_log_str(*(dataReader.get_test_data())))
-
-
-
+print('Time elapsed:', time()-st)
 
 

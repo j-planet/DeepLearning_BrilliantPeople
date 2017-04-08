@@ -175,6 +175,7 @@ class DataReader(object):
         # give up bucketing. try just random orders.
         orders = list(range(len(XData_train)))
         np.random.shuffle(orders)
+
         self.XData_train = XData_train[orders]
         self.YData_train = YData_train[orders]
 
