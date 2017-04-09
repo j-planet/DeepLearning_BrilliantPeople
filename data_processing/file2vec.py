@@ -131,14 +131,10 @@ if __name__ == '__main__':
 
     # How to encode tokens that are missing from the embeddings file? Use 'unk' (which exists in the Glove embeddings file) for now
     embeddings, _ = extract_embedding(
-        embeddingsFilename_=EMBEDDINGS_NAME_FILE['42B300d'],
+        embeddingsFilename_=EMBEDDINGS_NAME_FILE['6B50d'],
         relevantTokens_=extract_tokenset_from_file('../data/peopleData/earlyLifeCorpus.txt'),
         includeUnk_=True
     )
-
-    # print(file2vec('../data/peopleData/earlyLifesTexts/abbe pierre.txt', embeddings))
-
-    'data/peopleData/earlyLifesWordMats'
 
     with open('../data/peopleData/processed_names.json', encoding='utf8') as ifile:
         peopleData = json.load(ifile)
@@ -152,9 +148,8 @@ if __name__ == '__main__':
         if os.path.exists(filename):
 
             mat = file2vec(filename, embeddings)
-            # d = {'mat': mat, 'occupation': occupation}
 
-            with open('../data/peopleData/earlyLifesWordMats/' + name + '.json', 'w', encoding='utf8') as ofile:
+            with open('../data/peopleData/earlyLifesWordMats_6B50d/' + name + '.json', 'w', encoding='utf8') as ofile:
                 json.dump({'occupation':occupation, 'mat':[list(l) for l in list(mat)]}, ofile)
 
         else:

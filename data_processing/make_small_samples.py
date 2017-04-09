@@ -8,7 +8,7 @@ PEOPLE_DATA_DIR = '../data/peopleData'
 
 
 def makeSmallSamples(occupations):
-    outputDir = os.path.join(PEOPLE_DATA_DIR, 'earlyLifesWordMats', '_'.join(occupations))
+    outputDir = os.path.join(PEOPLE_DATA_DIR, 'earlyLifesWordMats_6B50d', '_'.join(occupations))
 
     if os.path.exists(outputDir):
         print('Output directory %s already exists. Aborting...' % outputDir)
@@ -21,7 +21,7 @@ def makeSmallSamples(occupations):
 
         if d['occupation'][-1] in occupations:
 
-            srcFname = os.path.join(PEOPLE_DATA_DIR, 'earlyLifesWordMats', name + '.json')
+            srcFname = os.path.join(PEOPLE_DATA_DIR, 'earlyLifesWordMats_6B50d', name + '.json')
 
             if os.path.exists(srcFname):
                 print('Copying', name)
