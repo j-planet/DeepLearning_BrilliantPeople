@@ -36,12 +36,12 @@ logger_train = tensorflowFilewriter('./logs/train')
 logger_train.add_graph(sess.graph)
 
 # ================== DATA ===================
-dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats/politician_scientist')
+dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats_6B50d/politician_scientist')
 
 # ================== CONFIG ===================
 
 # --------- network ---------
-vecDim = 300
+vecDim = 50
 numHiddenLayerFeatures = 10
 numClasses = len(dataReader.get_classes_labels())
 

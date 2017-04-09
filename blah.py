@@ -9,6 +9,19 @@ from tensorflow.contrib.rnn import BasicLSTMCell, static_bidirectional_rnn
 from data_reader import DataReader
 from utilities import tensorflowFilewriter
 
+# TODO: try this
+"""
+from tensorflow.nn.rnn_cell import GRUCell, DropoutWrapper, MultiRNNCell
+
+num_neurons = 200
+num_layers = 3
+dropout = tf.placeholder(tf.float32)
+
+cell = GRUCell(num_neurons)  # Or LSTMCell(num_neurons)
+cell = DropoutWrapper(cell, output_keep_prob=dropout)
+cell = MultiRNNCell([cell] * num_layers)
+"""
+
 
 st = time()
 sess = tf.InteractiveSession()
