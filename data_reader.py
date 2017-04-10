@@ -1,4 +1,4 @@
-import json, os
+import json, os, glob
 from pprint import pprint
 import numpy as np
 from sklearn.model_selection import StratifiedShuffleSplit
@@ -78,33 +78,23 @@ class DataReader(object):
 
         XData = []
         YData = []
-        nonexist = 0
+        names = []
 
         if vectorFilesDir:
             print('======= Reading pre-made vector files... =======')
 
-            for name, d in self._peopleData.items():
+            for inputFilename in glob.glob(os.path.join(vectorFilesDir, '*.json')):
 
-                occupation = d['occupation'][-1]
-                filename = os.path.join(vectorFilesDir, name + '.json')
+                with open(inputFilename, encoding='utf8') as ifile:
+                    d = json.load(ifile)
 
-                if os.path.exists(filename):
-                    with open(filename, encoding='utf8') as ifile:
-                        d = json.load(ifile)
-
-                    mat = np.array(d['mat'])
-                    assert occupation == d['occupation']
-
-                    XData.append(mat)
-                    YData.append(occupation)
-
-                else:
-                    if verbose_:
-                        print(filename, 'does not exist.')
-
-                    nonexist += 1
+                XData.append(np.array(d['mat']))
+                YData.append(d['occupation'])
+                names.append(inputFilename.split('/')[-1].split('.')[0])
 
         else:
+            nonexist = 0
+
             print('======= Extracting embedding... =======')
             EMBEDDINGS, _ = extract_embedding(
                 embeddingsFilename_= embeddingsFilename,
@@ -119,19 +109,20 @@ class DataReader(object):
                 filename = './data/peopleData/earlyLifesTexts/%s.txt' % name
 
                 if os.path.exists(filename):
-                    mat = file2vec(filename, EMBEDDINGS)
-                    XData.append(mat)
+                    XData.append(file2vec(filename, EMBEDDINGS))
                     YData.append(occupation)
+                    names.append(name)
 
                 else:
                     print(filename, 'does not exist.')
                     nonexist += 1
 
-        print('%d / %d do not exist.' % (nonexist, len(self._peopleData)))
+            print('%d / %d do not exist.' % (nonexist, len(self._peopleData)))
 
         self.XData = np.array(XData)
         self.YData_raw_labels = np.array(YData)
         self.maxXLen = max([d.shape[0] for d in self.XData])
+        self.names = np.array(names)
 
 
     def __init__(self, vectorFilesDir=None, embeddingsFilename=None, peopleDataDir_ ='./data/peopleData', verbose_=False):
@@ -157,27 +148,27 @@ class DataReader(object):
 
         # ======= TRAIN-VALIDATION-TEST SPLIT=======
 
-        train_indices, valid_indices, test_indices = train_valid_test_split(self.YData_raw_labels, 0.7, 0.15, 0.15)
+        self.train_indices, self.valid_indices, self.test_indices = train_valid_test_split(self.YData_raw_labels, 0.7, 0.15, 0.15)
 
-        self.XData_valid = self.XData[valid_indices]
-        self.YData_valid = self.YData[valid_indices]
-
-        self.XData_test = self.XData[test_indices]
-        self.YData_test = self.YData[test_indices]
+        # self.XData_valid = self.XData[valid_indices]
+        # self.YData_valid = self.YData[valid_indices]
+        #
+        # self.XData_test = self.XData[test_indices]
+        # self.YData_test = self.YData[test_indices]
 
 
         # ======= BUCKETING TRAINING DATA =======
-        XData_train = self.XData[train_indices]
-        YData_train = self.YData[train_indices]
+        # XData_train = self.XData[train_indices]
+        # YData_train = self.YData[train_indices]
 
         # orders = np.argsort([len(d) for d in XData_train])    # increasing order of number of tokens
 
         # give up bucketing. try just random orders.
-        orders = list(range(len(XData_train)))
-        np.random.shuffle(orders)
-
-        self.XData_train = XData_train[orders]
-        self.YData_train = YData_train[orders]
+        # orders = list(range(len(XData_train)))
+        # np.random.shuffle(orders)
+        #
+        # self.XData_train = XData_train[orders]
+        # self.YData_train = YData_train[orders]
 
 
     def start_batch_from_beginning(self):
@@ -191,7 +182,7 @@ class DataReader(object):
 
     def get_next_training_batch(self, batchSize_, patchTofull_=False, verbose_ = True):
 
-        totalNumData = len(self.XData_train)
+        totalNumData = len(self.train_indices)
 
         if self.globalBatchIndex + batchSize_ <= totalNumData:
             newBatchIndex = self.globalBatchIndex + batchSize_
@@ -207,28 +198,29 @@ class DataReader(object):
         np.random.shuffle(batchIndices)
 
         # pad the x batch
-        XBatch, xLengths = patch_arrays(self.XData_train[batchIndices], self.maxXLen if patchTofull_ else None)
-        YBatch = self.YData_train[batchIndices]
+        XBatch, xLengths = patch_arrays(self.XData[self.train_indices][batchIndices], self.maxXLen if patchTofull_ else None)
+        YBatch = self.YData[self.train_indices][batchIndices]
+        names = self.names[self.train_indices][batchIndices]
 
         if verbose_:
             print('Indices:', batchIndices, '--> # tokens:', [len(d) for d in XBatch], '--> Y values:', YBatch)
 
-        return XBatch, YBatch, xLengths
+        return XBatch, YBatch, xLengths, names
 
     def get_all_training_data(self, patchTofull_=False,):
-        x, xlengths = patch_arrays(self.XData_train, self.maxXLen if patchTofull_ else None)
+        x, xlengths = patch_arrays(self.XData[self.train_indices], self.maxXLen if patchTofull_ else None)
 
-        return x, self.YData_train, xlengths
+        return x, self.YData[self.train_indices], xlengths, self.names[self.train_indices]
 
     def get_validation_data(self, patchTofull_=False,):
-        x, xlengths = patch_arrays(self.XData_valid, self.maxXLen if patchTofull_ else None)
+        x, xlengths = patch_arrays(self.XData[self.valid_indices], self.maxXLen if patchTofull_ else None)
 
-        return x, self.YData_valid, xlengths
+        return x, self.YData[self.valid_indices], xlengths, self.names[self.valid_indices]
 
     def get_test_data(self, patchTofull_=False,):
-        x, xlengths = patch_arrays(self.XData_test, self.maxXLen if patchTofull_ else None)
+        x, xlengths = patch_arrays(self.XData[self.test_indices], self.maxXLen if patchTofull_ else None)
 
-        return x, self.YData_test, xlengths
+        return x, self.YData[self.test_indices], xlengths, self.names[self.test_indices]
 
     def get_classes_labels(self):
         return self.classLabels

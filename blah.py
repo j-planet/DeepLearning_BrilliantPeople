@@ -1,7 +1,7 @@
 from pprint import pprint
 from time import time
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
+os.environ['TF_CPP_MIN_LOG_LEVEL']='0'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import tensorflow as tf
 from tensorflow.python.client.timeline import Timeline
 from tensorflow.contrib.rnn import BasicLSTMCell, static_bidirectional_rnn, MultiRNNCell, DropoutWrapper
@@ -17,47 +17,55 @@ PATCH_TO_FULL = False
 
 # with tf.device('/cpu:0'):
 
-def print_log_str(x_, y_, xLengths_):
+def print_log_str(x_, y_, xLengths_, names_):
     """
     :return a string of loss and accuracy
     """
 
     # feedDict = {x: x_, y: y_}
-    feedDict = {x: x_, y: y_, sequenceLength: xLengths_, outputKeepProb: 0.9}
+    feedDict = {x: x_, y: y_, sequenceLength: xLengths_, outputKeepProb: outputKeepProbConstant}
 
     print('loss = %.3f, accuracy = %.3f' % \
           tuple(sess.run([cost, accuracy], feed_dict=feedDict)))
 
+    labels = dataReader.get_classes_labels()
+    trueYInds, predYInds = sess.run([trueY, pred], feed_dict=feedDict)
+
     print('True label became... --> ?')
-    pprint(['%s --> %s' % (dataReader.get_classes_labels()[t], dataReader.get_classes_labels()[p]) for t, p in
-            zip(*sess.run([trueY, pred], feed_dict=feedDict))])
+
+    for i, name in enumerate(names_):
+        print('%s: %s --> %s %s' % (name, labels[trueYInds[i]], labels[predYInds[i]], '(wrong)' if trueYInds[i]!=predYInds[i] else '' ))
 
 
 logger_train = tensorflowFilewriter('./logs/train')
 logger_train.add_graph(sess.graph)
 
 # ================== DATA ===================
-# dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats')
-dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats_6B50d/politician_scientist')
+dataReader = DataReader(vectorFilesDir='./data/peopleData/4_samples')
+# dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats_6B50d/politician_scientist')
 
 # ================== CONFIG ===================
 
 # --------- network ---------
-vecDim = 50
-numHiddenLayerFeatures = 256
+vecDim = 300
+numHiddenLayerFeatures = 128
 numRnnLayers = 3
+outputKeepProbConstant = 1.
+
 numClasses = len(dataReader.get_classes_labels())
 outputKeepProb = tf.placeholder(tf.float32)
 
 # --------- running ---------
 learningRate = 0.001
-numSteps = 1000     # 1 step runs 1 batch
-batchSize = 10
+numSteps = 50     # 1 step runs 1 batch
+batchSize = 5
 
 logTrainingEvery = 5
-logValidationEvery = 20
+logValidationEvery = 10
 
-print('====== CONFIG: SHUFFLED batch size %d, learning rate %.3f' % (batchSize, learningRate))
+print('====== CONFIG: SHUFFLED %d hidden layers with %d features each;'
+      ' batch size %d, learning rate %.3f'
+      % (numRnnLayers, numHiddenLayerFeatures, batchSize, learningRate))
 
 # ================== GRAPH ===================
 x = tf.placeholder(tf.float32, [None, None, vecDim])
@@ -109,9 +117,9 @@ for step in range(numSteps):
     print('\nStep %d (%d data points):' % (step, step * batchSize))
 
     # will prob need some shape mangling here
-    batchX, batchY, xLengths = dataReader.get_next_training_batch(batchSize, patchTofull_=PATCH_TO_FULL, verbose_=False)
+    batchX, batchY, xLengths, names = dataReader.get_next_training_batch(batchSize, patchTofull_=PATCH_TO_FULL, verbose_=False)
     # feedDict = {x: batchX, y: batchY}
-    feedDict = {x: batchX, y: batchY, sequenceLength: xLengths, outputKeepProb: 0.9}
+    feedDict = {x: batchX, y: batchY, sequenceLength: xLengths, outputKeepProb: outputKeepProbConstant}
 
     sess.run(optimizer, feed_dict=feedDict)
     # options=tf.RunOptions(trace_level=tf.RunOptions.SOFTWARE_TRACE),
@@ -123,10 +131,10 @@ for step in range(numSteps):
 
     # print evaluations
     if step % logTrainingEvery == 0:
-        print_log_str(batchX, batchY, xLengths)
+        print_log_str(batchX, batchY, xLengths, names)
 
         if step % logValidationEvery == 0:
-            print('>>> Validation:')
+            print('\n>>> Validation:')
             print_log_str(*(dataReader.get_validation_data(patchTofull_=PATCH_TO_FULL)))
 
 

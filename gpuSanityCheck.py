@@ -44,7 +44,7 @@ run_metadata = tf.RunMetadata()
 
 startTime = time.time()
 
-for index in range(5):
+for index in range(2):
     if index==1:  #reset start time due to GPU overhead
         startTime = time.time()
 
