@@ -8,3 +8,4 @@ embeddings/
 logs/
 __pycache__/
 timeline*.json
+*_samples/
