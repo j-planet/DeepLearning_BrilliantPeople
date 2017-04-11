@@ -2,6 +2,7 @@ from pprint import pprint
 from time import time
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='0'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
+import numpy as np
 import tensorflow as tf
 from tensorflow.python.client.timeline import Timeline
 from tensorflow.contrib.rnn import BasicLSTMCell, BasicRNNCell, static_bidirectional_rnn, MultiRNNCell, DropoutWrapper
@@ -48,20 +49,20 @@ dataReader = DataReader(vectorFilesDir='./data/peopleData/4_samples')
 
 # --------- network ---------
 vecDim = 300
-numHiddenLayerFeatures = 128
-numRnnLayers = 3
+numHiddenLayerFeatures = 50
+numRnnLayers = 2
 outputKeepProbConstant = 1.
 
 numClasses = len(dataReader.get_classes_labels())
 outputKeepProb = tf.placeholder(tf.float32)
 
 # --------- running ---------
-learningRate = 0.1
+learningRate = 0.01
 numSteps = 30     # 1 step runs 1 batch
 batchSize = 5
 
 logTrainingEvery = 1
-logValidationEvery = 5
+logValidationEvery = 1
 
 print('====== CONFIG: SHUFFLED %d hidden layers with %d features each; '
       'dropoutKeep = %0.2f'
@@ -75,8 +76,8 @@ y = tf.placeholder(tf.float32, [None, numClasses])
 sequenceLength = tf.placeholder(tf.int32)
 
 # weights = tf.Variable(tf.random_normal([numHiddenLayerFeatures, numClasses]))
-weights = tf.Variable(tf.random_normal([2*numHiddenLayerFeatures, numClasses]))
-biases = tf.Variable(tf.random_normal([numClasses]))
+weights = tf.Variable(tf.random_normal([2*numHiddenLayerFeatures, numClasses]), name='weights')
+biases = tf.Variable(tf.random_normal([numClasses]), name='biases')
 
 # make LSTM cells
 # cell_forward = BasicLSTMCell(numHiddenLayerFeatures)
@@ -85,10 +86,14 @@ biases = tf.Variable(tf.random_normal([numClasses]))
 cell_forward = MultiRNNCell([DropoutWrapper(BasicLSTMCell(numHiddenLayerFeatures), output_keep_prob=outputKeepProb)] * numRnnLayers)
 cell_backward = MultiRNNCell([DropoutWrapper(BasicLSTMCell(numHiddenLayerFeatures), output_keep_prob=outputKeepProb)] * numRnnLayers)
 
-outputs, _ = tf.nn.bidirectional_dynamic_rnn(cell_forward, cell_backward,
+outputs, states = tf.nn.bidirectional_dynamic_rnn(cell_forward, cell_backward,
                                              time_major=False, inputs=x, dtype=tf.float32,
                                              sequence_length=sequenceLength,
                                              swap_memory=True)
+
+# potential TODO #1: use sentences (padded lengths) instead. maybe tokens is just too confusing.
+# potential TODO #2: manually roll two bidir dyanmic rnn's...?
+# potential TODO #3: include embedding in the training process, as a "trainable_variable"
 
 # wrap RNN around LSTM cells
 # baseCell = BasicLSTMCell(numHiddenLayerFeatures)
@@ -100,7 +105,21 @@ outputs, _ = tf.nn.bidirectional_dynamic_rnn(cell_forward, cell_backward,
 #                                swap_memory=True)
 
 # cost and optimize
-logits = tf.matmul(tf.concat(outputs, 2)[:,-1,:], weights) + biases
+
+def last_relevant(output_, lengths_):
+    batch_size = tf.shape(output_)[0]
+    max_length = tf.shape(output_)[1]
+    out_size = int(output_.get_shape()[2])
+    index = tf.range(0, batch_size) * max_length + (lengths_ - 1)
+    flat = tf.reshape(output_, [-1, out_size])
+
+    return tf.gather(flat, index)
+
+
+# output = tf.concat(outputs, 2)[:,-1,:]
+output = last_relevant(tf.concat(outputs, 2), sequenceLength)
+
+logits = tf.matmul(output, weights) + biases
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=y))
 optimizer = tf.train.AdamOptimizer(learning_rate=learningRate).minimize(cost)
 
