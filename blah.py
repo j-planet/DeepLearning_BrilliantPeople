@@ -1,7 +1,7 @@
 from pprint import pprint
 from time import time
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL']='0'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
+os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.client.timeline import Timeline
@@ -12,11 +12,18 @@ from utilities import tensorflowFilewriter
 
 
 st = time()
+
+# ================== DATA ===================
+with tf.device('/cpu:0'):
+    # dataReader = DataReader(vectorFilesDir='./data/peopleData/4_samples')
+    dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats/politician_scientist')
+# dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats')
+
+
 sess = tf.InteractiveSession()
 
 PATCH_TO_FULL = False
 
-# with tf.device('/cpu:0'):
 
 def print_log_str(x_, y_, xLengths_, names_):
     """
@@ -26,14 +33,11 @@ def print_log_str(x_, y_, xLengths_, names_):
     # feedDict = {x: x_, y: y_}
     feedDict = {x: x_, y: y_, sequenceLength: xLengths_, outputKeepProb: outputKeepProbConstant}
 
-    print('loss = %.3f, accuracy = %.3f' % \
-          tuple(sess.run([cost, accuracy], feed_dict=feedDict)))
-
     labels = dataReader.get_classes_labels()
-    trueYInds, predYInds = sess.run([trueY, pred], feed_dict=feedDict)
+    c, acc, trueYInds, predYInds = sess.run([cost, accuracy, trueY, pred], feed_dict=feedDict)
 
+    print('loss = %.3f, accuracy = %.3f' % (c, acc))
     print('True label became... --> ?')
-
     for i, name in enumerate(names_):
         print('%s: %s --> %s %s' % (name, labels[trueYInds[i]], labels[predYInds[i]], '(wrong)' if trueYInds[i]!=predYInds[i] else '' ))
 
@@ -41,28 +45,25 @@ def print_log_str(x_, y_, xLengths_, names_):
 logger_train = tensorflowFilewriter('./logs/train')
 logger_train.add_graph(sess.graph)
 
-# ================== DATA ===================
-dataReader = DataReader(vectorFilesDir='./data/peopleData/4_samples')
-# dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats_6B50d/politician_scientist')
 
 # ================== CONFIG ===================
 
 # --------- network ---------
 vecDim = 300
-numHiddenLayerFeatures = 50
-numRnnLayers = 2
-outputKeepProbConstant = 1.
+numHiddenLayerFeatures = 512
+numRnnLayers = 1
+outputKeepProbConstant = 0.99
 
 numClasses = len(dataReader.get_classes_labels())
 outputKeepProb = tf.placeholder(tf.float32)
 
 # --------- running ---------
-learningRate = 0.01
-numSteps = 30     # 1 step runs 1 batch
-batchSize = 5
+learningRate = 0.001
+numSteps = 1000     # 1 step runs 1 batch
+batchSize = 10
 
-logTrainingEvery = 1
-logValidationEvery = 1
+logTrainingEvery = 3
+logValidationEvery = 5
 
 print('====== CONFIG: SHUFFLED %d hidden layers with %d features each; '
       'dropoutKeep = %0.2f'
@@ -157,9 +158,9 @@ for step in range(numSteps):
     if step % logTrainingEvery == 0:
         print_log_str(batchX, batchY, xLengths, names)
 
-        if step % logValidationEvery == 0:
-            print('\n>>> Validation:')
-            print_log_str(*(dataReader.get_validation_data(patchTofull_=PATCH_TO_FULL)))
+    if step % logValidationEvery == 0:
+        print('\n>>> Validation:')
+        print_log_str(*(dataReader.get_validation_data(patchTofull_=PATCH_TO_FULL)))
 
 
 print('\n>>>>>> Test:')
