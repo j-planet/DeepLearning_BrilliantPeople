@@ -4,7 +4,7 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='0'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import tensorflow as tf
 from tensorflow.python.client.timeline import Timeline
-from tensorflow.contrib.rnn import BasicLSTMCell, static_bidirectional_rnn, MultiRNNCell, DropoutWrapper
+from tensorflow.contrib.rnn import BasicLSTMCell, BasicRNNCell, static_bidirectional_rnn, MultiRNNCell, DropoutWrapper
 
 from data_reader import DataReader
 from utilities import tensorflowFilewriter
@@ -56,16 +56,17 @@ numClasses = len(dataReader.get_classes_labels())
 outputKeepProb = tf.placeholder(tf.float32)
 
 # --------- running ---------
-learningRate = 0.001
-numSteps = 50     # 1 step runs 1 batch
+learningRate = 0.1
+numSteps = 30     # 1 step runs 1 batch
 batchSize = 5
 
-logTrainingEvery = 5
-logValidationEvery = 10
+logTrainingEvery = 1
+logValidationEvery = 5
 
-print('====== CONFIG: SHUFFLED %d hidden layers with %d features each;'
+print('====== CONFIG: SHUFFLED %d hidden layers with %d features each; '
+      'dropoutKeep = %0.2f'
       ' batch size %d, learning rate %.3f'
-      % (numRnnLayers, numHiddenLayerFeatures, batchSize, learningRate))
+      % (numRnnLayers, numHiddenLayerFeatures, outputKeepProbConstant, batchSize, learningRate))
 
 # ================== GRAPH ===================
 x = tf.placeholder(tf.float32, [None, None, vecDim])
@@ -73,26 +74,30 @@ x = tf.placeholder(tf.float32, [None, None, vecDim])
 y = tf.placeholder(tf.float32, [None, numClasses])
 sequenceLength = tf.placeholder(tf.int32)
 
-weights = tf.Variable(tf.random_normal([numHiddenLayerFeatures, numClasses]))
-# weights = tf.Variable(tf.random_normal([2*numHiddenLayerFeatures, numClasses]))
+# weights = tf.Variable(tf.random_normal([numHiddenLayerFeatures, numClasses]))
+weights = tf.Variable(tf.random_normal([2*numHiddenLayerFeatures, numClasses]))
 biases = tf.Variable(tf.random_normal([numClasses]))
 
 # make LSTM cells
-lstmCell_forward = BasicLSTMCell(numHiddenLayerFeatures)
-lstmCell_backward = BasicLSTMCell(numHiddenLayerFeatures)
+# cell_forward = BasicLSTMCell(numHiddenLayerFeatures)
+# cell_backward = BasicLSTMCell(numHiddenLayerFeatures)
+
+cell_forward = MultiRNNCell([DropoutWrapper(BasicLSTMCell(numHiddenLayerFeatures), output_keep_prob=outputKeepProb)] * numRnnLayers)
+cell_backward = MultiRNNCell([DropoutWrapper(BasicLSTMCell(numHiddenLayerFeatures), output_keep_prob=outputKeepProb)] * numRnnLayers)
+
+outputs, _ = tf.nn.bidirectional_dynamic_rnn(cell_forward, cell_backward,
+                                             time_major=False, inputs=x, dtype=tf.float32,
+                                             sequence_length=sequenceLength,
+                                             swap_memory=True)
 
 # wrap RNN around LSTM cells
-# rnnCell = tf.nn.bidirectional_dynamic_rnn(lstmCell_forward, lstmCell_backward,
-#                                              time_major=False, inputs=x, dtype=tf.float32,
-#                                              sequence_length=sequenceLength,
-#                                              swap_memory=True)
-baseCell = BasicLSTMCell(numHiddenLayerFeatures)
-baseCellWDropout = DropoutWrapper(baseCell, output_keep_prob=outputKeepProb)
-multiCell = MultiRNNCell([baseCell]*numRnnLayers)
-outputs, _ = tf.nn.dynamic_rnn(multiCell,
-                               time_major=False, inputs=x, dtype=tf.float32,
-                               sequence_length=sequenceLength,
-                               swap_memory=True)
+# baseCell = BasicLSTMCell(numHiddenLayerFeatures)
+# baseCellWDropout = DropoutWrapper(baseCell, output_keep_prob=outputKeepProb)
+# multiCell = MultiRNNCell([baseCell]*numRnnLayers)
+# outputs, _ = tf.nn.dynamic_rnn(multiCell,
+#                                time_major=False, inputs=x, dtype=tf.float32,
+#                                sequence_length=sequenceLength,
+#                                swap_memory=True)
 
 # cost and optimize
 logits = tf.matmul(tf.concat(outputs, 2)[:,-1,:], weights) + biases
