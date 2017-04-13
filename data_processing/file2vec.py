@@ -184,25 +184,13 @@ if __name__ == '__main__':
 
         mat = file2vec(filename, embeddings)
 
+        if not mat:
+            print('ERROR: no content read for %s. Skipping...' % name)
+            continue
+
         with open(outputFname, 'w', encoding='utf8') as ofile:
             json.dump({'occupation': occupation, 'mat': [list(l) for l in list(mat)]}, ofile)
 
         processed += 1
 
     print('Processed %d out of %d in names json files.' % (processed, len(peopleData)))
-
-
-    # for name, d in peopleData.items():
-    #     occupation = d['occupation'][-1]
-    #     filename = '../data/peopleData/earlyLifesTexts/%s.txt' % name
-    #
-    #     if os.path.exists(filename):
-    #
-    #         mat = file2vec(filename, embeddings)
-    #
-    #         with open('../data/peopleData/earlyLifesWordMats_6B50d/' + name + '.json', 'w', encoding='utf8') as ofile:
-    #             json.dump({'occupation':occupation, 'mat':[list(l) for l in list(mat)]}, ofile)
-    #
-    #     else:
-    #         print(filename, 'does not exist.')
-    #         nonexist += 1
