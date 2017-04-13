@@ -16,8 +16,8 @@ PATCH_TO_FULL = False
 
 # ================== DATA ===================
 with tf.device('/cpu:0'):
-    # dataReader = DataReader('./data/peopleData/4_samples', 'random')
-    dataReader = DataReader('./data/peopleData/earlyLifesWordMats/politician_scientist', 'bucketing')
+    dataReader = DataReader('./data/peopleData/4_samples', 'bucketing')
+    # dataReader = DataReader('./data/peopleData/earlyLifesWordMats/politician_scientist', 'bucketing')
     # dataReader = DataReader('./data/peopleData/earlyLifesWordMats')
     # dataReader = DataReader('./data/peopleData/earlyLifesWordMats_42B300d')
 
@@ -36,11 +36,12 @@ numClasses = len(dataReader.get_classes_labels())
 outputKeepProb = tf.placeholder(tf.float32)
 
 # --------- running ---------
-learningRate = 0.01
+learningRateConstant = 0.01
 numSteps = 1000  # 1 step runs 1 batch
 batchSize = 10
+learningRate = tf.Variable(learningRateConstant, name='learningRate')
 
-logTrainingEvery = 5
+logTrainingEvery = 1
 logValidationEvery = 10
 
 def validate(batchSize_):
@@ -111,8 +112,8 @@ if __name__ == '__main__':
 
     print('====== CONFIG: SHUFFLED %d hidden layers with %d features each; '
           'dropoutKeep = %0.2f'
-          ' batch size %d, learning rate %.3f'
-          % (numRnnLayers, numHiddenLayerFeatures, outputKeepProbConstant, batchSize, learningRate))
+          ' batch size %d, initial learning rate %.3f'
+          % (numRnnLayers, numHiddenLayerFeatures, outputKeepProbConstant, batchSize, learningRateConstant))
 
     # ================== GRAPH ===================
     x = tf.placeholder(tf.float32, [None, None, vecDim])
@@ -155,7 +156,7 @@ if __name__ == '__main__':
 
     logits = tf.matmul(output, weights) + biases
     cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=y))
-    optimizer = tf.train.AdamOptimizer(learning_rate=learningRate).minimize(cost)
+    optimizer = tf.train.AdamOptimizer(learning_rate=learningRateConstant).minimize(cost)
 
     # predictions and accuracy
     pred = tf.argmax(logits, 1)
@@ -179,10 +180,13 @@ if __name__ == '__main__':
     # run_metadata = tf.RunMetadata()
 
     for step in range(numSteps):
+        numDataPoints = step * batchSize
+        print('\nStep %d (%d data points); learning rate = %0.3f:' % (step, numDataPoints, sess.run(learningRate)))
 
-        print('\nStep %d (%d data points):' % (step, step * batchSize))
+        lrDecay = 0.9 ** (numDataPoints / len(dataReader.train_indices))
+        print(lrDecay)
+        sess.run(tf.assign(learningRate, learningRateConstant * lrDecay))
 
-        # will prob need some shape mangling here
         batchX, batchY, xLengths, names = dataReader.get_next_training_batch(batchSize, patchTofull_=PATCH_TO_FULL, verbose_=False)
         feedDict = {x: batchX, y: batchY, sequenceLength: xLengths, outputKeepProb: outputKeepProbConstant}
 
@@ -204,10 +208,12 @@ if __name__ == '__main__':
             validate(10)
 
 
+    train_writer.flush()
+    print('Time elapsed:', time()-st)
+
     print('\n>>>>>> Test:')
     print_log_str(*(dataReader.get_all_test_data(patchTofull_=PATCH_TO_FULL)))
 
-    print('Time elapsed:', time()-st)
 
     # trace_file = open('timeline.ctf.json', 'w')
     # trace_file.write(trace.generate_chrome_trace_format())
