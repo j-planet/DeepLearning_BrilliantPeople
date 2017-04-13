@@ -119,7 +119,7 @@ class DataReader(object):
 
         # ======= TRAIN-VALIDATION-TEST SPLIT=======
 
-        self.train_indices, self.valid_indices, self.test_indices = train_valid_test_split(self.YData_raw_labels, 0.7, 0.15, 0.15)
+        self.train_indices, self.valid_indices, self.test_indices = train_valid_test_split(self.YData_raw_labels, 0.8, 0.1, 0.1)
 
         # self.XData_valid = self.XData[valid_indices]
         # self.YData_valid = self.YData[valid_indices]
@@ -178,17 +178,35 @@ class DataReader(object):
 
         return XBatch, YBatch, xLengths, names
 
-    def get_all_training_data(self, patchTofull_=False,):
+    def get_all_training_data(self, patchTofull_=False):
         x, xlengths = patch_arrays(self.XData[self.train_indices], self.maxXLen if patchTofull_ else None)
 
         return x, self.YData[self.train_indices], xlengths, self.names[self.train_indices]
 
-    def get_validation_data(self, patchTofull_=False,):
+    def get_all_validation_data(self, patchTofull_=False):
         x, xlengths = patch_arrays(self.XData[self.valid_indices], self.maxXLen if patchTofull_ else None)
 
         return x, self.YData[self.valid_indices], xlengths, self.names[self.valid_indices]
 
-    def get_test_data(self, patchTofull_=False,):
+    def get_validation_data_in_batches(self, batchSize_, patchTofull_=False):
+
+        res = []
+
+        total = len(self.valid_indices)
+        numBatches = int(np.ceil(total/batchSize_))
+
+        for i in range(numBatches):
+            curIndices = self.valid_indices[i * batchSize_: (i+1)*batchSize_]
+
+            x, xlengths = patch_arrays(self.XData[curIndices], self.maxXLen if patchTofull_ else None)
+
+            res.append((x, self.YData[curIndices], xlengths, self.names[curIndices]))
+
+        return res
+
+
+
+    def get_all_test_data(self, patchTofull_=False):
         x, xlengths = patch_arrays(self.XData[self.test_indices], self.maxXLen if patchTofull_ else None)
 
         return x, self.YData[self.test_indices], xlengths, self.names[self.test_indices]

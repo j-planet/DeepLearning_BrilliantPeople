@@ -114,11 +114,11 @@ for step in range(numSteps):
 
         if step % logValidationEvery == 0:
             print('>>> Validation:')
-            print_log_str(*(dataReader.get_validation_data(patchTofull_=PATCH_TO_FULL)))
+            print_log_str(*(dataReader.get_all_validation_data(patchTofull_=PATCH_TO_FULL)))
 
 
 print('\n>>>>>> Test:')
-print_log_str(*(dataReader.get_test_data(patchTofull_=PATCH_TO_FULL)))
+print_log_str(*(dataReader.get_all_test_data(patchTofull_=PATCH_TO_FULL)))
 
 print('Time elapsed:', time()-st)
 
