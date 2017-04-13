@@ -9,33 +9,34 @@ from tensorflow.python.client.timeline import Timeline
 from tensorflow.contrib.rnn import BasicLSTMCell, BasicRNNCell, static_bidirectional_rnn, MultiRNNCell, DropoutWrapper
 
 from data_reader import DataReader
-from utilities import tensorflowFilewriter
+from utilities import tensorflowFilewriters
 
 
 PATCH_TO_FULL = False
 
 # ================== DATA ===================
 with tf.device('/cpu:0'):
-    # dataReader = DataReader(vectorFilesDir='./data/peopleData/4_samples')
+    dataReader = DataReader(vectorFilesDir='./data/peopleData/4_samples')
     # dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats/politician_scientist')
     # dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats')
-    dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats_42B300d')
+    # dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats_42B300d')
 
-sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.9)))
+# sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.9)))
+sess = tf.InteractiveSession()
 
 # ================== CONFIG ===================
 
 # --------- network ---------
 vecDim = 300
-numHiddenLayerFeatures = 128
-numRnnLayers = 10
+numHiddenLayerFeatures = 8
+numRnnLayers = 1
 outputKeepProbConstant = 0.99
 
 numClasses = len(dataReader.get_classes_labels())
 outputKeepProb = tf.placeholder(tf.float32)
 
 # --------- running ---------
-learningRate = 0.002
+learningRate = 0.01
 numSteps = 1000  # 1 step runs 1 batch
 batchSize = 10
 
@@ -50,18 +51,18 @@ def validate(batchSize_):
     allPredYInds = []
     allNames = []
 
+    # d: x, y, xLengths, names
     for d in dataReader.get_validation_data_in_batches(batchSize_):
-        x, y, xLengths, names = d
 
-        feedDict = {x: x, y: y, sequenceLength: xLengths, outputKeepProb: outputKeepProbConstant}
+        feedDict = {x: d[0], y: d[1], sequenceLength: d[2], outputKeepProb: outputKeepProbConstant}
         c, acc, trueYInds, predYInds = sess.run([cost, accuracy, trueY, pred], feed_dict=feedDict)
 
-        actualCount = len(xLengths)
+        actualCount = len(d[2])
         totalCost += c * actualCount
         totalAccuracy += acc * actualCount
-        allNames += names
-        allTrueYInds += trueYInds
-        allPredYInds += predYInds
+        allNames += list(d[3])
+        allTrueYInds += list(trueYInds)
+        allPredYInds += list(predYInds)
 
     assert len(allTrueYInds)==len(allPredYInds)==len(allNames)
 
@@ -75,8 +76,8 @@ def validate(batchSize_):
     for i, name in enumerate(allNames):
         print('%s: %s --> %s %s' %
               (name,
-               labels[trueYInds[i]], labels[predYInds[i]],
-               '(wrong)' if trueYInds[i] != predYInds[i] else ''))
+               labels[allTrueYInds[i]], labels[allPredYInds[i]],
+               '(wrong)' if allTrueYInds[i] != allPredYInds[i] else ''))
 
 def print_log_str(x_, y_, xLengths_, names_):
     """
@@ -107,9 +108,6 @@ def last_relevant(output_, lengths_):
 
 if __name__ == '__main__':
     st = time()
-
-    logger_train = tensorflowFilewriter('./logs/train')
-    logger_train.add_graph(sess.graph)
 
     print('====== CONFIG: SHUFFLED %d hidden layers with %d features each; '
           'dropoutKeep = %0.2f'
@@ -166,7 +164,15 @@ if __name__ == '__main__':
         tf.equal(pred, trueY)
         , tf.float32))
 
-    # train
+    summary.scalar('cost', cost)
+    summary.scalar('accuracy', accuracy)
+
+    # =========== set up tensorboard ===========
+    merged_summaries = summary.merge_all()
+    train_writer, valid_writer = tensorflowFilewriters('./logs/main')
+    train_writer.add_graph(sess.graph)
+
+    # =========== TRAIN!! ===========
     sess.run(tf.global_variables_initializer())
     dataReader.start_batch_from_beginning()     # technically unnecessary
 
@@ -180,7 +186,8 @@ if __name__ == '__main__':
         batchX, batchY, xLengths, names = dataReader.get_next_training_batch(batchSize, patchTofull_=PATCH_TO_FULL, verbose_=False)
         feedDict = {x: batchX, y: batchY, sequenceLength: xLengths, outputKeepProb: outputKeepProbConstant}
 
-        sess.run(optimizer, feed_dict=feedDict)
+        _, summaries = sess.run([optimizer, merged_summaries], feed_dict=feedDict)
+        train_writer.add_summary(summaries, step * batchSize)
         # options=tf.RunOptions(trace_level=tf.RunOptions.SOFTWARE_TRACE),
         # run_metadata=run_metadata)
 

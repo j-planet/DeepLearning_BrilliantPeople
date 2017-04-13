@@ -2,17 +2,20 @@ import glob, os
 import tensorflow as tf
 
 
-def tensorflowFilewriter(writerDir):
+def tensorflowFilewriters(writerDir):
+    """ 
+    :return: trainWriter, ValidateWriter
+    """
 
-    # clear existing logs first
-    for f in glob.glob(writerDir.strip('/') + '/*'):
-        os.remove(f)
+    def _make_one_writer(dir_):
+        # clear existing logs first
+        for f in glob.glob(os.path.join(dir_, '*')):
+            os.remove(f)
 
-    # for f in glob.glob('./logs/word2vec/validation/*'): os.remove(f)
-    train_writer = tf.summary.FileWriter(writerDir)
-    # valid_writer = tf.summary.FileWriter('./logs/word2vec/validation')
+        return tf.summary.FileWriter(dir_)
 
-    return train_writer
+    return _make_one_writer(os.path.join(writerDir, 'train')), \
+           _make_one_writer(os.path.join(writerDir, 'validation'))
 
 
 def reshape_x_for_non_dynamic(x_, numSeqs_, seqLen_):

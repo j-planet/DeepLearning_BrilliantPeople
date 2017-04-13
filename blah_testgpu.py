@@ -7,7 +7,7 @@ from tensorflow.python.client.timeline import Timeline
 from tensorflow.contrib.rnn import BasicLSTMCell, static_bidirectional_rnn
 
 from data_reader import DataReader
-from utilities import tensorflowFilewriter
+from utilities import tensorflowFilewriters
 
 
 st = time()
@@ -32,7 +32,7 @@ def print_log_str(x_, y_, xLengths_):
             zip(*sess.run([trueY, pred], feed_dict=feedDict))])
 
 
-logger_train = tensorflowFilewriter('./logs/train')
+logger_train, _ = tensorflowFilewriters('./logs/train')
 logger_train.add_graph(sess.graph)
 
 # ================== DATA ===================
