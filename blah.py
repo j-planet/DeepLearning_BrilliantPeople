@@ -16,20 +16,20 @@ PATCH_TO_FULL = False
 
 # ================== DATA ===================
 with tf.device('/cpu:0'):
-    dataReader = DataReader('./data/peopleData/4_samples', 'bucketing')
+    # dataReader = DataReader('./data/peopleData/4_samples', 'bucketing')
     # dataReader = DataReader('./data/peopleData/earlyLifesWordMats/politician_scientist', 'bucketing')
     # dataReader = DataReader('./data/peopleData/earlyLifesWordMats')
-    # dataReader = DataReader('./data/peopleData/earlyLifesWordMats_42B300d')
+    dataReader = DataReader('./data/peopleData/earlyLifesWordMats_42B300d', 'bucketing')
 
-# sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.9)))
-sess = tf.InteractiveSession()
+sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.9)))
+# sess = tf.InteractiveSession()
 
 # ================== CONFIG ===================
 
 # --------- network ---------
 vecDim = 300
-numHiddenLayerFeatures = 128
-numRnnLayers = 1
+numHiddenLayerFeatures = 256
+numRnnLayers = 10
 outputKeepProbConstant = 0.99
 
 numClasses = len(dataReader.get_classes_labels())
@@ -38,13 +38,24 @@ outputKeepProb = tf.placeholder(tf.float32)
 # --------- running ---------
 learningRateConstant = 0.01
 numSteps = 1000  # 1 step runs 1 batch
-batchSize = 10
-learningRate = tf.Variable(learningRateConstant, name='learningRate')
+batchSize = 32
 
-logTrainingEvery = 1
+logTrainingEvery = 3
 logValidationEvery = 10
 
-def validate(batchSize_):
+# --------- constant 'variables' ---------
+learningRate = tf.Variable(learningRateConstant, name='learningRate')
+validCost = tf.Variable(1, name='validationCost')
+validAcc = tf.Variable(0, name='validationAccuracy')
+summary.scalar('valid cost', validCost)
+summary.scalar('valid accuracy', validAcc)
+
+
+def validate_or_test(batchSize_, validateOrTest):
+
+    assert validateOrTest in ['validate', 'test']
+
+    data = dataReader.get_data_in_batches(batchSize_, validateOrTest, patchTofull_=PATCH_TO_FULL)
 
     totalCost = 0
     totalAccuracy = 0
@@ -53,7 +64,7 @@ def validate(batchSize_):
     allNames = []
 
     # d: x, y, xLengths, names
-    for d in dataReader.get_validation_data_in_batches(batchSize_):
+    for d in data:
 
         feedDict = {x: d[0], y: d[1], sequenceLength: d[2], outputKeepProb: outputKeepProbConstant}
         c, acc, trueYInds, predYInds = sess.run([cost, accuracy, trueY, pred], feed_dict=feedDict)
@@ -70,6 +81,10 @@ def validate(batchSize_):
     numDataPoints = len(allTrueYInds)
     avgCost = totalCost / numDataPoints
     avgAccuracy = totalAccuracy / numDataPoints
+
+    if validateOrTest=='validate':
+        sess.run(tf.assign(validCost, avgCost))
+        sess.run(tf.assign(validAcc, avgAccuracy))
 
     labels = dataReader.get_classes_labels()
     print('loss = %.3f, accuracy = %.3f' % (avgCost, avgAccuracy))
@@ -165,8 +180,8 @@ if __name__ == '__main__':
         tf.equal(pred, trueY)
         , tf.float32))
 
-    summary.scalar('cost', cost)
-    summary.scalar('accuracy', accuracy)
+    summary.scalar('training cost', cost)
+    summary.scalar('training accuracy', accuracy)
 
     # =========== set up tensorboard ===========
     merged_summaries = summary.merge_all()
@@ -184,14 +199,12 @@ if __name__ == '__main__':
         print('\nStep %d (%d data points); learning rate = %0.3f:' % (step, numDataPoints, sess.run(learningRate)))
 
         lrDecay = 0.9 ** (numDataPoints / len(dataReader.train_indices))
-        print(lrDecay)
         sess.run(tf.assign(learningRate, learningRateConstant * lrDecay))
 
         batchX, batchY, xLengths, names = dataReader.get_next_training_batch(batchSize, patchTofull_=PATCH_TO_FULL, verbose_=False)
         feedDict = {x: batchX, y: batchY, sequenceLength: xLengths, outputKeepProb: outputKeepProbConstant}
 
         _, summaries = sess.run([optimizer, merged_summaries], feed_dict=feedDict)
-        train_writer.add_summary(summaries, step * batchSize)
         # options=tf.RunOptions(trace_level=tf.RunOptions.SOFTWARE_TRACE),
         # run_metadata=run_metadata)
 
@@ -201,18 +214,20 @@ if __name__ == '__main__':
 
         # print evaluations
         if step % logTrainingEvery == 0:
+            train_writer.add_summary(summaries, step * batchSize)
             print_log_str(batchX, batchY, xLengths, names)
+            train_writer.flush()
 
         if step % logValidationEvery == 0:
+            valid_writer.add_summary(summaries, step * batchSize)
             print('\n>>> Validation:')
-            validate(10)
+            validate_or_test(10, 'validate')
 
 
-    train_writer.flush()
     print('Time elapsed:', time()-st)
 
     print('\n>>>>>> Test:')
-    print_log_str(*(dataReader.get_all_test_data(patchTofull_=PATCH_TO_FULL)))
+    validate_or_test(10, 'test')
 
 
     # trace_file = open('timeline.ctf.json', 'w')

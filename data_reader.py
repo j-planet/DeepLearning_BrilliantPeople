@@ -180,23 +180,29 @@ class DataReader(object):
 
         return x, self.YData[self.valid_indices], xlengths, self.names[self.valid_indices]
 
-    def get_validation_data_in_batches(self, batchSize_, patchTofull_=False):
+    def get_data_in_batches(self, batchSize_, validTestOrTrain, patchTofull_=False):
+        """
+        :return: a list
+        """
+
+        assert validTestOrTrain in ['validate', 'test', 'train']
+
+        dataIndices = self.valid_indices if validTestOrTrain=='validate' else \
+            self.test_indices if validTestOrTrain=='test' else self.train_indices
 
         res = []
 
-        total = len(self.valid_indices)
-        numBatches = int(np.ceil(total/batchSize_))
+        total = len(dataIndices)
+        numBatches = int(np.ceil(total / batchSize_))
 
         for i in range(numBatches):
-            curIndices = self.valid_indices[i * batchSize_: (i+1)*batchSize_]
+            curIndices = dataIndices[i * batchSize_: (i + 1) * batchSize_]
 
             x, xlengths = patch_arrays(self.XData[curIndices], self.maxXLen if patchTofull_ else None)
 
             res.append((x, self.YData[curIndices], xlengths, self.names[curIndices]))
 
         return res
-
-
 
     def get_all_test_data(self, patchTofull_=False):
         x, xlengths = patch_arrays(self.XData[self.test_indices], self.maxXLen if patchTofull_ else None)
