@@ -17,7 +17,8 @@ st = time()
 with tf.device('/cpu:0'):
     # dataReader = DataReader(vectorFilesDir='./data/peopleData/4_samples')
     # dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats/politician_scientist')
-    dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats')
+    # dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats')
+    dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats_42B300d')
 
 
 sess = tf.InteractiveSession()
@@ -58,7 +59,7 @@ numClasses = len(dataReader.get_classes_labels())
 outputKeepProb = tf.placeholder(tf.float32)
 
 # --------- running ---------
-learningRate = 0.005
+learningRate = 0.002
 numSteps = 1000     # 1 step runs 1 batch
 batchSize = 10
 

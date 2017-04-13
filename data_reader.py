@@ -70,54 +70,25 @@ def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=T
 
 class DataReader(object):
 
-    def _read_data_from_files(self, vectorFilesDir=None, embeddingsFilename=None, peopleDataDir_ ='./data/peopleData', verbose_=False):
-        assert vectorFilesDir is not None or embeddingsFilename is not None, 'Must provide either converted files or the embeddings file.'
+    def _read_data_from_files(self, vectorFilesDir):
 
-        with open(os.path.join(peopleDataDir_, 'processed_names.json'), encoding='utf8') as ifile:
-            self._peopleData = json.load(ifile)
+        # with open(os.path.join(peopleDataDir_, 'processed_names.json'), encoding='utf8') as ifile:
+        #     self._peopleData = json.load(ifile)
 
         XData = []
         YData = []
         names = []
 
-        if vectorFilesDir:
-            print('======= Reading pre-made vector files... =======')
+        print('======= Reading pre-made vector files... =======')
 
-            for inputFilename in glob.glob(os.path.join(vectorFilesDir, '*.json')):
+        for inputFilename in glob.glob(os.path.join(vectorFilesDir, '*.json')):
 
-                with open(inputFilename, encoding='utf8') as ifile:
-                    d = json.load(ifile)
+            with open(inputFilename, encoding='utf8') as ifile:
+                d = json.load(ifile)
 
-                XData.append(np.array(d['mat']))
-                YData.append(d['occupation'])
-                names.append(inputFilename.split('/')[-1].split('.')[0])
-
-        else:
-            nonexist = 0
-
-            print('======= Extracting embedding... =======')
-            EMBEDDINGS, _ = extract_embedding(
-                embeddingsFilename_= embeddingsFilename,
-                relevantTokens_=extract_tokenset_from_file(os.path.join(peopleDataDir_, 'earlyLifeCorpus.txt')),
-                includeUnk_=True,
-                verbose=False
-            )
-
-            for name, d in self._peopleData.items():
-
-                occupation = d['occupation'][-1]
-                filename = './data/peopleData/earlyLifesTexts/%s.txt' % name
-
-                if os.path.exists(filename):
-                    XData.append(file2vec(filename, EMBEDDINGS))
-                    YData.append(occupation)
-                    names.append(name)
-
-                else:
-                    print(filename, 'does not exist.')
-                    nonexist += 1
-
-            print('%d / %d do not exist.' % (nonexist, len(self._peopleData)))
+            XData.append(np.array(d['mat']))
+            YData.append(d['occupation'])
+            names.append(inputFilename.split('/')[-1].split('.')[0])
 
         self.XData = np.array(XData)
         self.YData_raw_labels = np.array(YData)
@@ -125,7 +96,7 @@ class DataReader(object):
         self.names = np.array(names)
 
 
-    def __init__(self, vectorFilesDir=None, embeddingsFilename=None, peopleDataDir_ ='./data/peopleData', verbose_=False):
+    def __init__(self, vectorFilesDir=None):
         """
         
         :param vectorFilesDir: if files have already been converted to vectors, provide this directory. embeddingsFilename will be ignored 
@@ -136,7 +107,7 @@ class DataReader(object):
         self.globalBatchIndex = 0
 
         # extract word2vec from files
-        self._read_data_from_files(vectorFilesDir, embeddingsFilename, peopleDataDir_, verbose_)
+        self._read_data_from_files(vectorFilesDir)
 
         # transform Y data into a one-hot matrix
         self.yEncoder = LabelEncoder()
