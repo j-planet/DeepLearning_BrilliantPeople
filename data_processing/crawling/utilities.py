@@ -1,6 +1,8 @@
 import re
 from data_processing.file2vec import ZERO_WIDTH_UNICODES
 import requests
+from pprint import pprint
+import os, json
 from bs4 import BeautifulSoup
 
 
@@ -49,3 +51,34 @@ def clean_line(line_):  # strip and remove stuff, lower case
 
 def url_2_soup(url):
     return BeautifulSoup(requests.get(url).content, 'html.parser')
+
+def crawl_wiki_list_of(url, title, occupations, outputDir, verbose=False):
+    soup = url_2_soup(url)
+
+    res = {}
+
+    for li in soup.select('#mw-content-text li'):
+        line = clean_line(li.text)
+        tokens = line.split(' ')
+        numTokens = len(tokens)
+
+        # filter out things most likely not a name
+        if len(line) < 5: continue
+        if numTokens < 2 or numTokens > 4: continue
+        if tokens[0].isnumeric(): continue
+        if line.find('list of') != -1: continue
+
+        name, birthYear, deathYear, description = parse_name_years(line)
+
+        res[name] = {'occupation': occupations,
+                     'yearBirth': birthYear, 'yearDead': deathYear,
+                     'description': title + '.' + description}
+
+    if verbose: pprint(res)
+    print('%d %ss names read.' % (len(res), title))
+
+    if outputDir:
+        with open(os.path.join(outputDir, title + '_processed_names.json'), 'w', encoding='utf8') as outputFile:
+            json.dump(res, outputFile)
+
+    return res
