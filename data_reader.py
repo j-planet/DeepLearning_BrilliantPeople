@@ -96,13 +96,14 @@ class DataReader(object):
         self.names = np.array(names)
 
 
-    def __init__(self, vectorFilesDir=None):
+    def __init__(self, vectorFilesDir, bucketingOrRandom):
         """
         
-        :param vectorFilesDir: if files have already been converted to vectors, provide this directory. embeddingsFilename will be ignored 
-        :param embeddingsFilename: if files have not been provided, convert files on the fly
-        :param peopleDataDir_: 
+        :param vectorFilesDir: if files have already been converted to vectors, provide this directory. embeddingsFilename will be ignored
+        :param bucketingOrRandom: one of {'bucketing', 'random'} for training data points order
         """
+
+        assert bucketingOrRandom=='bucketing' or bucketingOrRandom=='random'
 
         self.globalBatchIndex = 0
 
@@ -121,25 +122,16 @@ class DataReader(object):
 
         self.train_indices, self.valid_indices, self.test_indices = train_valid_test_split(self.YData_raw_labels, 0.8, 0.1, 0.1)
 
-        # self.XData_valid = self.XData[valid_indices]
-        # self.YData_valid = self.YData[valid_indices]
-        #
-        # self.XData_test = self.XData[test_indices]
-        # self.YData_test = self.YData[test_indices]
-
-
         # ======= BUCKETING TRAINING DATA =======
-        # XData_train = self.XData[train_indices]
-        # YData_train = self.YData[train_indices]
+        if bucketingOrRandom == 'bucketing':
+            orders = np.argsort([len(d) for d in self.XData[self.train_indices]])    # increasing order of number of tokens
+        elif bucketingOrRandom == 'random':
+            orders = list(range(len(self.train_indices)))
+            np.random.shuffle(orders)
+        else:
+            raise Exception('Invalid bucketingOrRandom option:', bucketingOrRandom)
 
-        # orders = np.argsort([len(d) for d in XData_train])    # increasing order of number of tokens
-
-        # give up bucketing. try just random orders.
-        # orders = list(range(len(XData_train)))
-        # np.random.shuffle(orders)
-        #
-        # self.XData_train = XData_train[orders]
-        # self.YData_train = YData_train[orders]
+        self.train_indices = self.train_indices[orders]
 
 
     def start_batch_from_beginning(self):

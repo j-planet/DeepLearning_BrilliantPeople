@@ -1,7 +1,7 @@
 from pprint import pprint
 from time import time
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL']='0'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
+os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import numpy as np
 import tensorflow as tf
 from tensorflow import summary
@@ -16,10 +16,10 @@ PATCH_TO_FULL = False
 
 # ================== DATA ===================
 with tf.device('/cpu:0'):
-    dataReader = DataReader(vectorFilesDir='./data/peopleData/4_samples')
-    # dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats/politician_scientist')
-    # dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats')
-    # dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats_42B300d')
+    # dataReader = DataReader('./data/peopleData/4_samples', 'random')
+    dataReader = DataReader('./data/peopleData/earlyLifesWordMats/politician_scientist', 'bucketing')
+    # dataReader = DataReader('./data/peopleData/earlyLifesWordMats')
+    # dataReader = DataReader('./data/peopleData/earlyLifesWordMats_42B300d')
 
 # sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.9)))
 sess = tf.InteractiveSession()
@@ -28,7 +28,7 @@ sess = tf.InteractiveSession()
 
 # --------- network ---------
 vecDim = 300
-numHiddenLayerFeatures = 8
+numHiddenLayerFeatures = 128
 numRnnLayers = 1
 outputKeepProbConstant = 0.99
 
