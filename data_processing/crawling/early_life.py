@@ -3,6 +3,9 @@ import glob
 import os
 import bs4
 from bs4 import BeautifulSoup
+from joblib import Parallel, delayed
+import multiprocessing
+
 
 from data_processing.crawling.crawl_wiki import crawl_wiki_text
 
@@ -122,8 +125,7 @@ if __name__ == '__main__':
     #
     # skipIfFileExists = True
     #
-    total = 0
-    processed = 0
+    # processed = 0
     #
     # for wikiTextFilename in glob.glob(os.path.join(inputDir, '*.txt')):
     #
@@ -133,19 +135,19 @@ if __name__ == '__main__':
     #         processed += 1
     #
 
-    for namesFilepath in glob.glob(os.path.join(PPL_DATA_DIR, 'processed_names', '*processed_names*.json')):
+    # read { name: occupation }
+    peopleData = {}
+    for filename in glob.glob(os.path.join(PPL_DATA_DIR, 'processed_names/*processed_names*.json')):
+        with open(filename, encoding='utf8') as ifile:
+            peopleData.update(json.load(ifile))
 
-    # for namesFilename in ['mathies_processed_names.json', 'nobel_prize_processed_names.json', 'processed_names.json']:
+    def process_one_person(name_):
+        try:
+            name_to_earlylife(name_)
+        except Exception as e:
+            print('Error occurred:', e)
 
-        with open(namesFilepath, encoding='utf8') as namesFile:
-            for name in json.load(namesFile).keys():
-                print(total)
-                total += 1
 
-                try:
-                    if name_to_earlylife(name):
-                        processed += 1
-                except Exception as e:
-                    print('Error occurred:', e)
+    Parallel(n_jobs=8)(delayed(process_one_person)(name) for name in peopleData.keys())
 
-    print(processed, ' out of ', total, ' processed successfully.')
+
