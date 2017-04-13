@@ -1,7 +1,8 @@
 import string
-import os
+import os, glob
 import json
 import numpy as np
+import difflib
 
 
 ZERO_WIDTH_UNICODES = [u'\u200d', u'\u200c', u'\u200b']
@@ -51,10 +52,15 @@ def insert_spaces_into_corpus(text_):
 
 def extract_embedding(embeddingsFilename_, relevantTokens_, includeUnk_ = True,
                       verbose = True):
+    """
+    :param relevantTokens_: if None, then all lines in the embeddings file are returned 
+    :return: (dictionary, list of not found tokens if releventTokens is not None; otherwise, None) 
+    """
 
     res = {}
+    useRelevantTokens = relevantTokens_ is not None
 
-    if includeUnk_:
+    if includeUnk_ and useRelevantTokens:
         if type(relevantTokens_)==set:
             relevantTokens_.add('unk')
         elif type(relevantTokens_)==list:
@@ -67,22 +73,26 @@ def extract_embedding(embeddingsFilename_, relevantTokens_, includeUnk_ = True,
             tokens = line.split(' ')
             word = tokens[0]
 
-            if word not in relevantTokens_: continue
+            if useRelevantTokens and word not in relevantTokens_: continue
 
             vec = [float(t) for t in tokens[1:]]
             res[word] = vec
 
     numNotFound = 0
-    notFoundTokens = set()
 
-    for token in relevantTokens_:
-        if token not in res:
-            numNotFound += 1
-            notFoundTokens.add(token)
+    if useRelevantTokens:
+        notFoundTokens = set()
 
-            if verbose: print(token, 'not found.')
+        for token in relevantTokens_:
+            if token not in res:
+                numNotFound += 1
+                notFoundTokens.add(token)
 
-    print('%d out of %d, or %.1f%% not found.' % (numNotFound, len(relevantTokens_), 100. * numNotFound / len(relevantTokens_)))
+                if verbose: print(token, 'not found.')
+
+        print('%d out of %d, or %.1f%% not found.' % (numNotFound, len(relevantTokens_), 100. * numNotFound / len(relevantTokens_)))
+    else:
+        notFoundTokens = None
 
     return res, notFoundTokens
 
@@ -118,6 +128,8 @@ def create_custom_embeddings_file(inputEmbeddingFilename, tokensFilename, output
 
 if __name__ == '__main__':
 
+    PPL_DATA_DIR = '../data/peopleData'
+
     EMBEDDINGS_NAME_FILE = \
         {'6B50d': '../data/glove/glove.6B/glove.6B.50d.txt',
          '6B300d': '../data/glove/glove.6B/glove.6B.300d.txt',
@@ -129,29 +141,68 @@ if __name__ == '__main__':
          'earlylife200d_80pc': '../data/peopleData/earlyLifeEmbeddings.200d_80pc.txt'
          }
 
-    # How to encode tokens that are missing from the embeddings file? Use 'unk' (which exists in the Glove embeddings file) for now
+    embeddingName = '42B300d'
+
     embeddings, _ = extract_embedding(
-        embeddingsFilename_=EMBEDDINGS_NAME_FILE['6B50d'],
-        relevantTokens_=extract_tokenset_from_file('../data/peopleData/earlyLifeCorpus.txt'),
+        embeddingsFilename_=EMBEDDINGS_NAME_FILE[embeddingName],
+        relevantTokens_=None,
         includeUnk_=True
     )
+    print('DONE reading embeddings.')
 
-    with open('../data/peopleData/processed_names.json', encoding='utf8') as ifile:
-        peopleData = json.load(ifile)
+    # read { name: occupation }
+    peopleData = {}
+    for filename in glob.glob(os.path.join(PPL_DATA_DIR, 'processed_names/*.json')):
+        with open(filename, encoding='utf8') as ifile:
+            peopleData.update(json.load(ifile))
 
-    nonexist = 0
 
-    for name, d in peopleData.items():
-        occupation = d['occupation'][-1]
-        filename = '../data/peopleData/earlyLifesTexts/%s.txt' % name
+    processed = 0
+    outputDir = os.path.join(PPL_DATA_DIR, 'earlyLifesWordMats_' + embeddingName)
 
-        if os.path.exists(filename):
+    for filename in glob.glob(os.path.join(PPL_DATA_DIR, 'earlyLifesTexts/*.txt')):
 
-            mat = file2vec(filename, embeddings)
+        name = filename.split('/')[-1].split('.txt')[0]
+        outputFname = os.path.join(outputDir, name + '.json')
 
-            with open('../data/peopleData/earlyLifesWordMats_6B50d/' + name + '.json', 'w', encoding='utf8') as ofile:
-                json.dump({'occupation':occupation, 'mat':[list(l) for l in list(mat)]}, ofile)
+        if os.path.exists(outputFname):
+            print(outputFname, 'already exists. Skipping...')
+            continue
 
+        if name in peopleData:
+            occupation = peopleData[name]['occupation'][-1]
         else:
-            print(filename, 'does not exist.')
-            nonexist += 1
+            fuzzyMatches = difflib.get_close_matches(name, peopleData.keys(), 1)   # hack for the issue of matching utf8 names
+
+            if fuzzyMatches:
+                fuzzyMatchedName = fuzzyMatches[0]
+                occupation = peopleData[fuzzyMatchedName]['occupation'][-1]
+                print('FUZZY MATCH: %s -> %s' % (name, fuzzyMatchedName))
+            else:
+                print('ERROR: %s does not exist in names json files. Not even a fuzzy match.' % name)
+                continue
+
+        mat = file2vec(filename, embeddings)
+
+        with open(outputFname, 'w', encoding='utf8') as ofile:
+            json.dump({'occupation': occupation, 'mat': [list(l) for l in list(mat)]}, ofile)
+
+        processed += 1
+
+    print('Processed %d out of %d in names json files.' % (processed, len(peopleData)))
+
+
+    # for name, d in peopleData.items():
+    #     occupation = d['occupation'][-1]
+    #     filename = '../data/peopleData/earlyLifesTexts/%s.txt' % name
+    #
+    #     if os.path.exists(filename):
+    #
+    #         mat = file2vec(filename, embeddings)
+    #
+    #         with open('../data/peopleData/earlyLifesWordMats_6B50d/' + name + '.json', 'w', encoding='utf8') as ofile:
+    #             json.dump({'occupation':occupation, 'mat':[list(l) for l in list(mat)]}, ofile)
+    #
+    #     else:
+    #         print(filename, 'does not exist.')
+    #         nonexist += 1
