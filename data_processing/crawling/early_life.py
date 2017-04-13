@@ -66,7 +66,7 @@ def extract_early_life(filename_, outputFilename_, skipIfExists_):
             for earlyLifeString in EARLY_LIFE_STRINGS:
 
                 if earlyLifeString.lower() in heading and heading.find('career')==-1:
-                    print('found:', earlyLifeString, 'in', heading)
+                    print('found for %s:' % filename_, earlyLifeString, 'in', heading)
 
                     for nextSibling in element.next_siblings:
 
@@ -110,6 +110,7 @@ def name_to_earlylife(name,
 
 if __name__ == '__main__':
 
+
     # inputDir = os.path.join(PPL_DATA_DIR, 'extracts')
     # outputDir = os.path.join(PPL_DATA_DIR, 'earlyLifesTexts')
     #
@@ -126,9 +127,11 @@ if __name__ == '__main__':
     #         processed += 1
     #
 
-    for namesFilename in ['mathies_processed_names.json', 'nobel_prize_processed_names.json', 'processed_names.json']:
+    for namesFilepath in glob.glob(os.path.join(PPL_DATA_DIR, 'processed_names', '*processed_names*.json')):
 
-        with open(os.path.join(PPL_DATA_DIR, namesFilename), encoding='utf8') as namesFile:
+    # for namesFilename in ['mathies_processed_names.json', 'nobel_prize_processed_names.json', 'processed_names.json']:
+
+        with open(namesFilepath, encoding='utf8') as namesFile:
             for name in json.load(namesFile).keys():
                 print(total)
                 total += 1
