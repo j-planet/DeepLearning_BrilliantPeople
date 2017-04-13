@@ -1,7 +1,7 @@
 import json, os
 import string
 
-from data_processing.crawling.utilities import clean_line, parse_name_years, url_2_soup, crawl_wiki_list_of
+from data_processing.crawling.utilities import crawl_wiki_list_of
 
 
 PPL_DATA_DIR = '../../data/peopleData'
@@ -36,5 +36,5 @@ for url in urls:
 
 print('%d %ss names read.' % (len(res), title))
 
-with open(os.path.join(PPL_DATA_DIR, title + '_processed_names.json'), 'w', encoding='utf8') as outputFile:
+with open(os.path.join(PPL_DATA_DIR, 'processed_names', title + '_processed_names.json'), 'w', encoding='utf8') as outputFile:
     json.dump(res, outputFile)

@@ -4,7 +4,7 @@ import os
 import bs4
 from bs4 import BeautifulSoup
 
-from crawl_wiki import crawl_wiki_text
+from data_processing.crawling.crawl_wiki import crawl_wiki_text
 
 
 # in order of search
@@ -100,12 +100,18 @@ def name_to_earlylife(name,
                       outputDir_ = os.path.join(PPL_DATA_DIR, 'earlyLifesTexts'),
                       skipIfFilesExists_=True):
 
+    finalOutputFname = os.path.join(outputDir_, name + '.txt')
+
+    if skipIfFilesExists_ and os.path.exists(finalOutputFname):
+        print('Early life for %s already exists. Skipping...' % name)
+        return finalOutputFname
+
     temp = crawl_wiki_text(name, extractsDir_, skipIfFilesExists_)
 
     if temp is None:
         return None
 
-    return extract_early_life(temp[1], os.path.join(outputDir_, name + '.txt'), skipIfFilesExists_)
+    return extract_early_life(temp[1], finalOutputFname, skipIfFilesExists_)
 
 
 if __name__ == '__main__':
@@ -135,7 +141,11 @@ if __name__ == '__main__':
             for name in json.load(namesFile).keys():
                 print(total)
                 total += 1
-                if name_to_earlylife(name):
-                    processed += 1
+
+                try:
+                    if name_to_earlylife(name):
+                        processed += 1
+                except Exception as e:
+                    print('Error occurred:', e)
 
     print(processed, ' out of ', total, ' processed successfully.')

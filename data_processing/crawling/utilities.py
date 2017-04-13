@@ -19,7 +19,6 @@ def parse_name_years(line):
     years = re.findall(r'\d{4}', rest)
 
     if len(years)==0:
-        print('ERROR: no year information available. :', line)
         birthYear = None
         deathYear = None
 
@@ -52,6 +51,21 @@ def clean_line(line_):  # strip and remove stuff, lower case
 def url_2_soup(url):
     return BeautifulSoup(requests.get(url).content, 'html.parser')
 
+def is_not_name(s_):
+    """ 
+    :return: true if s_ is DEFINITELY NOT a name; false if s_ MAY BE a name  
+    """
+
+    if len(s_) < 5: return True
+
+    numTokens = len(s_.split(' '))
+
+    return numTokens < 2 or numTokens > 4 \
+           or len(re.findall(r'\d\d+', s_))>0 \
+           or s_.find('list of') != -1 \
+           or s_.find('u.s.')!=-1 \
+           or s_.find(' by ')!=-1
+
 def crawl_wiki_list_of(url, title, occupations, outputDir, verbose=False):
     soup = url_2_soup(url)
 
@@ -59,14 +73,9 @@ def crawl_wiki_list_of(url, title, occupations, outputDir, verbose=False):
 
     for li in soup.select('#mw-content-text li'):
         line = clean_line(li.text)
-        tokens = line.split(' ')
-        numTokens = len(tokens)
 
-        # filter out things most likely not a name
-        if len(line) < 5: continue
-        if numTokens < 2 or numTokens > 4: continue
-        if tokens[0].isnumeric(): continue
-        if line.find('list of') != -1: continue
+
+        if is_not_name(line): continue  # filter out things most likely not a name
 
         name, birthYear, deathYear, description = parse_name_years(line)
 
