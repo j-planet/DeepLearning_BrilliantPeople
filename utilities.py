@@ -8,6 +8,9 @@ def tensorflowFilewriters(writerDir):
     """
 
     def _make_one_writer(dir_):
+
+        if not os.path.exists(dir_): os.mkdir(dir_)
+
         # clear existing logs first
         for f in glob.glob(os.path.join(dir_, '*')):
             os.remove(f)

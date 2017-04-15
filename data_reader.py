@@ -87,8 +87,9 @@ class DataReader(object):
                 d = json.load(ifile)
 
             XData.append(np.array(d['mat']))
-            YData.append(d['occupation'])
-            names.append(inputFilename.split('/')[-1].split('.')[0])
+            occ = d['occupation']
+            YData.append(occ if type(occ)==str else occ[-1])
+            names.append(os.path.basename(inputFilename).split('.json')[0])
 
         self.XData = np.array(XData)
         self.YData_raw_labels = np.array(YData)

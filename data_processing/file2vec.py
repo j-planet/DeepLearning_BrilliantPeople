@@ -135,10 +135,10 @@ if __name__ == '__main__':
          '6B300d': '../data/glove/glove.6B/glove.6B.300d.txt',
          '42B300d': '../data/glove/glove.42B.300d.txt',
          '840B300d': '../data/glove/glove.840B.300d.txt',
-         'earlylife128d_alltokens': '../data/peopleData/earlyLifeEmbeddings.128d_alltokens.txt',
-         'earlylife128d_80pc': '../data/peopleData/earlyLifeEmbeddings.128d_80pc.txt',
-         'earlylife200d_alltokens': '../data/peopleData/earlyLifeEmbeddings.200d_alltokens.txt',
-         'earlylife200d_80pc': '../data/peopleData/earlyLifeEmbeddings.200d_80pc.txt'
+         'earlylife128d_alltokens': '../data/peopleData/embeddings/earlyLifeEmbeddings.128d_alltokens.txt',
+         'earlylife128d_80pc': '../data/peopleData/embeddings/earlyLifeEmbeddings.128d_80pc.txt',
+         'earlylife200d_alltokens': '../data/peopleData/embeddings/earlyLifeEmbeddings.200d_alltokens.txt',
+         'earlylife200d_80pc': '../data/peopleData/embeddings/earlyLifeEmbeddings.200d_80pc.txt'
          }
 
     embeddingName = '42B300d'
@@ -159,6 +159,7 @@ if __name__ == '__main__':
 
     processed = 0
     outputDir = os.path.join(PPL_DATA_DIR, 'earlyLifesWordMats_' + embeddingName)
+    if not os.path.exists(outputDir): os.mkdir(outputDir)
 
     for filename in glob.glob(os.path.join(PPL_DATA_DIR, 'earlyLifesTexts/*.txt')):
 
@@ -170,13 +171,13 @@ if __name__ == '__main__':
             continue
 
         if name in peopleData:
-            occupation = peopleData[name]['occupation'][-1]
+            occupation = peopleData[name]['occupation']
         else:
             fuzzyMatches = difflib.get_close_matches(name, peopleData.keys(), 1)   # hack for the issue of matching utf8 names
 
             if fuzzyMatches:
                 fuzzyMatchedName = fuzzyMatches[0]
-                occupation = peopleData[fuzzyMatchedName]['occupation'][-1]
+                occupation = peopleData[fuzzyMatchedName]['occupation']
                 print('FUZZY MATCH: %s -> %s' % (name, fuzzyMatchedName))
             else:
                 print('ERROR: %s does not exist in names json files. Not even a fuzzy match.' % name)
@@ -184,7 +185,7 @@ if __name__ == '__main__':
 
         mat = file2vec(filename, embeddings)
 
-        if not mat:
+        if len(mat)==0:
             print('ERROR: no content read for %s. Skipping...' % name)
             continue
 

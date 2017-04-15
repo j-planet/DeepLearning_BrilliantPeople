@@ -1,5 +1,5 @@
 import json
-import os
+import os, glob
 import shutil
 
 
@@ -7,30 +7,32 @@ import shutil
 PEOPLE_DATA_DIR = '../data/peopleData'
 
 
-def makeSmallSamples(occupations):
-    outputDir = os.path.join(PEOPLE_DATA_DIR, 'earlyLifesWordMats_6B50d', '_'.join(occupations))
+def makeSmallSamples(occupations_, srcDir, overwriteIfExists=False):
+    outputDir = os.path.join(srcDir, '_'.join(occupations_))
 
     if os.path.exists(outputDir):
-        print('Output directory %s already exists. Aborting...' % outputDir)
-        return
+        print('Output directory %s already exists. %s...' % (outputDir, 'Overwriting' if overwriteIfExists else 'skipping'))
 
-    os.mkdir(outputDir)
-    with open(os.path.join(PEOPLE_DATA_DIR, 'processed_names.json'), encoding='utf8') as inputFile:
-        peopleData = json.load(inputFile)
-    for name, d in peopleData.items():
+        if not overwriteIfExists:
+            return
+    else:
+        os.mkdir(outputDir)
 
-        if d['occupation'][-1] in occupations:
+    for filePath in glob.glob(os.path.join(srcDir, '*.json')):
 
-            srcFname = os.path.join(PEOPLE_DATA_DIR, 'earlyLifesWordMats_6B50d', name + '.json')
+        with open(filePath, encoding='utf8') as inputFile:
+            d = json.load(inputFile)
+            
+        occupation = d['occupation'][-1]
 
-            if os.path.exists(srcFname):
-                print('Copying', name)
-                targetFname = os.path.join(outputDir, name + '.json')
-                shutil.copyfile(srcFname, targetFname)
+        if occupation in occupations_:
+
+            print('Copying', filePath)
+            shutil.copyfile(filePath, os.path.join(outputDir, os.path.basename(filePath)))
 
 
 if __name__ == '__main__':
 
     occupations = ['politician', 'scientist']
 
-    makeSmallSamples(occupations)
+    makeSmallSamples(occupations, srcDir=os.path.join(PEOPLE_DATA_DIR, 'earlyLifesWordMats_42B300d'),overwriteIfExists=True)
