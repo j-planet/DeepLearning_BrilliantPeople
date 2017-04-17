@@ -1,21 +1,25 @@
+import re
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.rnn import BasicLSTMCell, stack_bidirectional_dynamic_rnn, MultiRNNCell
+from tensorflow.contrib.rnn import BasicLSTMCell, stack_bidirectional_dynamic_rnn, MultiRNNCell, DropoutWrapper, LSTMCell
 import matplotlib.pyplot as plt
+from utilities import tensorflowFilewriters
 
 
+VARIABLE_LENGTHS = True
+USE_RELU = False    # relu or tanh
 
-vecDim = 100
+vecDim = 99
 numClasses = 2
 
-numCellUnits = 5
-numSteps = 300
+numSteps = 100
 numSeq = 8
+outputKeepProb = 1.
 
-batchSize_training = 25
-batchSize_testing = 300
+batchSize_training = 100
+batchSize_testing = 100
 testEvery = 10
 
 
@@ -25,78 +29,143 @@ def generate_batch(batchSize_):
     """
 
     res_x = np.random.random((batchSize_, numSeq, vecDim))
-    res_lengths = [np.random.randint(numSeq)+1 for _ in range(batchSize_)]
 
-    # if above average length, class = 1, else 0. (i.e. depends solely on the lengths)
-    # res_y = np.array([ [0, 1] if l > int(numSeq/2) else [1, 0] for l in res_lengths])
+    if VARIABLE_LENGTHS:
+        res_lengths = [np.random.randint(numSeq)+1 for _ in range(batchSize_)]
+        # if above average length, class = 1, else 0. (i.e. depends solely on the lengths)
+        # res_y = np.array([ [0, 1] if l > int(numSeq/2) else [1, 0] for l in res_lengths])
 
-    # if sum of the last row is above average
-    res_y = np.array([[0, 1] if res_x[i, l-1, :].sum() > vecDim*0.5 else [1, 0] for i, l in enumerate(res_lengths)])
+        # if sum of the last row is above average
+        res_y = np.array([[0, 1] if res_x[i, l-1, :].sum() > vecDim*0.5 else [1, 0] for i, l in enumerate(res_lengths)])
+    else:
+        res_lengths = None
+        res_y = np.array([[0, 1] if res_x[i, -1, :].sum() > vecDim*0.5 else [1, 0] for i in range(batchSize_)])
 
     return res_x, res_y, res_lengths
 
 def last_relevant(output_, lengths_):
-    batch_size = tf.shape(output_)[0]
-    max_length = tf.shape(output_)[1]
-    out_size = int(output_.get_shape()[2])
-    index = tf.range(0, batch_size) * max_length + (lengths_ - 1)
-    flat = tf.reshape(output_, [-1, out_size])
 
-    return tf.gather(flat, index)
+    if VARIABLE_LENGTHS:
+
+        batch_size = tf.shape(output_)[0]
+        max_length = tf.shape(output_)[1]
+        out_size = int(output_.get_shape()[2])
+        index = tf.range(0, batch_size) * max_length + (lengths_ - 1)
+        flat = tf.reshape(output_, [-1, out_size])
+
+        return tf.gather(flat, index)
+    else:
+
+        return output_[:,-1,:]
 
 
-def make_stacked_cells(numLayers_):
-    return [BasicLSTMCell(numCellUnits) for _ in range(numLayers_)]
+def make_stacked_cells(numLayers_, numCellUnits_):
 
+    def _make_base_cell():
+        return LSTMCell(numCellUnits_, activation=tf.nn.relu if USE_RELU else tf.tanh)
 
-def main(useCorrectLengths_, useStackRNN_, numLayers_, learningRate_, outputDir_):
+    if outputKeepProb == 1.0:
+        return [_make_base_cell() for _ in range(numLayers_)]
+
+    return [DropoutWrapper(_make_base_cell(), output_keep_prob=outputKeepProb) for _ in range(numLayers_)]
+
+def variable_summaries(var, nameScope):
+    """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
+    with tf.name_scope(nameScope):
+        mean = tf.reduce_mean(var)
+        tf.summary.scalar('mean', mean)
+        with tf.name_scope('stddev'):
+            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+        tf.summary.scalar('stddev', stddev)
+        tf.summary.scalar('max', tf.reduce_max(var))
+        tf.summary.scalar('min', tf.reduce_min(var))
+        tf.summary.histogram('histogram', var)
+
+def get_variable_by_name(name_):
+    l = [v for v in tf.global_variables() if v.name == name_]
+
+    return l[0] if len(l)>0 else None
+
+def get_variable_by_name_regex(regexStr_):
+    return [v for v in tf.global_variables() if len(re.findall(regexStr_, v.name)) > 0]
+
+def add_1_dimension(tensor_):
+    return tf.stack(tensor_, axis=-1)
+
+def main(useCorrectLengths_, useStackRNN_, numLayers_, numCellUnits_, learningRate_, outputDir_):
+
+    if outputDir_:
+        print('LOGGED TO', outputDir_)
+
     tf.reset_default_graph()
     sess = tf.InteractiveSession()
 
-    title = '%s (%s lengths, %d layers, %0.3f learning rate)' % \
-            ('stack_bidirectional_dynamic_rnn' if useStackRNN_ else 'bidirectional_dynamic_rnn',
+    title = '%s (%s lengths, %d units, %d layers, %0.3f lr)' % \
+            ('stacked' if useStackRNN_ else 'notstacked',
              'CORRECT' if useCorrectLengths_ else 'WRONG',
-             numLayers_, learningRate_)
+             numCellUnits_, numLayers_, learningRate_)
 
     print('=============', title, '=============')
 
-    x = tf.placeholder(tf.float32, [None, None, vecDim])
-    y = tf.placeholder(tf.float32, [None, numClasses])
-    sequenceLength = tf.placeholder(tf.int32)
+    x = tf.placeholder(tf.float32, [None, None, vecDim], name='x')
+    y = tf.placeholder(tf.float32, [None, numClasses], name='y')
+    sequenceLength = tf.placeholder(tf.int32, name='sequenceLength') if VARIABLE_LENGTHS else None
+
+    with tf.name_scope('bidirLayer'):
+        with tf.name_scope('forwardLSTMs'):
+            forwardCells = make_stacked_cells(numLayers_, numCellUnits_)
+
+        with tf.name_scope('backwardLSTMs'):
+            backwardCells = make_stacked_cells(numLayers_, numCellUnits_)
+
+        if useStackRNN_:
+            outputs, _, _ = stack_bidirectional_dynamic_rnn(forwardCells, backwardCells,
+                                                            inputs=x, dtype=tf.float32,
+                                                            sequence_length=sequenceLength)
+        else:
+            outputs, states = tf.nn.bidirectional_dynamic_rnn(MultiRNNCell(forwardCells), MultiRNNCell(backwardCells),
+                                                              time_major=False, inputs=x, dtype=tf.float32,
+                                                              sequence_length=sequenceLength,
+                                                              swap_memory=True)
+            outputs = tf.concat(outputs, 2)
+
+        output = last_relevant(outputs, sequenceLength)
+        variable_summaries(output, 'output')
 
     weights = tf.Variable(tf.random_normal([2 * numCellUnits, numClasses]), name='weights')
+    variable_summaries(weights, 'weights')
+
     biases = tf.Variable(tf.random_normal([numClasses]), name='biases')
+    variable_summaries(biases, 'biases')
 
-    forwardCells = make_stacked_cells(numLayers_)
-    backwardCells = make_stacked_cells(numLayers_)
+    with tf.name_scope('evaluation'):
+        logits = tf.matmul(output, weights) + biases
+        cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=y))
 
-    # outputs = tf.concat(
-    #     tf.nn.bidirectional_dynamic_rnn(MultiRNNCell(forwardCells), MultiRNNCell(backwardCells),
-    #                                     time_major=False, inputs=x, dtype=tf.float32,
-    #                                     sequence_length=sequenceLength,
-    #                                     swap_memory=True)[0],
-    #     2)
-
-    outputs = \
-        stack_bidirectional_dynamic_rnn(forwardCells, backwardCells,
-                                        inputs=x, dtype=tf.float32,
-                                        sequence_length=sequenceLength)[0] if useStackRNN_ \
-            else tf.concat(
-            tf.nn.bidirectional_dynamic_rnn(MultiRNNCell(forwardCells), MultiRNNCell(backwardCells),
-                                            time_major=False, inputs=x, dtype=tf.float32,
-                                            sequence_length=sequenceLength,
-                                            swap_memory=True)[0],
-            2)
-
-    output = last_relevant(outputs, sequenceLength)
-    logits = tf.matmul(output, weights) + biases
-    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=y))
-    optimizer = tf.train.AdamOptimizer(learning_rate=learningRate_).minimize(cost)
+    with tf.name_scope('train'):
+        optimizer = tf.train.AdamOptimizer(learning_rate=learningRate_).minimize(cost)
 
     # predictions and accuracy
     pred = tf.argmax(logits, 1)
     trueY = tf.argmax(y, 1)
     accuracy = tf.reduce_mean(tf.cast(tf.equal(pred, trueY), tf.float32))
+
+    tf.summary.scalar('cost', cost)
+    tf.summary.scalar('accuracy', accuracy)
+
+    if outputDir_:
+        mergedSummaries = tf.summary.merge_all()
+        trainWriter, testWriter = tensorflowFilewriters(outputDir_)
+        trainWriter.add_graph(sess.graph)
+
+    # only for tesitng/validation
+    images = [tf.summary.image('outputs', add_1_dimension(tf.transpose(outputs, [1, 0, 2])), max_outputs=numSeq),
+              tf.summary.image('fw_weights_cell_0_Adam', add_1_dimension(tf.stack(get_variable_by_name_regex('fw.*cell_0.*weights.*Adam'))), max_outputs=2),
+              tf.summary.image('bw_weights_cell_0_Adam', add_1_dimension(tf.stack(get_variable_by_name_regex('bw.*cell_0.*weights.*Adam'))), max_outputs=2),
+              tf.summary.image('fw_weights_cell_>0_Adam', add_1_dimension(tf.stack(get_variable_by_name_regex('fw.*cell_[1-9].*weights.*Adam'))), max_outputs=2*(numLayers_-1)),
+              tf.summary.image('bw_weights_cell_>0_Adam', add_1_dimension(tf.stack(get_variable_by_name_regex('bw.*cell_[1-9].*weights.*Adam'))), max_outputs=2*(numLayers_-1)),
+              tf.summary.image('fw_biases_Adam', add_1_dimension(tf.stack(get_variable_by_name_regex('fw.*cell.*biases.*Adam'))), max_outputs=2*numLayers_),
+              tf.summary.image('bw_biases_Adam', add_1_dimension(tf.stack(get_variable_by_name_regex('bw.*cell.*biases.*Adam'))), max_outputs=2*numLayers_)]
 
     # =========== TRAIN!! ===========
     sess.run(tf.global_variables_initializer())
@@ -111,25 +180,38 @@ def main(useCorrectLengths_, useStackRNN_, numLayers_, learningRate_, outputDir_
         numDataPoints = (step+1) * batchSize_training
 
         batchX, batchY, xLengths = generate_batch(batchSize_training)
+        feedDict = {x: batchX, y: batchY,
+                    sequenceLength: xLengths if useCorrectLengths_ else [numSeq] * batchSize_training} if VARIABLE_LENGTHS \
+            else {x: batchX, y: batchY}
+
+
 
         # what happens if we use the wrong lengths
-        _, c, acc = sess.run([optimizer, cost, accuracy],
-                             feed_dict={x: batchX, y: batchY,
-                                        sequenceLength: xLengths if useCorrectLengths_ else [numSeq] * batchSize_training})
+        _, c, acc, summaryRes = sess.run([optimizer, cost, accuracy, mergedSummaries], feedDict)
         trainCostVec.append(c)
         trainAccVec.append(acc)
 
         print('Step %d (%d data points): training cost = %0.3f accuracy = %0.3f'
               % (step, numDataPoints, c, acc))
 
+        if outputDir_:
+            trainWriter.add_summary(summaryRes, numDataPoints)
+
         if step % testEvery == 0:
-            testC, testAcc = sess.run([cost, accuracy],
-                                      feed_dict={x: testX, y: testY, sequenceLength: testLengths if useCorrectLengths_ else [numSeq] * batchSize_testing})
+            feedDict = {x: testX, y: testY,
+                        sequenceLength: testLengths if useCorrectLengths_ else [numSeq] * batchSize_testing} if VARIABLE_LENGTHS \
+                else {x: testX, y: testY}
+
+            testC, testAcc, summaryRes, imgs = sess.run([cost, accuracy, mergedSummaries, images], feedDict)
 
             testXPts.append(numDataPoints)
             testCostVec.append(testC)
             testAccVec.append(testAcc)
             print('>>>> test cost = %0.3f accuracy = %0.3f' % (testC, testAcc))
+
+            if outputDir_:
+                testWriter.add_summary(summaryRes, numDataPoints)
+                testWriter.add_summary(imgs, numDataPoints)
 
 
     xPts = (np.arange(numSteps)+1)*batchSize_training
@@ -167,22 +249,22 @@ def main(useCorrectLengths_, useStackRNN_, numLayers_, learningRate_, outputDir_
 
 if __name__ == '__main__':
 
-    outputDir = os.path.join('../logs/', 'testStackRnn')
-    if not os.path.exists(outputDir): os.mkdir(outputDir)
+    rootOutputDir = os.path.join('../logs/', 'testSummaries')
 
     for useCorrectLengths in [True]:
-        for useStackRNN in [True, False]:
-            for numLayers in [1, 2, 10]:
-                for learningRate in [0.05, 0.001]:
+        for useStackRNN in [False]:
+            for numLayers in [3]:
+                for numCellUnits in [101]:
+                    for learningRate in [0.001]:
 
-                    main(useCorrectLengths_ = useCorrectLengths,
-                         useStackRNN_ = useStackRNN,
-                         numLayers_ = numLayers, learningRate_=learningRate,
-                         outputDir_=outputDir)
+                        outputDir = os.path.join(rootOutputDir,
+                                                 '%dlayers_%dunits_%s_%s' % (numLayers, numCellUnits, 'relu' if USE_RELU else 'tanh', 'varLen' if VARIABLE_LENGTHS else 'fixedLen'))
+                        if not os.path.exists(outputDir): os.mkdir(outputDir)
 
-    # main(useCorrectLengths_=True,
-    #      useStackRNN_=False,
-    #      numLayers_=10,
-    #      outputDir_=None)
+                        main(useCorrectLengths_ = useCorrectLengths,
+                             useStackRNN_ = useStackRNN,
+                             numLayers_ = numLayers, numCellUnits_=numCellUnits, learningRate_=learningRate,
+                             outputDir_=outputDir)
 
-    # plt.show()
+
+    plt.show()
