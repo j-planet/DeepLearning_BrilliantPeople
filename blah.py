@@ -7,19 +7,21 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow import summary
 from tensorflow.python.client.timeline import Timeline
-from tensorflow.contrib.rnn import BasicLSTMCell, BasicRNNCell, static_bidirectional_rnn, MultiRNNCell, DropoutWrapper, LSTMCell
+from tensorflow.contrib.rnn import BasicLSTMCell, BasicRNNCell, static_bidirectional_rnn, stack_bidirectional_dynamic_rnn, MultiRNNCell, DropoutWrapper, LSTMCell
+
 
 from data_reader import DataReader
-from utilities import tensorflowFilewriters
+from utilities import tensorflowFilewriters, reshape_x_for_non_dynamic
 
 
 PATCH_TO_FULL = False
 LOG_DIR = './logs/main'
+saveImages = False
 
 # ================== DATA ===================
 with tf.device('/cpu:0'):
     # dataReader = DataReader('./data/peopleData/2_samples', 'bucketing')
-    dataReader = DataReader('./data/peopleData/earlyLifesWordMats/politician_scientist', 'bucketing')
+    dataReader = DataReader('./data/peopleData/earlyLifesWordMats_42B300d/politician_scientist', 'bucketing')
     # dataReader = DataReader('./data/peopleData/earlyLifesWordMats')
     # dataReader = DataReader('./data/peopleData/earlyLifesWordMats_42B300d', 'bucketing')
 
@@ -40,11 +42,11 @@ outputKeepProb = tf.placeholder(tf.float32)
 
 # --------- running ---------
 learningRateConstant = 0.01
-numSteps = 50  # 1 step runs 1 batch
-batchSize = 25
+numSteps = 100  # 1 step runs 1 batch
+batchSize = 20
 
-logTrainingEvery = 5
-logValidationEvery = 20
+logTrainingEvery = 2
+logValidationEvery = 5
 
 # --------- constant 'variables' ---------
 learningRate = tf.Variable(learningRateConstant, name='learningRate')
@@ -140,7 +142,7 @@ def save_matrix_img(mats_, title, outputDir_, transpose_=False):
 if __name__ == '__main__':
     st = time()
 
-    print('====== CONFIG: SHUFFLED %d hidden layers with %d features each; '
+    print('====== CONFIG: SHUFFLED %d hidden layer(s) with %d features each; '
           'dropoutKeep = %0.2f'
           ' batch size %d, initial learning rate %.3f'
           % (numRnnLayers, numHiddenLayerFeatures, outputKeepProbConstant, batchSize, learningRateConstant))
@@ -156,34 +158,40 @@ if __name__ == '__main__':
     weights = tf.Variable(tf.random_normal([2*numHiddenLayerFeatures, numClasses]), name='weights')
     biases = tf.Variable(tf.random_normal([numClasses]), name='biases')
 
-    # make LSTM cells
-    # singleLSTMCell = LSTMCell(numHiddenLayerFeatures, use_peepholes=usePeepholes)
-    singleLSTMCell = BasicLSTMCell(numHiddenLayerFeatures)
 
-    cellsForward = [DropoutWrapper(singleLSTMCell, output_keep_prob=outputKeepProb)] * numRnnLayers
-    cellsBackward = [DropoutWrapper(singleLSTMCell, output_keep_prob=outputKeepProb)] * numRnnLayers
+    def make_BasicLSTMCell():
+        return BasicLSTMCell(numHiddenLayerFeatures)
 
-    stackedCellsForward = MultiRNNCell(cellsForward)
-    stackedCellsBackward = MultiRNNCell(cellsForward)
+    def make_BasicRNNCell():
+        return BasicRNNCell(numHiddenLayerFeatures)
 
-    outputs, states = tf.nn.bidirectional_dynamic_rnn(stackedCellsForward, stackedCellsBackward,
-                                                      time_major=False, inputs=x, dtype=tf.float32,
-                                                      sequence_length=sequenceLength,
-                                                      swap_memory=True)
+    def make_stacked_cells(baseCellMaker_):
 
-    # wrap RNN around LSTM cells
-    # baseCell = BasicLSTMCell(numHiddenLayerFeatures)
-    # baseCellWDropout = DropoutWrapper(baseCell, output_keep_prob=outputKeepProb)
-    # multiCell = MultiRNNCell([baseCell]*numRnnLayers)
-    # outputs, _ = tf.nn.dynamic_rnn(multiCell,
-    #                                time_major=False, inputs=x, dtype=tf.float32,
-    #                                sequence_length=sequenceLength,
-    #                                swap_memory=True)
+        if outputKeepProb == 1.:    # no drop out
+            return [baseCellMaker_() for _ in range(numRnnLayers)]
+
+        return [DropoutWrapper(baseCellMaker_(), output_keep_prob=outputKeepProb) for _ in range(numRnnLayers)]
+
+
+    forwardCells = make_stacked_cells(make_BasicLSTMCell)
+    backwardCells = make_stacked_cells(make_BasicLSTMCell)
+
+
+    outputs, _, _ \
+        = stack_bidirectional_dynamic_rnn(forwardCells, backwardCells,
+                                          inputs=x, dtype=tf.float32,
+                                          sequence_length=sequenceLength)
+
+
+    # outputs = tf.concat(
+    #     tf.nn.bidirectional_dynamic_rnn(forwardCells, backwardCells,
+    #                                     time_major=False, inputs=x, dtype=tf.float32,
+    #                                     sequence_length=sequenceLength,
+    #                                     swap_memory=True)[0], 2)
+
 
     # cost and optimize
-    # output = tf.concat(outputs, 2)[:,-1,:]
-    output = last_relevant(tf.concat(outputs, 2), sequenceLength)
-
+    output = last_relevant(outputs, sequenceLength)
     logits = tf.matmul(output, weights) + biases
     cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=y))
     optimizer = tf.train.AdamOptimizer(learning_rate=learningRateConstant).minimize(cost)
@@ -214,10 +222,6 @@ if __name__ == '__main__':
     all_outputs = []
     all_weights = []
     all_biases = []
-    # lstm_A_ws = []
-    # lstm_A_bs = []
-    # lstm_B_ws = []
-    # lstm_B_bs = []
     lstm_fwd_weights = [[] for _ in range(numRnnLayers)]
     lstm_fwd_biases = [[] for _ in range(numRnnLayers)]
     lstm_back_weights = [[] for _ in range(numRnnLayers)]
@@ -227,7 +231,7 @@ if __name__ == '__main__':
         numDataPoints = (step+1) * batchSize
         print('\nStep %d (%d data points); learning rate = %0.3f:' % (step, numDataPoints, sess.run(learningRate)))
 
-        lrDecay = 0.9 ** (numDataPoints / len(dataReader.train_indices))
+        lrDecay = 0.95 ** (numDataPoints / len(dataReader.train_indices))
         sess.run(tf.assign(learningRate, max(learningRateConstant * lrDecay, 1e-4)))
 
         batchX, batchY, xLengths, names = dataReader.get_next_training_batch(batchSize, patchTofull_=PATCH_TO_FULL, verbose_=False)
@@ -250,45 +254,29 @@ if __name__ == '__main__':
             print_log_str(batchX, batchY, xLengths, names)
             train_writer.flush()
 
-            # pprint(w)
-            # ax = plt.subplot(nrows, ncols, step+1)
-            # heatmap = ax.matshow(w, cmap = 'gray')
-            # plt.colorbar(heatmap)
-            # plt.title('step %d, %d pts' % (step, numDataPoints))
+            if saveImages:
+                all_weights.append(w)
+                all_weights.append(np.zeros((w.shape[0], 2)))
 
-            all_weights.append(w)
-            all_weights.append(np.zeros((w.shape[0], 2)))
+                all_biases.append(b)
 
-            all_biases.append(b)
+                for i in range(numRnnLayers):
+                    lw_fwd = lstmVars[2*i]
+                    lb_fwd = lstmVars[2*i+1]
 
-            for i in range(numRnnLayers):
-                lw_fwd = lstmVars[2*i]
-                lb_fwd = lstmVars[2*i+1]
+                    lstm_fwd_weights[i].append(lw_fwd)
+                    lstm_fwd_weights[i].append(np.ones((lw_fwd.shape[0], 5)) * -0.5)
+                    lstm_fwd_biases[i].append(lb_fwd)
 
-                lstm_fwd_weights[i].append(lw_fwd)
-                lstm_fwd_weights[i].append(np.ones((lw_fwd.shape[0], 5)) * -0.5)
-                lstm_fwd_biases[i].append(lb_fwd)
+                    lw_back = lstmVars[2 * i + 2*numRnnLayers]
+                    lb_back = lstmVars[2 * i + 1 + 2*numRnnLayers]
 
-                lw_back = lstmVars[2 * i + 2*numRnnLayers]
-                lb_back = lstmVars[2 * i + 1 + 2*numRnnLayers]
+                    lstm_back_weights[i].append(lw_back)
+                    lstm_back_weights[i].append(np.ones((lw_back.shape[0], 5)) * -0.5)
+                    lstm_back_biases[i].append(lb_back)
 
-                lstm_back_weights[i].append(lw_back)
-                lstm_back_weights[i].append(np.ones((lw_back.shape[0], 5)) * -0.5)
-                lstm_back_biases[i].append(lb_back)
-
-            # Aw, Ab, Bw, Bb = lstmVars
-            # lstm_A_ws.append(Aw)
-            # lstm_A_ws.append(np.ones((Aw.shape[0], 5)) * -0.5)
-            #
-            # lstm_A_bs.append(Ab)
-            #
-            # lstm_B_ws.append(Bw)
-            # lstm_B_ws.append(np.ones((Bw.shape[0], 5)) * -0.5)
-            #
-            # lstm_B_bs.append(Bb)
-
-            all_outputs.append(outputNums)
-            all_outputs.append(np.ones((outputNums.shape[0], 3)) * -1)
+                all_outputs.append(outputNums)
+                all_outputs.append(np.ones((outputNums.shape[0], 3)) * -1)
 
         if step % logValidationEvery == 0:
             # valid_writer.add_summary(summaries, step * batchSize)
@@ -301,19 +289,20 @@ if __name__ == '__main__':
     print('\n>>>>>> Test:')
     validate_or_test(10, 'test')
 
-    plotsOutputDir = os.path.join(LOG_DIR, '%dlayers' % numRnnLayers)
-    if not os.path.exists(plotsOutputDir): os.mkdir(plotsOutputDir)
+    if saveImages:
+        plotsOutputDir = os.path.join(LOG_DIR, '%dlayers' % numRnnLayers)
+        if not os.path.exists(plotsOutputDir): os.mkdir(plotsOutputDir)
 
-    save_matrix_img(all_weights, 'w', plotsOutputDir)
-    save_matrix_img(all_biases, 'b', plotsOutputDir)
-    save_matrix_img(all_outputs, 'all_outputs', plotsOutputDir)
+        save_matrix_img(all_weights, 'w', plotsOutputDir)
+        save_matrix_img(all_biases, 'b', plotsOutputDir)
+        save_matrix_img(all_outputs, 'all_outputs', plotsOutputDir)
 
-    for i in range(numRnnLayers):
-        save_matrix_img(lstm_fwd_weights[i], 'lstm forward weights %d' % i, plotsOutputDir)
-        save_matrix_img(lstm_fwd_biases[i], 'lstm forward biases %d' % i, plotsOutputDir, True)
-        save_matrix_img(lstm_back_weights[i], 'lstm backward weights %d' % i, plotsOutputDir)
-        save_matrix_img(lstm_back_biases[i], 'lstm backward biases %d' % i, plotsOutputDir, True)
+        for i in range(numRnnLayers):
+            save_matrix_img(lstm_fwd_weights[i], 'lstm forward weights %d' % i, plotsOutputDir)
+            save_matrix_img(lstm_fwd_biases[i], 'lstm forward biases %d' % i, plotsOutputDir, True)
+            save_matrix_img(lstm_back_weights[i], 'lstm backward weights %d' % i, plotsOutputDir)
+            save_matrix_img(lstm_back_biases[i], 'lstm backward biases %d' % i, plotsOutputDir, True)
 
 
-    # trace_file = open('timeline.ctf.json', 'w')
-    # trace_file.write(trace.generate_chrome_trace_format())
+            # trace_file = open('timeline.ctf.json', 'w')
+            # trace_file.write(trace.generate_chrome_trace_format())

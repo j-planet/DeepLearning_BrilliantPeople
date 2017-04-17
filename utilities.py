@@ -23,8 +23,8 @@ def tensorflowFilewriters(writerDir):
 
 def reshape_x_for_non_dynamic(x_, numSeqs_, seqLen_):
     # reshape stuff
-    # input shape: (batch_size x n_steps x n_input)
-    # output shape: n_steps tensors, each of shape (batch_size x n_input)
+    # input shape: (batch_size x numSeqs_ x seqLen_)
+    # output shape: numSeqs_ tensors, each of shape (batch_size x seqLen_)
     return tf.split(
         tf.reshape(
             tf.transpose(x_, [1, 0, 2]),
