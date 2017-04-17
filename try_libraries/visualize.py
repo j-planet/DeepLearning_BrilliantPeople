@@ -90,7 +90,7 @@ def get_variable_by_name_regex(regexStr_):
     return [v for v in tf.global_variables() if len(re.findall(regexStr_, v.name)) > 0]
 
 def add_1_dimension(tensor_):
-    return tf.stack(tensor_, axis=-1)
+    return tf.stack([tensor_], axis=-1)
 
 def main(useCorrectLengths_, useStackRNN_, numLayers_, numCellUnits_, learningRate_, outputDir_):
 
@@ -159,13 +159,6 @@ def main(useCorrectLengths_, useStackRNN_, numLayers_, numCellUnits_, learningRa
         trainWriter.add_graph(sess.graph)
 
     # only for tesitng/validation
-    images = [tf.summary.image('outputs', add_1_dimension(tf.transpose(outputs, [1, 0, 2])), max_outputs=numSeq),
-              tf.summary.image('fw_weights_cell_0_Adam', add_1_dimension(tf.stack(get_variable_by_name_regex('fw.*cell_0.*weights.*Adam'))), max_outputs=2),
-              tf.summary.image('bw_weights_cell_0_Adam', add_1_dimension(tf.stack(get_variable_by_name_regex('bw.*cell_0.*weights.*Adam'))), max_outputs=2),
-              tf.summary.image('fw_weights_cell_>0_Adam', add_1_dimension(tf.stack(get_variable_by_name_regex('fw.*cell_[1-9].*weights.*Adam'))), max_outputs=2*(numLayers_-1)),
-              tf.summary.image('bw_weights_cell_>0_Adam', add_1_dimension(tf.stack(get_variable_by_name_regex('bw.*cell_[1-9].*weights.*Adam'))), max_outputs=2*(numLayers_-1)),
-              tf.summary.image('fw_biases_Adam', add_1_dimension(tf.stack(get_variable_by_name_regex('fw.*cell.*biases.*Adam'))), max_outputs=2*numLayers_),
-              tf.summary.image('bw_biases_Adam', add_1_dimension(tf.stack(get_variable_by_name_regex('bw.*cell.*biases.*Adam'))), max_outputs=2*numLayers_)]
 
     # =========== TRAIN!! ===========
     sess.run(tf.global_variables_initializer())
@@ -202,6 +195,28 @@ def main(useCorrectLengths_, useStackRNN_, numLayers_, numCellUnits_, learningRa
                         sequenceLength: testLengths if useCorrectLengths_ else [numSeq] * batchSize_testing} if VARIABLE_LENGTHS \
                 else {x: testX, y: testY}
 
+            images = [
+                tf.summary.image('outputs'+str(numDataPoints), add_1_dimension(tf.transpose(outputs, [1, 0, 2])), max_outputs=numSeq),
+                tf.summary.image('fw_weights_cell_0_Adam'+str(numDataPoints),
+                                 add_1_dimension(tf.stack(get_variable_by_name_regex('fw.*cell_0.*weights.*Adam'))),
+                                 max_outputs=2),
+                tf.summary.image('bw_weights_cell_0_Adam'+str(numDataPoints),
+                                 add_1_dimension(tf.stack(get_variable_by_name_regex('bw.*cell_0.*weights.*Adam'))),
+                                 max_outputs=2),
+                tf.summary.image('fw_biases_Adam'+str(numDataPoints), add_1_dimension(
+                    tf.reshape(tf.stack(get_variable_by_name_regex('fw.*cell.*biases.*Adam')),
+                               (2 * numLayers_, -1, 1))), max_outputs=2 * numLayers_),
+                tf.summary.image('bw_biases_Adam'+str(numDataPoints), add_1_dimension(
+                    tf.reshape(tf.stack(get_variable_by_name_regex('bw.*cell.*biases.*Adam')),
+                               (2 * numLayers_, -1, 1))), max_outputs=2 * numLayers_)]
+            if numLayers_>1:
+                images += [tf.summary.image('fw_weights_cell_1on_Adam'+str(numDataPoints),
+                                            add_1_dimension(tf.stack(get_variable_by_name_regex('fw.*cell_[1-9].*weights.*Adam'))),
+                                            max_outputs=2 * (numLayers_ - 1)),
+                           tf.summary.image('bw_weights_cell_1on_Adam'+str(numDataPoints),
+                                            add_1_dimension(tf.stack(get_variable_by_name_regex('bw.*cell_[1-9].*weights.*Adam'))),
+                                            max_outputs=2 * (numLayers_ - 1))]
+
             testC, testAcc, summaryRes, imgs = sess.run([cost, accuracy, mergedSummaries, images], feedDict)
 
             testXPts.append(numDataPoints)
@@ -211,7 +226,8 @@ def main(useCorrectLengths_, useStackRNN_, numLayers_, numCellUnits_, learningRa
 
             if outputDir_:
                 testWriter.add_summary(summaryRes, numDataPoints)
-                testWriter.add_summary(imgs, numDataPoints)
+                for img in imgs:
+                    testWriter.add_summary(img, numDataPoints)
 
 
     xPts = (np.arange(numSteps)+1)*batchSize_training
@@ -253,7 +269,7 @@ if __name__ == '__main__':
 
     for useCorrectLengths in [True]:
         for useStackRNN in [False]:
-            for numLayers in [3]:
+            for numLayers in [1]:
                 for numCellUnits in [101]:
                     for learningRate in [0.001]:
 
