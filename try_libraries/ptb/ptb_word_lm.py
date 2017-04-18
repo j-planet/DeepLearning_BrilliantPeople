@@ -61,8 +61,7 @@ import time
 
 import numpy as np
 import tensorflow as tf
-
-import reader
+import try_libraries.ptb.reader as reader
 
 flags = tf.flags
 logging = tf.logging

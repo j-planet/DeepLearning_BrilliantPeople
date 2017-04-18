@@ -219,14 +219,6 @@ if __name__ == '__main__':
     # nrows = int(numSteps ** 0.5)
     # ncols = int(np.ceil(numSteps / nrows))
 
-    all_outputs = []
-    all_weights = []
-    all_biases = []
-    lstm_fwd_weights = [[] for _ in range(numRnnLayers)]
-    lstm_fwd_biases = [[] for _ in range(numRnnLayers)]
-    lstm_back_weights = [[] for _ in range(numRnnLayers)]
-    lstm_back_biases = [[] for _ in range(numRnnLayers)]
-
     for step in range(numSteps):
         numDataPoints = (step+1) * batchSize
         print('\nStep %d (%d data points); learning rate = %0.3f:' % (step, numDataPoints, sess.run(learningRate)))
@@ -240,13 +232,10 @@ if __name__ == '__main__':
         _, summaries, w, b, lstmVars, outputNums = \
             sess.run([optimizer, merged_summaries, weights, biases, tf.trainable_variables()[5:], output]
                      , feed_dict=feedDict)
+
         # options=tf.RunOptions(trace_level=tf.RunOptions.SOFTWARE_TRACE),
         # run_metadata=run_metadata)
-
-        # print('here')
         # trace = Timeline(step_stats=run_metadata.step_stats)
-        # print('done with here')
-
 
         # print evaluations
         if step % logTrainingEvery == 0:
@@ -254,55 +243,16 @@ if __name__ == '__main__':
             print_log_str(batchX, batchY, xLengths, names)
             train_writer.flush()
 
-            if saveImages:
-                all_weights.append(w)
-                all_weights.append(np.zeros((w.shape[0], 2)))
-
-                all_biases.append(b)
-
-                for i in range(numRnnLayers):
-                    lw_fwd = lstmVars[2*i]
-                    lb_fwd = lstmVars[2*i+1]
-
-                    lstm_fwd_weights[i].append(lw_fwd)
-                    lstm_fwd_weights[i].append(np.ones((lw_fwd.shape[0], 5)) * -0.5)
-                    lstm_fwd_biases[i].append(lb_fwd)
-
-                    lw_back = lstmVars[2 * i + 2*numRnnLayers]
-                    lb_back = lstmVars[2 * i + 1 + 2*numRnnLayers]
-
-                    lstm_back_weights[i].append(lw_back)
-                    lstm_back_weights[i].append(np.ones((lw_back.shape[0], 5)) * -0.5)
-                    lstm_back_biases[i].append(lb_back)
-
-                all_outputs.append(outputNums)
-                all_outputs.append(np.ones((outputNums.shape[0], 3)) * -1)
-
         if step % logValidationEvery == 0:
             # valid_writer.add_summary(summaries, step * batchSize)
             print('\n>>> Validation:')
             validate_or_test(10, 'validate')
-
 
     print('Time elapsed:', time()-st)
 
     print('\n>>>>>> Test:')
     validate_or_test(10, 'test')
 
-    if saveImages:
-        plotsOutputDir = os.path.join(LOG_DIR, '%dlayers' % numRnnLayers)
-        if not os.path.exists(plotsOutputDir): os.mkdir(plotsOutputDir)
 
-        save_matrix_img(all_weights, 'w', plotsOutputDir)
-        save_matrix_img(all_biases, 'b', plotsOutputDir)
-        save_matrix_img(all_outputs, 'all_outputs', plotsOutputDir)
-
-        for i in range(numRnnLayers):
-            save_matrix_img(lstm_fwd_weights[i], 'lstm forward weights %d' % i, plotsOutputDir)
-            save_matrix_img(lstm_fwd_biases[i], 'lstm forward biases %d' % i, plotsOutputDir, True)
-            save_matrix_img(lstm_back_weights[i], 'lstm backward weights %d' % i, plotsOutputDir)
-            save_matrix_img(lstm_back_biases[i], 'lstm backward biases %d' % i, plotsOutputDir, True)
-
-
-            # trace_file = open('timeline.ctf.json', 'w')
-            # trace_file.write(trace.generate_chrome_trace_format())
+    # trace_file = open('timeline.ctf.json', 'w')
+    # trace_file.write(trace.generate_chrome_trace_format())
