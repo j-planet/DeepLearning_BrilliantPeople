@@ -82,6 +82,7 @@ class DataReader(object):
         names = []
 
         self._logger.info('======= Reading pre-made vector files... =======')
+        self._logger.info('Data source: ' + vectorFilesDir)
 
         for inputFilename in glob.glob(os.path.join(vectorFilesDir, '*.json')):
 
@@ -159,8 +160,12 @@ class DataReader(object):
             batchIndices = list(range(self.globalBatchIndex, newBatchIndex))
 
         else:
-            newBatchIndex = self.globalBatchIndex + batchSize_ - totalNumData
-            batchIndices = list(range(self.globalBatchIndex, totalNumData)) + list(range(0, newBatchIndex))
+            temp = self.globalBatchIndex + batchSize_
+            newBatchIndex = temp % totalNumData
+            numRounds = int(temp/totalNumData)
+            batchIndices = list(range(self.globalBatchIndex, totalNumData)) + list(range(totalNumData))*numRounds + list(range(newBatchIndex))
+            if numRounds > 0:
+                self._logger.info('Batch size %d > data size %d. Going around %d times from index %d to %d.' % (batchSize_, totalNumData, numRounds, self.globalBatchIndex, newBatchIndex))
 
         self.globalBatchIndex = newBatchIndex
 

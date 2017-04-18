@@ -37,5 +37,5 @@ def setup_logging(logFilename_, level_=logging.DEBUG):
     logging.basicConfig(level=level_,
                         format='%(asctime)s %(name)-15s %(message)s',
                         datefmt='%H:%M:%S',
-                        handlers=[logging.FileHandler(logFilename_),
+                        handlers=[logging.FileHandler(logFilename_, encoding='utf8'),
                                   logging.StreamHandler()])
