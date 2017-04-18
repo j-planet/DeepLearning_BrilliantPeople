@@ -1,5 +1,6 @@
 import glob, os
 import tensorflow as tf
+import logging
 
 
 def tensorflowFilewriters(writerDir):
@@ -30,3 +31,11 @@ def reshape_x_for_non_dynamic(x_, numSeqs_, seqLen_):
             tf.transpose(x_, [1, 0, 2]),
             [-1, seqLen_]),
         numSeqs_, 0)
+
+
+def setup_logging(logFilename_, level_=logging.DEBUG):
+    logging.basicConfig(level=level_,
+                        format='%(asctime)s %(name)-15s %(message)s',
+                        datefmt='%H:%M:%S',
+                        handlers=[logging.FileHandler(logFilename_),
+                                  logging.StreamHandler()])

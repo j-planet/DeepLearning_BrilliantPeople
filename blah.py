@@ -1,5 +1,7 @@
 from pprint import pprint
+import logging
 from time import time
+from datetime import datetime
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import numpy as np
@@ -7,23 +9,22 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow import summary
 from tensorflow.python.client.timeline import Timeline
-from tensorflow.contrib.rnn import BasicLSTMCell, BasicRNNCell, static_bidirectional_rnn, stack_bidirectional_dynamic_rnn, MultiRNNCell, DropoutWrapper, LSTMCell
+from tensorflow.contrib.rnn import BasicLSTMCell, BasicRNNCell, stack_bidirectional_dynamic_rnn, MultiRNNCell, DropoutWrapper, LSTMCell
 
 
 from data_reader import DataReader
-from utilities import tensorflowFilewriters, reshape_x_for_non_dynamic
+from utilities import tensorflowFilewriters, setup_logging
 
 
+DATA_DIR = './data/peopleData/2_samples'
+# DATA_DIR = './data/peopleData/earlyLifesWordMats_42B300d/politician_scientist'
+# DATA_DIR = './data/peopleData/earlyLifesWordMats'
+# DATA_DIR = './data/peopleData/earlyLifesWordMats_42B300d'
 PATCH_TO_FULL = False
-LOG_DIR = './logs/main'
 saveImages = False
+LOG_DIR = os.path.join('./logs/main', datetime.now().strftime('%m%d%Y %H:%M:%S'))
+if not os.path.exists(LOG_DIR): os.mkdir(LOG_DIR)
 
-# ================== DATA ===================
-with tf.device('/cpu:0'):
-    # dataReader = DataReader('./data/peopleData/2_samples', 'bucketing')
-    dataReader = DataReader('./data/peopleData/earlyLifesWordMats_42B300d/politician_scientist', 'bucketing')
-    # dataReader = DataReader('./data/peopleData/earlyLifesWordMats')
-    # dataReader = DataReader('./data/peopleData/earlyLifesWordMats_42B300d', 'bucketing')
 
 # sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.9)))
 sess = tf.InteractiveSession()
@@ -32,33 +33,44 @@ sess = tf.InteractiveSession()
 
 # --------- network ---------
 vecDim = 300
-numHiddenLayerFeatures = 32
-numRnnLayers = 10
-outputKeepProbConstant = 0.99
-usePeepholes = True
-
-numClasses = len(dataReader.get_classes_labels())
+numHiddenLayerFeatures = [16, 8]
+outputKeepProbConstant = 0.8
 outputKeepProb = tf.placeholder(tf.float32)
 
 # --------- running ---------
 learningRateConstant = 0.01
-numSteps = 100  # 1 step runs 1 batch
+numSteps = 15  # 1 step runs 1 batch
 batchSize = 20
 
 logTrainingEvery = 2
 logValidationEvery = 5
 
+# --------- logging ---------
+logFilename = os.path.join(LOG_DIR, 'log.log')
+setup_logging(logFilename)
+configLogger = logging.getLogger('config')
+trainLogger = logging.getLogger('run.train')
+validateLogger = logging.getLogger('run.validate')
+testLogger = logging.getLogger('run.test')
+
+# ================== DATA ===================
+with tf.device('/cpu:0'):
+    dataReader = DataReader(DATA_DIR, 'bucketing', logFilename)
+
+numClasses = len(dataReader.get_classes_labels())
+
 # --------- constant 'variables' ---------
 learningRate = tf.Variable(learningRateConstant, name='learningRate')
 validCost = tf.Variable(1, name='validationCost')
 validAcc = tf.Variable(0, name='validationAccuracy')
-summary.scalar('valid cost', validCost)
-summary.scalar('valid accuracy', validAcc)
+summary.scalar('valid_cost', validCost)
+summary.scalar('valid_accuracy', validAcc)
 
 
 def validate_or_test(batchSize_, validateOrTest):
 
     assert validateOrTest in ['validate', 'test']
+    logger = validateLogger if validateOrTest=='validate' else testLogger
 
     data = dataReader.get_data_in_batches(batchSize_, validateOrTest, patchTofull_=PATCH_TO_FULL)
 
@@ -87,36 +99,26 @@ def validate_or_test(batchSize_, validateOrTest):
     avgCost = totalCost / numDataPoints
     avgAccuracy = totalAccuracy / numDataPoints
 
+    # TODO: this doesn't work
     if validateOrTest=='validate':
         sess.run(tf.assign(validCost, avgCost))
         sess.run(tf.assign(validAcc, avgAccuracy))
 
+    logger.info('-------------')
+    logger.info(validateOrTest)
+    logger.info('loss = %.3f, accuracy = %.3f' % (avgCost, avgAccuracy))
+    label_comparison(allTrueYInds, allPredYInds, allNames, logger)
+    logger.info('-------------')
+
+def label_comparison(trueYInds_, predYInds_, names_, logger_):
     labels = dataReader.get_classes_labels()
-    print('loss = %.3f, accuracy = %.3f' % (avgCost, avgAccuracy))
-    print('True label became... --> ?')
-    for i, name in enumerate(allNames):
-        print('%s: %s --> %s %s' %
-              (name,
-               labels[allTrueYInds[i]], labels[allPredYInds[i]],
-               '(wrong)' if allTrueYInds[i] != allPredYInds[i] else ''))
 
-def print_log_str(x_, y_, xLengths_, names_):
-    """
-    :return a string of loss and accuracy
-    """
+    logger_.info('True label became... --> ?')
 
-    feedDict = {x: x_, y: y_, sequenceLength: xLengths_, outputKeepProb: outputKeepProbConstant}
-
-    labels = dataReader.get_classes_labels()
-    c, acc, trueYInds, predYInds = sess.run([cost, accuracy, trueY, pred], feed_dict=feedDict)
-
-    print('loss = %.3f, accuracy = %.3f' % (c, acc))
-    print('True label became... --> ?')
     for i, name in enumerate(names_):
-        print('%s: %s --> %s %s' %
-              (name,
-               labels[trueYInds[i]], labels[predYInds[i]],
-               '(wrong)' if trueYInds[i]!=predYInds[i] else '' ))
+        logger_.info('%-15s %-12s --> %s %s' % (name, labels[trueYInds_[i]], labels[predYInds_[i]],
+                                                '(wrong)' if trueYInds_[i] != predYInds_[i] else ''))
+
 
 def last_relevant(output_, lengths_):
     batch_size = tf.shape(output_)[0]
@@ -142,11 +144,11 @@ def save_matrix_img(mats_, title, outputDir_, transpose_=False):
 if __name__ == '__main__':
     st = time()
 
-    print('====== CONFIG: SHUFFLED %d hidden layer(s) with %d features each; '
-          'dropoutKeep = %0.2f'
-          ' batch size %d, initial learning rate %.3f'
-          % (numRnnLayers, numHiddenLayerFeatures, outputKeepProbConstant, batchSize, learningRateConstant))
-    print('usePeepholes', usePeepholes)
+    configLogger.info('SHUFFLED %d hidden layer(s); '
+                      'dropoutKeep = %0.2f'
+                      ' batch size %d, initial learning rate %.3f'
+                      % (len(numHiddenLayerFeatures), outputKeepProbConstant, batchSize, learningRateConstant))
+    configLogger.info('number of LSTM cell units: ' + str(numHiddenLayerFeatures))
 
     # ================== GRAPH ===================
     x = tf.placeholder(tf.float32, [None, None, vecDim])
@@ -155,27 +157,23 @@ if __name__ == '__main__':
     sequenceLength = tf.placeholder(tf.int32)
 
     # weights = tf.Variable(tf.random_normal([numHiddenLayerFeatures, numClasses]))
-    weights = tf.Variable(tf.random_normal([2*numHiddenLayerFeatures, numClasses]), name='weights')
+    weights = tf.Variable(tf.random_normal([2*numHiddenLayerFeatures[-1], numClasses]), name='weights')
     biases = tf.Variable(tf.random_normal([numClasses]), name='biases')
 
 
     def make_BasicLSTMCell():
         return BasicLSTMCell(numHiddenLayerFeatures)
 
-    def make_BasicRNNCell():
-        return BasicRNNCell(numHiddenLayerFeatures)
-
-    def make_stacked_cells(baseCellMaker_):
+    def make_stacked_cells():
 
         if outputKeepProb == 1.:    # no drop out
-            return [baseCellMaker_() for _ in range(numRnnLayers)]
+            return [BasicLSTMCell(f) for f in numHiddenLayerFeatures]
 
-        return [DropoutWrapper(baseCellMaker_(), output_keep_prob=outputKeepProb) for _ in range(numRnnLayers)]
+        return [DropoutWrapper(BasicLSTMCell(f), output_keep_prob=outputKeepProb) for f in numHiddenLayerFeatures]
 
 
-    forwardCells = make_stacked_cells(make_BasicLSTMCell)
-    backwardCells = make_stacked_cells(make_BasicLSTMCell)
-
+    forwardCells = make_stacked_cells()
+    backwardCells = make_stacked_cells()
 
     outputs, _, _ \
         = stack_bidirectional_dynamic_rnn(forwardCells, backwardCells,
@@ -203,8 +201,8 @@ if __name__ == '__main__':
         tf.equal(pred, trueY)
         , tf.float32))
 
-    summary.scalar('training cost', cost)
-    summary.scalar('training accuracy', accuracy)
+    summary.scalar('training_cost', cost)
+    summary.scalar('training_accuracy', accuracy)
 
     # =========== set up tensorboard ===========
     merged_summaries = summary.merge_all()
@@ -221,7 +219,7 @@ if __name__ == '__main__':
 
     for step in range(numSteps):
         numDataPoints = (step+1) * batchSize
-        print('\nStep %d (%d data points); learning rate = %0.3f:' % (step, numDataPoints, sess.run(learningRate)))
+        trainLogger.info('Step %d (%d data points); learning rate = %0.3f:' % (step, numDataPoints, sess.run(learningRate)))
 
         lrDecay = 0.95 ** (numDataPoints / len(dataReader.train_indices))
         sess.run(tf.assign(learningRate, max(learningRateConstant * lrDecay, 1e-4)))
@@ -229,9 +227,7 @@ if __name__ == '__main__':
         batchX, batchY, xLengths, names = dataReader.get_next_training_batch(batchSize, patchTofull_=PATCH_TO_FULL, verbose_=False)
         feedDict = {x: batchX, y: batchY, sequenceLength: xLengths, outputKeepProb: outputKeepProbConstant}
 
-        _, summaries, w, b, lstmVars, outputNums = \
-            sess.run([optimizer, merged_summaries, weights, biases, tf.trainable_variables()[5:], output]
-                     , feed_dict=feedDict)
+        _ = sess.run(optimizer, feed_dict=feedDict)
 
         # options=tf.RunOptions(trace_level=tf.RunOptions.SOFTWARE_TRACE),
         # run_metadata=run_metadata)
@@ -239,20 +235,22 @@ if __name__ == '__main__':
 
         # print evaluations
         if step % logTrainingEvery == 0:
+            summaries, c, acc, trueYInds, predYInds = sess.run([merged_summaries, cost, accuracy, trueY, pred] , feed_dict=feedDict)
+
             train_writer.add_summary(summaries, step * batchSize)
-            print_log_str(batchX, batchY, xLengths, names)
-            train_writer.flush()
+            trainLogger.info('loss = %.3f, accuracy = %.3f' % (c, acc))
+            label_comparison(trueYInds, predYInds, names, trainLogger)
 
         if step % logValidationEvery == 0:
             # valid_writer.add_summary(summaries, step * batchSize)
-            print('\n>>> Validation:')
             validate_or_test(10, 'validate')
 
-    print('Time elapsed:', time()-st)
 
-    print('\n>>>>>> Test:')
+    testLogger.info('Time elapsed: ' + str(time()-st))
     validate_or_test(10, 'test')
 
+    train_writer.close()
+    valid_writer.close()
 
     # trace_file = open('timeline.ctf.json', 'w')
     # trace_file.write(trace.generate_chrome_trace_format())

@@ -1,11 +1,11 @@
 import json, os, glob
-from pprint import pprint
+from pprint import pformat
+import logging
 import numpy as np
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.preprocessing import LabelEncoder
 from collections import Counter
-
-from data_processing.file2vec import file2vec, extract_embedding, extract_tokenset_from_file
+from utilities import setup_logging
 
 
 def one_hot(ind, vecLen):
@@ -59,11 +59,13 @@ def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=T
     valid_indices = np.array([i for i in range(totalLen) if i not in train_indices and i not in test_indices])
 
     if verbose_:
+        logger = logging.getLogger('DataReader')
+
         # sanity check that the stratified split worked properly
-        print('train : validation : test = %d : %d : %d' % (len(train_indices), len(valid_indices), len(test_indices)))
-        pprint(Counter(YData_[train_indices]))
-        pprint(Counter(YData_[valid_indices]))
-        pprint(Counter(YData_[test_indices]))
+        logger.info('train : validation : test = %d : %d : %d' % (len(train_indices), len(valid_indices), len(test_indices)))
+        logger.info(pformat(Counter(YData_[train_indices])))
+        logger.info(pformat(Counter(YData_[valid_indices])))
+        logger.info(pformat(Counter(YData_[test_indices])))
 
     return train_indices, valid_indices, test_indices
 
@@ -79,7 +81,7 @@ class DataReader(object):
         YData = []
         names = []
 
-        print('======= Reading pre-made vector files... =======')
+        self._logger.info('======= Reading pre-made vector files... =======')
 
         for inputFilename in glob.glob(os.path.join(vectorFilesDir, '*.json')):
 
@@ -97,7 +99,7 @@ class DataReader(object):
         self.names = np.array(names)
 
 
-    def __init__(self, vectorFilesDir, bucketingOrRandom):
+    def __init__(self, vectorFilesDir, bucketingOrRandom, logFilename):
         """
         
         :param vectorFilesDir: if files have already been converted to vectors, provide this directory. embeddingsFilename will be ignored
@@ -107,6 +109,9 @@ class DataReader(object):
         assert bucketingOrRandom=='bucketing' or bucketingOrRandom=='random'
 
         self.globalBatchIndex = 0
+
+        setup_logging(logFilename)
+        self._logger = logging.getLogger('DataReader')
 
         # extract word2vec from files
         self._read_data_from_files(vectorFilesDir)
@@ -121,7 +126,8 @@ class DataReader(object):
 
         # ======= TRAIN-VALIDATION-TEST SPLIT=======
 
-        self.train_indices, self.valid_indices, self.test_indices = train_valid_test_split(self.YData_raw_labels, 0.8, 0.1, 0.1)
+        self.train_indices, self.valid_indices, self.test_indices = \
+            train_valid_test_split(self.YData_raw_labels, 0.8, 0.1, 0.1)
 
         # ======= BUCKETING TRAINING DATA =======
         if bucketingOrRandom == 'bucketing':
@@ -167,7 +173,7 @@ class DataReader(object):
         names = self.names[self.train_indices][batchIndices]
 
         if verbose_:
-            print('Indices:', batchIndices, '--> # tokens:', [len(d) for d in XBatch], '--> Y values:', YBatch)
+            self._logger.info('Indices:', batchIndices, '--> # tokens:', [len(d) for d in XBatch], '--> Y values:', YBatch)
 
         return XBatch, YBatch, xLengths, names
 
