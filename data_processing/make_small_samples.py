@@ -23,7 +23,7 @@ def makeSmallSamples(occupations_, srcDir, overwriteIfExists=False):
         with open(filePath, encoding='utf8') as inputFile:
             d = json.load(inputFile)
             
-        occupation = d['occupation'][-1]
+        occupation = d['occupation'][-1] if type(d['occupation'])==list else d['occupation']
 
         if occupation in occupations_:
 
