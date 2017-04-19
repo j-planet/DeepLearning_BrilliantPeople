@@ -162,7 +162,7 @@ class DataReader(object):
         else:
             temp = self.globalBatchIndex + batchSize_
             newBatchIndex = temp % totalNumData
-            numRounds = int(temp/totalNumData)
+            numRounds = int(temp/totalNumData)-1
             batchIndices = list(range(self.globalBatchIndex, totalNumData)) + list(range(totalNumData))*numRounds + list(range(newBatchIndex))
             if numRounds > 0:
                 self._logger.info('Batch size %d > data size %d. Going around %d times from index %d to %d.' % (batchSize_, totalNumData, numRounds, self.globalBatchIndex, newBatchIndex))
