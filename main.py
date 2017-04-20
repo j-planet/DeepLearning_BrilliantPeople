@@ -50,42 +50,7 @@ def evaluate_in_batches(data_, yLabelTexts_, evaluationFunc_, logFunc_=None):
     label_comparison(allTrueYInds, allPredYInds, allNames, yLabelTexts_, logFunc_)
     logFunc_('-------------')
 
-
-
-class RunConfig(object):
-    def __init__(self, scale, loggerFactory=None):
-        assert scale in ['basic', 'tiny', 'small', 'full']
-
-        if scale == 'basic':
-            self.initialLearningRate = 0.001
-            self.numSteps = 5
-            self.batchSize = 10
-            self.logValidationEvery = 3
-
-        elif scale == 'tiny':
-            self.initialLearningRate = 0.003
-            self.numSteps = 10
-            self.batchSize = 20
-            self.logValidationEvery = 2
-
-        elif scale == 'small':
-            self.initialLearningRate = 0.002
-            self.numSteps = 100
-            self.batchSize = 50
-            self.logValidationEvery = 10
-
-        elif scale == 'full':
-            self.initialLearningRate = 0.002
-            self.numSteps = 750
-            self.batchSize = 150
-            self.logValidationEvery = 20
-
-        self.scale = scale
-        self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('config.run').info
-        self.print()
-
-    def print(self):
-        self._logFunc('batch size %d, initial learning rate %.3f' % (self.batchSize, self.initialLearningRate))
+    return avgCost, avgAccuracy
 
 
 def log_progress(step, numDataPoints, lr, c=None, acc=None, logFunc=None):
@@ -146,7 +111,7 @@ def main(dataDir, modelScale, runScale, logDir=create_time_dir('./logs/main')):
     trainLogFunc('Saving to ' + savePath)
     dataReader.start_batch_from_beginning()     # technically unnecessary
     batchSize, numSteps, logValidationEvery = runConfig.batchSize, runConfig.numSteps, runConfig.logValidationEvery
-
+    bestValidC, bestValidAcc, numValidWorse = 100, 0, 0   # for early stopping if the model isn't getting anywhere :(
 
     for step in range(numSteps):
         numDataPoints = (step+1) * runConfig.batchSize
@@ -159,25 +124,86 @@ def main(dataDir, modelScale, runScale, logDir=create_time_dir('./logs/main')):
         log_progress(step, numDataPoints, lr, c, acc, trainLogFunc)
 
         if step % logValidationEvery == 0:
-            evaluate_in_batches(dataReader.get_data_in_batches(10, 'validate'), dataReader.classLabels, model.evaluate, validLogFunc)
+            curValidC, curValidAcc = evaluate_in_batches(dataReader.get_data_in_batches(50, 'validate'),
+                                                   dataReader.classLabels, model.evaluate, validLogFunc)
             saver.save(sess, savePath, global_step=numDataPoints)
+
+            if curValidC >= bestValidC and curValidAcc <= bestValidAcc:
+                validLogFunc('Worse than best validation result so far.')
+                numValidWorse += 1
+                if numValidWorse >= 3:
+                    validLogFunc('Results have not improved in %d validations. Quitting.' % numValidWorse)
+                    break
+            else:
+                bestValidC = min(bestValidC, curValidC)
+                bestValidAcc = max(bestValidAcc, curValidAcc)
 
 
     testLogFunc('Time elapsed: ' + str(time()-st))
-    evaluate_in_batches(dataReader.get_data_in_batches(10, 'test'), dataReader.classLabels, model.evaluate, testLogFunc)
+    evaluate_in_batches(dataReader.get_data_in_batches(50, 'test'), dataReader.classLabels, model.evaluate, testLogFunc)
 
     saver.save(sess, savePath)
     train_writer.close()
     valid_writer.close()
 
+
+class RunConfig(object):
+    def __init__(self, scale, loggerFactory=None):
+        assert scale in ['basic', 'tiny', 'small', 'medium', 'full']
+
+        if scale == 'basic':
+            self.initialLearningRate = 0.001
+            self.numSteps = 5
+            self.batchSize = 10
+            self.logValidationEvery = 3
+            self.failToImproveTolerance = 1
+
+        elif scale == 'tiny':
+            self.initialLearningRate = 0.003
+            self.numSteps = 10
+            self.batchSize = 20
+            self.logValidationEvery = 2
+            self.failToImproveTolerance = 1
+
+        elif scale == 'small':
+            self.initialLearningRate = 0.002
+            self.numSteps = 100
+            self.batchSize = 50
+            self.logValidationEvery = 5
+            self.failToImproveTolerance = 2
+
+        elif scale == 'medium':
+            self.initialLearningRate = 0.002
+            self.numSteps = 200
+            self.batchSize = 100
+            self.logValidationEvery = 10
+            self.failToImproveTolerance = 2
+
+        elif scale == 'full':
+            self.initialLearningRate = 0.002
+            self.numSteps = 1000
+            self.batchSize = 200
+            self.logValidationEvery = 20
+            self.failToImproveTolerance = 4
+
+        self.scale = scale
+        self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('config.run').info
+        self.print()
+
+    def print(self):
+        self._logFunc('batch size %d, initial learning rate %.3f' % (self.batchSize, self.initialLearningRate))
+
+
 if __name__ == '__main__':
-    DATA_DIRs = {'tiny_fake': './data/peopleData/2_samples',
+    DATA_DIRs = {'tiny_fake_2': './data/peopleData/2_samples',
+                 'tiny_fake_4': './data/peopleData/4_samples',
                  'small_2occupations': './data/peopleData/earlyLifesWordMats/politician_scientist',
                  'small': './data/peopleData/earlyLifesWordMats',
                  'full_2occupations': './data/peopleData/earlyLifesWordMats_42B300d/politician_scientist',
                  'full': './data/peopleData/earlyLifesWordMats_42B300d'}
 
     with tf.device('/cpu:0'):
-        main(DATA_DIRs['full'], 'full', 'full', create_time_dir('./logs/main'))
+        # main(DATA_DIRs['full'], 'full', 'full', create_time_dir('./logs/main'))
+        main(DATA_DIRs['tiny_fake_4'], 'tiny', 'tiny', create_time_dir('./logs/main'))
 
-    # evaluate_stored_model(DATA_DIRs['tiny_fake'], 'tiny', './logs/main/04202017 01:12:26/saved/save.ckpt')
+        # evaluate_stored_model(DATA_DIRs['tiny_fake'], 'tiny', './logs/main/04202017 01:12:26/saved/save.ckpt')
