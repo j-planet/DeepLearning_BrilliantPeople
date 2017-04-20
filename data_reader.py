@@ -1,3 +1,4 @@
+import tensorflow as tf
 import json, os, glob
 from pprint import pformat
 import logging
@@ -5,7 +6,6 @@ import numpy as np
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.preprocessing import LabelEncoder
 from collections import Counter
-from utilities import setup_logging
 
 
 def one_hot(ind, vecLen):
@@ -17,7 +17,7 @@ def one_hot(ind, vecLen):
 def patch_arrays(arrays, numrows=None):
     """
     patch all arrays to have the same number of rows
-    :numrows: if None, patch to the max number of rows in the arrays
+    :param numrows: if None, patch to the max number of rows in the arrays
     :param arrays: 
     :return:  
     """
@@ -74,15 +74,12 @@ class DataReader(object):
 
     def _read_data_from_files(self, vectorFilesDir):
 
-        # with open(os.path.join(peopleDataDir_, 'processed_names.json'), encoding='utf8') as ifile:
-        #     self._peopleData = json.load(ifile)
-
         XData = []
         YData = []
         names = []
 
-        self._logger.info('======= Reading pre-made vector files... =======')
-        self._logger.info('Data source: ' + vectorFilesDir)
+        self._logFunc('======= Reading pre-made vector files... =======')
+        self._logFunc('Data source: ' + vectorFilesDir)
 
         for inputFilename in glob.glob(os.path.join(vectorFilesDir, '*.json')):
 
@@ -98,39 +95,41 @@ class DataReader(object):
         self.YData_raw_labels = np.array(YData)
         self.maxXLen = max([d.shape[0] for d in self.XData])
         self.names = np.array(names)
-
-
-    def __init__(self, vectorFilesDir, bucketingOrRandom, logFilename):
-        """
-        
-        :param vectorFilesDir: if files have already been converted to vectors, provide this directory. embeddingsFilename will be ignored
-        :param bucketingOrRandom: one of {'bucketing', 'random'} for training data points order
-        """
-
-        assert bucketingOrRandom=='bucketing' or bucketingOrRandom=='random'
-
-        self.globalBatchIndex = 0
-
-        setup_logging(logFilename)
-        self._logger = logging.getLogger('DataReader')
-
-        # extract word2vec from files
-        self._read_data_from_files(vectorFilesDir)
+        self.vectorDimension = self.XData[0].shape[1]
 
         # transform Y data into a one-hot matrix
         self.yEncoder = LabelEncoder()
         self.YData = self.yEncoder.fit_transform(self.YData_raw_labels) # just list of indices here
         self.classLabels = self.yEncoder.classes_
-
+        self.numClasses = len(self.classLabels)
         self.YData = np.array([one_hot(v, len(self.classLabels)) for v in self.YData])
 
 
-        # ======= TRAIN-VALIDATION-TEST SPLIT=======
+    def __init__(self, vectorFilesDir, bucketingOrRandom, loggerFactory=None, train_valid_test_split_=(0.8, 0.1, 0.1)):
+        """
+        :param vectorFilesDir: if files have already been converted to vectors, provide this directory. embeddingsFilename will be ignored
+        :param bucketingOrRandom: one of {'bucketing', 'random'} for training data points order
+        """
 
-        self.train_indices, self.valid_indices, self.test_indices = \
-            train_valid_test_split(self.YData_raw_labels, 0.8, 0.1, 0.1)
+        assert bucketingOrRandom=='bucketing' or bucketingOrRandom=='random'
+        assert sum(train_valid_test_split_)==1. and np.all([v > 0 for v in train_valid_test_split_]), 'Invalid train-validation-test split values.'
 
-        # ======= BUCKETING TRAINING DATA =======
+        self.globalBatchIndex = 0
+        self._logFunc = loggerFactory.getLogger('DataReader').info if loggerFactory else print
+
+        # extract word2vec from files and split
+        self._read_data_from_files(vectorFilesDir)  # extract word2vec from files
+        self.train_indices, self.valid_indices, self.test_indices = train_valid_test_split(self.YData_raw_labels, *train_valid_test_split_)
+        self.trainSize = len(self.train_indices)
+        self.validSize = len(self.valid_indices)
+        self.testSize = len(self.test_indices)
+
+        # define Tensorflow input Placeholders
+        self.x = tf.placeholder(tf.float32, [None, None, self.vectorDimension])
+        self.y = tf.placeholder(tf.float32, [None, self.numClasses])
+        self.numSeqs = tf.placeholder(tf.int32)
+
+        # bucket or sort training data
         if bucketingOrRandom == 'bucketing':
             orders = np.argsort([len(d) for d in self.XData[self.train_indices]])    # increasing order of number of tokens
         elif bucketingOrRandom == 'random':
@@ -148,10 +147,7 @@ class DataReader(object):
     def wherechu_at(self):
         return self.globalBatchIndex
 
-    def get_people_data(self):
-        return self._peopleData
-
-    def get_next_training_batch(self, batchSize_, patchTofull_=False, verbose_ = True):
+    def get_next_training_batch(self, batchSize_, patchTofull_=False, verbose_ = False):
 
         totalNumData = len(self.train_indices)
 
@@ -165,7 +161,7 @@ class DataReader(object):
             numRounds = int(temp/totalNumData)-1
             batchIndices = list(range(self.globalBatchIndex, totalNumData)) + list(range(totalNumData))*numRounds + list(range(newBatchIndex))
             if numRounds > 0:
-                self._logger.info('Batch size %d > data size %d. Going around %d times from index %d to %d.' % (batchSize_, totalNumData, numRounds, self.globalBatchIndex, newBatchIndex))
+                self._logFunc('Batch size %d > data size %d. Going around %d times from index %d to %d.' % (batchSize_, totalNumData, numRounds, self.globalBatchIndex, newBatchIndex))
 
         self.globalBatchIndex = newBatchIndex
 
@@ -178,19 +174,32 @@ class DataReader(object):
         names = self.names[self.train_indices][batchIndices]
 
         if verbose_:
-            self._logger.info('Indices:', batchIndices, '--> # tokens:', [len(d) for d in XBatch], '--> Y values:', YBatch)
+            self._logFunc('Indices:', batchIndices, '--> # tokens:', [len(d) for d in XBatch], '--> Y values:', YBatch)
 
-        return XBatch, YBatch, xLengths, names
+        return {self.x: XBatch, self.y: YBatch, self.numSeqs: xLengths}, names
+
+        # return XBatch, YBatch, xLengths, names
 
     def get_all_training_data(self, patchTofull_=False):
         x, xlengths = patch_arrays(self.XData[self.train_indices], self.maxXLen if patchTofull_ else None)
 
-        return x, self.YData[self.train_indices], xlengths, self.names[self.train_indices]
+        return {self.x: x,
+                self.y: self.YData[self.train_indices],
+                self.numSeqs: xlengths}, self.names[self.train_indices]
 
     def get_all_validation_data(self, patchTofull_=False):
         x, xlengths = patch_arrays(self.XData[self.valid_indices], self.maxXLen if patchTofull_ else None)
 
-        return x, self.YData[self.valid_indices], xlengths, self.names[self.valid_indices]
+        return {self.x: x,
+                self.y: self.YData[self.valid_indices],
+                self.numSeqs: xlengths}, self.names[self.valid_indices]
+
+    def get_all_test_data(self, patchTofull_=False):
+        x, xlengths = patch_arrays(self.XData[self.test_indices], self.maxXLen if patchTofull_ else None)
+
+        return {self.x: x,
+                self.y: self.YData[self.test_indices],
+                self.numSeqs: xlengths}, self.names[self.test_indices]
 
     def get_data_in_batches(self, batchSize_, validTestOrTrain, patchTofull_=False):
         """
@@ -212,29 +221,21 @@ class DataReader(object):
 
             x, xlengths = patch_arrays(self.XData[curIndices], self.maxXLen if patchTofull_ else None)
 
-            res.append((x, self.YData[curIndices], xlengths, self.names[curIndices]))
+            # res.append((x, self.YData[curIndices], xlengths, self.names[curIndices]))
+            res.append(({ self.x: x,
+                          self.y: self.YData[curIndices],
+                          self.numSeqs: xlengths
+                          }, self.names[curIndices]))
 
         return res
 
-    def get_all_test_data(self, patchTofull_=False):
-        x, xlengths = patch_arrays(self.XData[self.test_indices], self.maxXLen if patchTofull_ else None)
-
-        return x, self.YData[self.test_indices], xlengths, self.names[self.test_indices]
-
-    def get_classes_labels(self):
-        return self.classLabels
-
-    def get_max_len(self):
-        """
-        :return: the maximum number of rows across ALL x's (including training, valid and testing) 
-        """
-        return self.maxXLen
-
+    @property
+    def input(self):
+        return {'x': self.x, 'y': self.y, 'numSeqs': self.numSeqs}
 
 if __name__ == '__main__':
-    dataReader = DataReader(vectorFilesDir='./data/peopleData/earlyLifesWordMats')
+    dataReader = DataReader('./data/peopleData/2_samples', 'bucketing')
+    d, names = dataReader.get_next_training_batch(5)
 
-    # x, y, xlengths = dataReader.get_next_training_batch(5)
-    # dataReader.get_all_training_data()
-    # dataReader.get_validation_data()
-    # dataReader.get_test_data()
+    print(d)
+    print(names)

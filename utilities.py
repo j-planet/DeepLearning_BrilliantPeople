@@ -1,6 +1,8 @@
-import glob, os
+from datetime import datetime
+import glob, os, logging
 import tensorflow as tf
-import logging
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 def tensorflowFilewriters(writerDir):
@@ -33,9 +35,46 @@ def reshape_x_for_non_dynamic(x_, numSeqs_, seqLen_):
         numSeqs_, 0)
 
 
+def label_comparison(trueYInds_, predYInds_, names_, yLabelTexts_, logFunc_):
+    logFunc_ = logFunc_ or print
+    logFunc_('True label became... --> ?')
+
+    for i, name in enumerate(names_):
+        logFunc_('%-20s %s --> %s %s' % (name, yLabelTexts_[trueYInds_[i]], yLabelTexts_[predYInds_[i]],
+                                         '(wrong)' if trueYInds_[i] != predYInds_[i] else ''))
+
+
+def save_matrix_img(mats_, title, outputDir_, transpose_=False):
+
+    d = np.array(mats_) if len(mats_[0].shape) == 1 else np.concatenate(mats_, axis=1)
+
+    fig = plt.figure()
+    ax = plt.subplot(111)
+    heatmap = ax.matshow(np.transpose(d) if transpose_ else d, cmap='gray')
+    plt.colorbar(heatmap)
+    plt.title(title)
+    fig.savefig(os.path.join(outputDir_, title+'.png'))
+
+
 def setup_logging(logFilename_, level_=logging.DEBUG):
     logging.basicConfig(level=level_,
                         format='%(asctime)s %(name)-15s %(message)s',
                         datefmt='%H:%M:%S',
                         handlers=[logging.FileHandler(logFilename_, encoding='utf8'),
                                   logging.StreamHandler()])
+
+class LoggerFactory(object):
+
+    def __init__(self, outputDir_):
+        self.dir = os.path.join(outputDir_, datetime.now().strftime('%m%d%Y %H:%M:%S'))
+        if not os.path.exists(self.dir): os.mkdir(self.dir)
+
+        self.filename = os.path.join(self.dir, 'log.log')
+        setup_logging(self.filename)
+        logging.info('Logging to ' + self.filename)
+
+        self.loggers = {}
+
+    def getLogger(self, n_):
+        self.loggers[n_] = logging.getLogger(n_)
+        return self.loggers[n_]
