@@ -58,25 +58,25 @@ class RunConfig(object):
 
         if scale == 'basic':
             self.initialLearningRate = 0.001
-            self.numSteps = 5  # 1 step runs 1 batch
+            self.numSteps = 5
             self.batchSize = 10
             self.logValidationEvery = 3
 
         elif scale == 'tiny':
             self.initialLearningRate = 0.003
-            self.numSteps = 10  # 1 step runs 1 batch
+            self.numSteps = 10
             self.batchSize = 20
             self.logValidationEvery = 2
 
         elif scale == 'small':
             self.initialLearningRate = 0.002
-            self.numSteps = 100  # 1 step runs 1 batch
+            self.numSteps = 100
             self.batchSize = 50
             self.logValidationEvery = 10
 
         elif scale == 'full':
             self.initialLearningRate = 0.002
-            self.numSteps = 500  # 1 step runs 1 batch
+            self.numSteps = 750
             self.batchSize = 150
             self.logValidationEvery = 20
 
@@ -177,7 +177,7 @@ if __name__ == '__main__':
                  'full_2occupations': './data/peopleData/earlyLifesWordMats_42B300d/politician_scientist',
                  'full': './data/peopleData/earlyLifesWordMats_42B300d'}
 
-    # with tf.device('/cpu:0'):
-    main(DATA_DIRs['tiny_fake'], 'tiny', 'tiny', create_time_dir('./logs/main'))
+    with tf.device('/cpu:0'):
+        main(DATA_DIRs['full'], 'full', 'full', create_time_dir('./logs/main'))
 
     # evaluate_stored_model(DATA_DIRs['tiny_fake'], 'tiny', './logs/main/04202017 01:12:26/saved/save.ckpt')
