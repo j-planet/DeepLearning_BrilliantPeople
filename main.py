@@ -7,6 +7,7 @@ import tensorflow as tf
 
 from data_reader import DataReader
 from model import Model
+from model2 import Model2
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
 
 
@@ -73,10 +74,10 @@ def evaluate_stored_model(dataDir, modelScale, savePath):
     # sess.run(tf.global_variables_initializer())
     tf.train.Saver().restore(sess, savePath)
 
-    evaluate_in_batches(dataReader.get_data_in_batches(10, 'test'), dataReader.classLabels, model.evaluate)
+    evaluate_in_batches(dataReader._get_data_in_batches(10, 'test'), dataReader.classLabels, model.evaluate)
 
 
-def main(dataDir, modelScale, runScale, logDir=create_time_dir('./logs/main')):
+def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./logs/main')):
     assert modelScale in ['basic', 'tiny', 'small', 'full']
     assert runScale in ['basic', 'tiny', 'small', 'full']
 
@@ -96,7 +97,7 @@ def main(dataDir, modelScale, runScale, logDir=create_time_dir('./logs/main')):
     runConfig = RunConfig(runScale, loggerFactory)
     dataReader = DataReader(dataDir, 'bucketing', loggerFactory)
 
-    model = Model(modelScale, dataReader.input, dataReader.numClasses, runConfig.initialLearningRate, loggerFactory)
+    model = modelKlass(modelScale, dataReader.input, dataReader.numClasses, runConfig.initialLearningRate, loggerFactory)
 
     # =========== set up tensorboard ===========
     train_writer, valid_writer = tensorflowFilewriters(logDir)
@@ -112,6 +113,7 @@ def main(dataDir, modelScale, runScale, logDir=create_time_dir('./logs/main')):
     dataReader.start_batch_from_beginning()     # technically unnecessary
     batchSize, numSteps, logValidationEvery = runConfig.batchSize, runConfig.numSteps, runConfig.logValidationEvery
     bestValidC, bestValidAcc, numValidWorse = 100, 0, 0   # for early stopping if the model isn't getting anywhere :(
+    validData = dataReader._get_data_in_batches(50, 'validate')  # TODO: this is silly
 
     for step in range(numSteps):
         numDataPoints = (step+1) * runConfig.batchSize
@@ -124,8 +126,7 @@ def main(dataDir, modelScale, runScale, logDir=create_time_dir('./logs/main')):
         log_progress(step, numDataPoints, lr, c, acc, trainLogFunc)
 
         if step % logValidationEvery == 0:
-            curValidC, curValidAcc = evaluate_in_batches(dataReader.get_data_in_batches(50, 'validate'),
-                                                   dataReader.classLabels, model.evaluate, validLogFunc)
+            curValidC, curValidAcc = evaluate_in_batches(validData, dataReader.classLabels, model.evaluate, validLogFunc)
             saver.save(sess, savePath, global_step=numDataPoints)
 
             if curValidC >= bestValidC and curValidAcc <= bestValidAcc:
@@ -137,10 +138,11 @@ def main(dataDir, modelScale, runScale, logDir=create_time_dir('./logs/main')):
             else:
                 bestValidC = min(bestValidC, curValidC)
                 bestValidAcc = max(bestValidAcc, curValidAcc)
+                numValidWorse = 0
 
 
     testLogFunc('Time elapsed: ' + str(time()-st))
-    evaluate_in_batches(dataReader.get_data_in_batches(50, 'test'), dataReader.classLabels, model.evaluate, testLogFunc)
+    evaluate_in_batches(dataReader._get_data_in_batches(50, 'test'), dataReader.classLabels, model.evaluate, testLogFunc)
 
     saver.save(sess, savePath)
     train_writer.close()
@@ -162,7 +164,7 @@ class RunConfig(object):
             self.initialLearningRate = 0.003
             self.numSteps = 10
             self.batchSize = 20
-            self.logValidationEvery = 2
+            self.logValidationEvery = 3
             self.failToImproveTolerance = 1
 
         elif scale == 'small':
@@ -183,7 +185,7 @@ class RunConfig(object):
             self.initialLearningRate = 0.002
             self.numSteps = 1000
             self.batchSize = 200
-            self.logValidationEvery = 20
+            self.logValidationEvery = 15
             self.failToImproveTolerance = 4
 
         self.scale = scale
@@ -203,7 +205,7 @@ if __name__ == '__main__':
                  'full': './data/peopleData/earlyLifesWordMats_42B300d'}
 
     with tf.device('/cpu:0'):
-        # main(DATA_DIRs['full'], 'full', 'full', create_time_dir('./logs/main'))
-        main(DATA_DIRs['tiny_fake_4'], 'tiny', 'tiny', create_time_dir('./logs/main'))
+        main(DATA_DIRs['small_2occupations'], Model, modelScale='tiny', runScale='small')
 
-        # evaluate_stored_model(DATA_DIRs['tiny_fake'], 'tiny', './logs/main/04202017 01:12:26/saved/save.ckpt')
+
+

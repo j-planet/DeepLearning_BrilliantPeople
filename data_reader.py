@@ -21,22 +21,21 @@ def patch_arrays(arrays, numrows=None):
     :param arrays: 
     :return:  
     """
-
-    res = []
-
+    print('patching')
     lengths = [arr.shape[0] for arr in arrays]
     padLen = max(lengths)
 
     assert numrows is None or numrows >= padLen, 'numrows is fewer than the max number of rows: %d vs %d.' % (numrows, padLen)
-
     padLen = numrows or padLen
 
+    res = np.empty( (len(lengths), padLen, arrays[0].shape[1]) )
 
-    for arr in arrays:
-        res.append(np.append(arr, np.zeros((padLen - arr.shape[0], arr.shape[1])), axis=0))
+    for i, arr in enumerate(arrays):
+        res[i][:arr.shape[0], :] = arr
 
-    return np.array(res), lengths
+    print('done patching')
 
+    return res, lengths
 
 def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=True):
     """
@@ -72,6 +71,31 @@ def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=T
 
 class DataReader(object):
 
+    def __init__(self, vectorFilesDir, bucketingOrRandom, batchSize_,
+                 loggerFactory=None, train_valid_test_split_=(0.8, 0.1, 0.1)):
+        """
+        :param vectorFilesDir: if files have already been converted to vectors, provide this directory. embeddingsFilename will be ignored
+        :param bucketingOrRandom: one of {'bucketing', 'random'} for training data points order
+        """
+
+        assert bucketingOrRandom=='bucketing' or bucketingOrRandom=='random'
+        assert sum(train_valid_test_split_)==1. and np.all([v > 0 for v in train_valid_test_split_]), 'Invalid train-validation-test split values.'
+
+        self.globalBatchIndex = 0
+        self._logFunc = loggerFactory.getLogger('DataReader').info if loggerFactory else print
+        self._batchSize = batchSize_
+        self._bucketingOrRandom = bucketingOrRandom
+        self._train_valid_test_split = train_valid_test_split_
+
+        # extract word2vec from files and split
+        self._read_data_from_files(vectorFilesDir)  # extract word2vec from files
+
+        # define Tensorflow input Placeholders
+        self.x = tf.placeholder(tf.float32, [None, None, self.vectorDimension])
+        self.y = tf.placeholder(tf.float32, [None, self.numClasses])
+        self.numSeqs = tf.placeholder(tf.int32)
+
+
     def _read_data_from_files(self, vectorFilesDir):
 
         XData = []
@@ -104,41 +128,26 @@ class DataReader(object):
         self.numClasses = len(self.classLabels)
         self.YData = np.array([one_hot(v, len(self.classLabels)) for v in self.YData])
 
+        # train-validation-test split
+        self.train_indices, self.valid_indices, self.test_indices = \
+            train_valid_test_split(self.YData_raw_labels, *self._train_valid_test_split)
 
-    def __init__(self, vectorFilesDir, bucketingOrRandom, loggerFactory=None, train_valid_test_split_=(0.8, 0.1, 0.1)):
-        """
-        :param vectorFilesDir: if files have already been converted to vectors, provide this directory. embeddingsFilename will be ignored
-        :param bucketingOrRandom: one of {'bucketing', 'random'} for training data points order
-        """
-
-        assert bucketingOrRandom=='bucketing' or bucketingOrRandom=='random'
-        assert sum(train_valid_test_split_)==1. and np.all([v > 0 for v in train_valid_test_split_]), 'Invalid train-validation-test split values.'
-
-        self.globalBatchIndex = 0
-        self._logFunc = loggerFactory.getLogger('DataReader').info if loggerFactory else print
-
-        # extract word2vec from files and split
-        self._read_data_from_files(vectorFilesDir)  # extract word2vec from files
-        self.train_indices, self.valid_indices, self.test_indices = train_valid_test_split(self.YData_raw_labels, *train_valid_test_split_)
         self.trainSize = len(self.train_indices)
         self.validSize = len(self.valid_indices)
         self.testSize = len(self.test_indices)
 
-        # define Tensorflow input Placeholders
-        self.x = tf.placeholder(tf.float32, [None, None, self.vectorDimension])
-        self.y = tf.placeholder(tf.float32, [None, self.numClasses])
-        self.numSeqs = tf.placeholder(tf.int32)
-
         # bucket or sort training data
-        if bucketingOrRandom == 'bucketing':
-            orders = np.argsort([len(d) for d in self.XData[self.train_indices]])    # increasing order of number of tokens
-        elif bucketingOrRandom == 'random':
+        if self._bucketingOrRandom == 'bucketing':
+            orders = np.argsort([len(d) for d in self.XData[self.train_indices]])  # increasing order of number of tokens
+        elif self._bucketingOrRandom == 'random':
             orders = list(range(len(self.train_indices)))
             np.random.shuffle(orders)
         else:
-            raise Exception('Invalid bucketingOrRandom option:', bucketingOrRandom)
+            raise Exception('Invalid bucketingOrRandom option:', self._bucketingOrRandom)
 
         self.train_indices = self.train_indices[orders]
+
+        # put data into batches
 
 
     def start_batch_from_beginning(self):
@@ -178,8 +187,6 @@ class DataReader(object):
 
         return {self.x: XBatch, self.y: YBatch, self.numSeqs: xLengths}, names
 
-        # return XBatch, YBatch, xLengths, names
-
     def get_all_training_data(self, patchTofull_=False):
         x, xlengths = patch_arrays(self.XData[self.train_indices], self.maxXLen if patchTofull_ else None)
 
@@ -201,10 +208,20 @@ class DataReader(object):
                 self.y: self.YData[self.test_indices],
                 self.numSeqs: xlengths}, self.names[self.test_indices]
 
-    def get_data_in_batches(self, batchSize_, validTestOrTrain, patchTofull_=False):
+    def _get_data_in_batches(self, data_, patchTofull_=False):
         """
+        :param data_: 3D array of shape (number of arrays, sequences, vecDim)
         :return: a list
         """
+
+        bs = self._batchSize
+        total = len(data_)
+        numLeftover = total % bs
+
+        res = [patch_arrays(arr) for arr in np.split(data_[:(total - numLeftover)], bs) + (data_[-numLeftover:] if numLeftover>0 else [])]
+
+
+
 
         assert validTestOrTrain in ['validate', 'test', 'train']
 
@@ -213,15 +230,14 @@ class DataReader(object):
 
         res = []
 
-        total = len(dataIndices)
-        numBatches = int(np.ceil(total / batchSize_))
+        # total = len(dataIndices)
+        numBatches = int(np.ceil(total / self._batchSize))
 
         for i in range(numBatches):
             curIndices = dataIndices[i * batchSize_: (i + 1) * batchSize_]
 
             x, xlengths = patch_arrays(self.XData[curIndices], self.maxXLen if patchTofull_ else None)
 
-            # res.append((x, self.YData[curIndices], xlengths, self.names[curIndices]))
             res.append(({ self.x: x,
                           self.y: self.YData[curIndices],
                           self.numSeqs: xlengths
