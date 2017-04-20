@@ -4,14 +4,13 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out
 # import numpy as np
 import tensorflow as tf
 # from tensorflow import summary
-# from tensorflow.python.client.timeline import Timeline
-# from tensorflow.contrib.rnn import BasicLSTMCell, BasicRNNCell, stack_bidirectional_dynamic_rnn, MultiRNNCell, DropoutWrapper, LSTMCell
 
 from data_reader import DataReader
 from model import Model
-from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir
+from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
 
 
+# sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.9)))
 sess = tf.InteractiveSession()
 
 
@@ -101,9 +100,20 @@ def log_progress(step, numDataPoints, lr, c=None, acc=None, logFunc=None):
     return res
 
 
-def main(dataDir, modelScale, runScale, logDir='./logs/main'):
-    assert modelScale in ['tiny', 'small', 'full']
-    assert runScale in ['tiny', 'small', 'full']
+def evaluate_stored_model(dataDir, modelScale, savePath):
+
+    dataReader = DataReader(dataDir, 'bucketing')
+    model = Model(modelScale, dataReader.input, dataReader.numClasses, 0)
+
+    # sess.run(tf.global_variables_initializer())
+    tf.train.Saver().restore(sess, savePath)
+
+    evaluate_in_batches(dataReader.get_data_in_batches(10, 'test'), dataReader.classLabels, model.evaluate)
+
+
+def main(dataDir, modelScale, runScale, logDir=create_time_dir('./logs/main')):
+    assert modelScale in ['basic', 'tiny', 'small', 'full']
+    assert runScale in ['basic', 'tiny', 'small', 'full']
 
     def _decrease_learning_rate(numDataPoints_, decayPerCycle_=0.95, lowerBound_=1e-4):
         """
@@ -115,8 +125,6 @@ def main(dataDir, modelScale, runScale, logDir='./logs/main'):
         model.assign_lr(sess, newLr)
 
         return newLr
-
-    # sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.9)))
 
     st = time()
     loggerFactory = LoggerFactory(logDir)
@@ -134,6 +142,8 @@ def main(dataDir, modelScale, runScale, logDir='./logs/main'):
 
     # =========== TRAIN!! ===========
     sess.run(tf.global_variables_initializer())
+    saver, savePath = tf.train.Saver(), os.path.join(dir_create_n_clear(logDir, 'saved'), 'save.ckpt')
+    trainLogFunc('Saving to ' + savePath)
     dataReader.start_batch_from_beginning()     # technically unnecessary
     batchSize, numSteps, logValidationEvery = runConfig.batchSize, runConfig.numSteps, runConfig.logValidationEvery
 
@@ -150,11 +160,13 @@ def main(dataDir, modelScale, runScale, logDir='./logs/main'):
 
         if step % logValidationEvery == 0:
             evaluate_in_batches(dataReader.get_data_in_batches(10, 'validate'), dataReader.classLabels, model.evaluate, validLogFunc)
+            saver.save(sess, savePath, global_step=numDataPoints)
 
 
     testLogFunc('Time elapsed: ' + str(time()-st))
     evaluate_in_batches(dataReader.get_data_in_batches(10, 'test'), dataReader.classLabels, model.evaluate, testLogFunc)
 
+    saver.save(sess, savePath)
     train_writer.close()
     valid_writer.close()
 
@@ -165,10 +177,7 @@ if __name__ == '__main__':
                  'full_2occupations': './data/peopleData/earlyLifesWordMats_42B300d/politician_scientist',
                  'full': './data/peopleData/earlyLifesWordMats_42B300d'}
 
-    logDir = create_time_dir('./logs/main')
-
-    # sv = tf.train.Supervisor(logdir=logDir)
-    # with sv.managed_session() as sess:
     # with tf.device('/cpu:0'):
-    main(DATA_DIRs['tiny_fake'], 'basic', 'basic', logDir)
-    tf.train.Saver().save(sess, os.path.join(logDir, 'saved.ckpt'))
+    main(DATA_DIRs['tiny_fake'], 'tiny', 'tiny', create_time_dir('./logs/main'))
+
+    # evaluate_stored_model(DATA_DIRs['tiny_fake'], 'tiny', './logs/main/04202017 01:12:26/saved/save.ckpt')

@@ -57,7 +57,7 @@ class Model(object):
         :type numClasses_: int
         :type input_: dict
         """
-        assert configScale_ in ['tiny', 'small', 'full']
+        assert configScale_ in ['basic', 'tiny', 'small', 'full']
         self.config = ModelConfig(configScale_, loggerFactory)
 
         self._lr = tf.Variable(initialLearningRate_, name='learningRate')

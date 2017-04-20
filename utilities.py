@@ -5,23 +5,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+def dir_create_n_clear(*pathComponents):
+    res = os.path.join(*pathComponents)
+
+    if not os.path.exists(res):
+        os.mkdir(res)
+    else:
+        for f in glob.glob(os.path.join(res, '*')):
+            os.remove(f)
+
+    return res
+
+
 def tensorflowFilewriters(writerDir):
     """ 
     :return: trainWriter, ValidateWriter
     """
 
-    def _make_one_writer(dir_):
-
-        if not os.path.exists(dir_): os.mkdir(dir_)
-
-        # clear existing logs first
-        for f in glob.glob(os.path.join(dir_, '*')):
-            os.remove(f)
-
-        return tf.summary.FileWriter(dir_)
-
-    return _make_one_writer(os.path.join(writerDir, 'train')), \
-           _make_one_writer(os.path.join(writerDir, 'validation'))
+    return tf.summary.FileWriter(dir_create_n_clear(writerDir, 'train')), \
+           tf.summary.FileWriter(dir_create_n_clear(writerDir, 'validation'))
 
 
 def reshape_x_for_non_dynamic(x_, numSeqs_, seqLen_):
