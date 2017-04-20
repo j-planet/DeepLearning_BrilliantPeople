@@ -63,13 +63,18 @@ def setup_logging(logFilename_, level_=logging.DEBUG):
                         handlers=[logging.FileHandler(logFilename_, encoding='utf8'),
                                   logging.StreamHandler()])
 
+def create_time_dir(baseDir):
+    res = os.path.join(baseDir, datetime.now().strftime('%m%d%Y %H:%M:%S'))
+    if not os.path.exists(res): os.mkdir(res)
+
+    return res
+
+
 class LoggerFactory(object):
 
     def __init__(self, outputDir_):
-        self.dir = os.path.join(outputDir_, datetime.now().strftime('%m%d%Y %H:%M:%S'))
-        if not os.path.exists(self.dir): os.mkdir(self.dir)
 
-        self.filename = os.path.join(self.dir, 'log.log')
+        self.filename = os.path.join(outputDir_, 'log.log')
         setup_logging(self.filename)
         logging.info('Logging to ' + self.filename)
 

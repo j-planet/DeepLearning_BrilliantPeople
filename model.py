@@ -19,9 +19,13 @@ def last_relevant(output_, lengths_):
 
 class ModelConfig(object):
     def __init__(self, scale, loggerFactory=None):
-        assert scale in ['tiny', 'small', 'full']
+        assert scale in ['basic', 'tiny', 'small', 'full']
 
-        if scale == 'tiny':
+        if scale == 'basic':
+            self.numHiddenLayerFeatures = [8]
+            self.outputKeepProbs = [0.9]
+
+        elif scale == 'tiny':
             self.numHiddenLayerFeatures = [32, 8]
             self.outputKeepProbs = [0.5, 0.9]
 

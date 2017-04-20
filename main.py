@@ -9,7 +9,7 @@ import tensorflow as tf
 
 from data_reader import DataReader
 from model import Model
-from utilities import tensorflowFilewriters, label_comparison, LoggerFactory
+from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir
 
 
 sess = tf.InteractiveSession()
@@ -55,9 +55,15 @@ def evaluate_in_batches(data_, yLabelTexts_, evaluationFunc_, logFunc_=None):
 
 class RunConfig(object):
     def __init__(self, scale, loggerFactory=None):
-        assert scale in ['tiny', 'small', 'full']
+        assert scale in ['basic', 'tiny', 'small', 'full']
 
-        if scale == 'tiny':
+        if scale == 'basic':
+            self.initialLearningRate = 0.001
+            self.numSteps = 5  # 1 step runs 1 batch
+            self.batchSize = 10
+            self.logValidationEvery = 3
+
+        elif scale == 'tiny':
             self.initialLearningRate = 0.003
             self.numSteps = 10  # 1 step runs 1 batch
             self.batchSize = 20
@@ -95,7 +101,7 @@ def log_progress(step, numDataPoints, lr, c=None, acc=None, logFunc=None):
     return res
 
 
-def main(dataDir, modelScale, runScale):
+def main(dataDir, modelScale, runScale, logDir='./logs/main'):
     assert modelScale in ['tiny', 'small', 'full']
     assert runScale in ['tiny', 'small', 'full']
 
@@ -113,14 +119,14 @@ def main(dataDir, modelScale, runScale):
     # sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.9)))
 
     st = time()
-    loggerFactory = LoggerFactory('./logs/main')
+    loggerFactory = LoggerFactory(logDir)
     runConfig = RunConfig(runScale, loggerFactory)
     dataReader = DataReader(dataDir, 'bucketing', loggerFactory)
 
     model = Model(modelScale, dataReader.input, dataReader.numClasses, runConfig.initialLearningRate, loggerFactory)
 
     # =========== set up tensorboard ===========
-    train_writer, valid_writer = tensorflowFilewriters(loggerFactory.dir)
+    train_writer, valid_writer = tensorflowFilewriters(logDir)
     train_writer.add_graph(sess.graph)
     trainLogFunc = loggerFactory.getLogger('run.train').info
     validLogFunc = loggerFactory.getLogger('run.validate').info
@@ -159,5 +165,10 @@ if __name__ == '__main__':
                  'full_2occupations': './data/peopleData/earlyLifesWordMats_42B300d/politician_scientist',
                  'full': './data/peopleData/earlyLifesWordMats_42B300d'}
 
+    logDir = create_time_dir('./logs/main')
+
+    # sv = tf.train.Supervisor(logdir=logDir)
+    # with sv.managed_session() as sess:
     # with tf.device('/cpu:0'):
-    main(DATA_DIRs['tiny_fake'], 'tiny', 'tiny')
+    main(DATA_DIRs['tiny_fake'], 'basic', 'basic', logDir)
+    tf.train.Saver().save(sess, os.path.join(logDir, 'saved.ckpt'))
