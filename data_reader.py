@@ -1,7 +1,6 @@
 import tensorflow as tf
 import json, os, glob
 from pprint import pformat
-import logging
 import numpy as np
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.preprocessing import LabelEncoder
@@ -22,8 +21,8 @@ def patch_arrays(arrays, numrows=None):
     :return:  
     """
     print('patching')
-    lengths = [arr.shape[0] for arr in arrays]
-    padLen = max(lengths)
+    lengths = np.array([arr.shape[0] for arr in arrays])
+    padLen = lengths.max()
 
     assert numrows is None or numrows >= padLen, 'numrows is fewer than the max number of rows: %d vs %d.' % (numrows, padLen)
     padLen = numrows or padLen
@@ -37,10 +36,12 @@ def patch_arrays(arrays, numrows=None):
 
     return res, lengths
 
-def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=True):
+def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=True, logFunc_=None):
     """
     :return: train_indices, valid_indices, test_indices 
     """
+
+    logFunc_ = logFunc_ or print
 
     totalLen = len(YData_)
 
@@ -58,13 +59,12 @@ def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=T
     valid_indices = np.array([i for i in range(totalLen) if i not in train_indices and i not in test_indices])
 
     if verbose_:
-        logger = logging.getLogger('DataReader')
 
         # sanity check that the stratified split worked properly
-        logger.info('train : validation : test = %d : %d : %d' % (len(train_indices), len(valid_indices), len(test_indices)))
-        logger.info(pformat(Counter(YData_[train_indices])))
-        logger.info(pformat(Counter(YData_[valid_indices])))
-        logger.info(pformat(Counter(YData_[test_indices])))
+        logFunc_('train : validation : test = %d : %d : %d' % (len(train_indices), len(valid_indices), len(test_indices)))
+        logFunc_(pformat(Counter(YData_[train_indices])))
+        logFunc_(pformat(Counter(YData_[valid_indices])))
+        logFunc_(pformat(Counter(YData_[test_indices])))
 
     return train_indices, valid_indices, test_indices
 
@@ -81,7 +81,7 @@ class DataReader(object):
         assert bucketingOrRandom=='bucketing' or bucketingOrRandom=='random'
         assert sum(train_valid_test_split_)==1. and np.all([v > 0 for v in train_valid_test_split_]), 'Invalid train-validation-test split values.'
 
-        self.globalBatchIndex = 0
+        self.trainBatchIndex = 0
         self._logFunc = loggerFactory.getLogger('DataReader').info if loggerFactory else print
         self._batchSize = batchSize_
         self._bucketingOrRandom = bucketingOrRandom
@@ -115,133 +115,102 @@ class DataReader(object):
             YData.append(occ if type(occ)==str else occ[-1])
             names.append(os.path.basename(inputFilename).split('.json')[0])
 
-        self.XData = np.array(XData)
-        self.YData_raw_labels = np.array(YData)
-        self.maxXLen = max([d.shape[0] for d in self.XData])
-        self.names = np.array(names)
-        self.vectorDimension = self.XData[0].shape[1]
+        XData = np.array(XData)
+        YData_raw_labels = np.array(YData)
+        self.maxXLen = max([d.shape[0] for d in XData])
+        names = np.array(names)
+        self.vectorDimension = XData[0].shape[1]
 
         # transform Y data into a one-hot matrix
         self.yEncoder = LabelEncoder()
-        self.YData = self.yEncoder.fit_transform(self.YData_raw_labels) # just list of indices here
+        YData = self.yEncoder.fit_transform(YData_raw_labels) # just list of indices here
         self.classLabels = self.yEncoder.classes_
         self.numClasses = len(self.classLabels)
-        self.YData = np.array([one_hot(v, len(self.classLabels)) for v in self.YData])
+        YData = np.array([one_hot(v, len(self.classLabels)) for v in YData])
 
         # train-validation-test split
-        self.train_indices, self.valid_indices, self.test_indices = \
-            train_valid_test_split(self.YData_raw_labels, *self._train_valid_test_split)
-
-        self.trainSize = len(self.train_indices)
-        self.validSize = len(self.valid_indices)
-        self.testSize = len(self.test_indices)
+        train_indices, valid_indices, test_indices = \
+            train_valid_test_split(YData_raw_labels, *self._train_valid_test_split, logFunc_=self._logFunc)
 
         # bucket or sort training data
         if self._bucketingOrRandom == 'bucketing':
-            orders = np.argsort([len(d) for d in self.XData[self.train_indices]])  # increasing order of number of tokens
+            orders = np.argsort([len(d) for d in XData[train_indices]])  # increasing order of number of tokens
         elif self._bucketingOrRandom == 'random':
-            orders = list(range(len(self.train_indices)))
+            orders = list(range(len(train_indices)))
             np.random.shuffle(orders)
         else:
             raise Exception('Invalid bucketingOrRandom option:', self._bucketingOrRandom)
 
-        self.train_indices = self.train_indices[orders]
+        train_indices = train_indices[orders]
 
         # put data into batches
+        self.trainData = self._get_data_in_batches(XData[train_indices], YData[train_indices], names[train_indices])
+        self.validData = self._get_data_in_batches(XData[valid_indices], YData[valid_indices], names[valid_indices])
+        self.testData = self._get_data_in_batches(XData[test_indices], YData[test_indices], names[test_indices])
+
+        self.numTrainBatches = len(self.trainData)
+        self.numValidBatches = len(self.validData)
+        self.numTestBatches = len(self.testData)
+        self.trainSize = len(train_indices)
+
+        if self._batchSize > len(train_indices): self._logFunc('NOTE: actual training batch size (%d) is smaller than assigned (%d)' % (len(train_indices), self._batchSize))
+        if self._batchSize > len(valid_indices): self._logFunc('NOTE: actual validation batch size (%d) is smaller than assigned (%d)' % (len(valid_indices), self._batchSize))
+        if self._batchSize > len(test_indices): self._logFunc('NOTE: actual test batch size (%d) is smaller than assigned (%d)' % (len(test_indices), self._batchSize))
+        self._logFunc('%d train batches, %d validation batches, %d test batches.' % (self.numTrainBatches, self.numValidBatches, self.numTestBatches))
+
+        del XData, YData, names, train_indices, valid_indices, test_indices
 
 
     def start_batch_from_beginning(self):
-        self.globalBatchIndex = 0
+        self.trainBatchIndex = 0
 
     def wherechu_at(self):
-        return self.globalBatchIndex
+        return self.trainBatchIndex
 
-    def get_next_training_batch(self, batchSize_, patchTofull_=False, verbose_ = False):
-
-        totalNumData = len(self.train_indices)
-
-        if self.globalBatchIndex + batchSize_ <= totalNumData:
-            newBatchIndex = self.globalBatchIndex + batchSize_
-            batchIndices = list(range(self.globalBatchIndex, newBatchIndex))
-
-        else:
-            temp = self.globalBatchIndex + batchSize_
-            newBatchIndex = temp % totalNumData
-            numRounds = int(temp/totalNumData)-1
-            batchIndices = list(range(self.globalBatchIndex, totalNumData)) + list(range(totalNumData))*numRounds + list(range(newBatchIndex))
-            if numRounds > 0:
-                self._logFunc('Batch size %d > data size %d. Going around %d times from index %d to %d.' % (batchSize_, totalNumData, numRounds, self.globalBatchIndex, newBatchIndex))
-
-        self.globalBatchIndex = newBatchIndex
-
-        # randomize within a batch (does this actually make a difference...? Don't think so.)
-        np.random.shuffle(batchIndices)
-
-        # pad the x batch
-        XBatch, xLengths = patch_arrays(self.XData[self.train_indices][batchIndices], self.maxXLen if patchTofull_ else None)
-        YBatch = self.YData[self.train_indices][batchIndices]
-        names = self.names[self.train_indices][batchIndices]
-
-        if verbose_:
-            self._logFunc('Indices:', batchIndices, '--> # tokens:', [len(d) for d in XBatch], '--> Y values:', YBatch)
-
-        return {self.x: XBatch, self.y: YBatch, self.numSeqs: xLengths}, names
-
-    def get_all_training_data(self, patchTofull_=False):
-        x, xlengths = patch_arrays(self.XData[self.train_indices], self.maxXLen if patchTofull_ else None)
-
-        return {self.x: x,
-                self.y: self.YData[self.train_indices],
-                self.numSeqs: xlengths}, self.names[self.train_indices]
-
-    def get_all_validation_data(self, patchTofull_=False):
-        x, xlengths = patch_arrays(self.XData[self.valid_indices], self.maxXLen if patchTofull_ else None)
-
-        return {self.x: x,
-                self.y: self.YData[self.valid_indices],
-                self.numSeqs: xlengths}, self.names[self.valid_indices]
-
-    def get_all_test_data(self, patchTofull_=False):
-        x, xlengths = patch_arrays(self.XData[self.test_indices], self.maxXLen if patchTofull_ else None)
-
-        return {self.x: x,
-                self.y: self.YData[self.test_indices],
-                self.numSeqs: xlengths}, self.names[self.test_indices]
-
-    def _get_data_in_batches(self, data_, patchTofull_=False):
+    def get_next_training_batch(self, shuffle=False):
         """
-        :param data_: 3D array of shape (number of arrays, sequences, vecDim)
-        :return: a list
+        :type shuffle: bool 
+        :return: feedict, names
         """
 
-        bs = self._batchSize
-        total = len(data_)
-        numLeftover = total % bs
+        x, y, xlengths, names = self.trainData[self.trainBatchIndex]
 
-        res = [patch_arrays(arr) for arr in np.split(data_[:(total - numLeftover)], bs) + (data_[-numLeftover:] if numLeftover>0 else [])]
+        if shuffle:
+            orders = np.random.permutation(len(x))
+            np.take(x, orders, axis=0, out=x)
+            np.take(y, orders, axis=0, out=y)
+            np.take(xlengths, orders, out=xlengths)
+            np.take(names, orders, out=names)
 
+        self.trainBatchIndex = (self.trainBatchIndex + 1) % self.numTrainBatches
 
+        return {self.x: x, self.y: y, self.numSeqs: xlengths}, names
 
+    def get_validation_data_in_batches(self):
+        for x, y, xlengths, names in self.validData:
+            yield {self.x: x, self.y: y, self.numSeqs: xlengths}, names
 
-        assert validTestOrTrain in ['validate', 'test', 'train']
+    def get_test_data_in_batches(self):
+        for x, y, xlengths, names in self.testData:
+            yield {self.x: x, self.y: y, self.numSeqs: xlengths}, names
 
-        dataIndices = self.valid_indices if validTestOrTrain=='validate' else \
-            self.test_indices if validTestOrTrain=='test' else self.train_indices
+    def _get_data_in_batches(self, xData_, yData_, names_):
+        """
+        :param xData_: 3D array of shape (number of arrays, sequences, vecDim)
+        :return: a list of tuples [({x, y, xlengths, names}]
+        """
+
+        assert len(xData_) == len(yData_) == len(names_)
 
         res = []
+        total = len(xData_)
 
-        # total = len(dataIndices)
-        numBatches = int(np.ceil(total / self._batchSize))
+        startInds = list(range(0, total, self._batchSize))
+        stopInds = startInds[1:] + [total]
 
-        for i in range(numBatches):
-            curIndices = dataIndices[i * batchSize_: (i + 1) * batchSize_]
-
-            x, xlengths = patch_arrays(self.XData[curIndices], self.maxXLen if patchTofull_ else None)
-
-            res.append(({ self.x: x,
-                          self.y: self.YData[curIndices],
-                          self.numSeqs: xlengths
-                          }, self.names[curIndices]))
+        for start, stop in zip(startInds, stopInds):
+            x, lengths = patch_arrays(xData_[start:stop])
+            res.append((x, yData_[start:stop], lengths, names_[start:stop]))
 
         return res
 
@@ -250,8 +219,10 @@ class DataReader(object):
         return {'x': self.x, 'y': self.y, 'numSeqs': self.numSeqs}
 
 if __name__ == '__main__':
-    dataReader = DataReader('./data/peopleData/2_samples', 'bucketing')
-    d, names = dataReader.get_next_training_batch(5)
+    dataReader = DataReader('./data/peopleData/2_samples', 'bucketing', batchSize_=5)
 
-    print(d)
-    print(names)
+    for _ in range(10):
+        d, names = dataReader.get_next_training_batch()
+
+        print(d)
+        print(names)
