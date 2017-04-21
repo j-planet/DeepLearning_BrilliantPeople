@@ -7,15 +7,16 @@ DATA_DIRs = {'tiny_fake_2': './data/peopleData/2_samples',
              'full_2occupations': './data/peopleData/earlyLifesWordMats_42B300d/politician_scientist',
              'full': './data/peopleData/earlyLifesWordMats_42B300d'}
 
-dr = DataReader(DATA_DIRs['small_2occupations'], 'bucketing')
-
-batchSize = 20
+batchSize = 3
 numSteps = 100
 validEvery = 10
 
+dr = DataReader(DATA_DIRs['small_2occupations'], 'bucketing', batchSize)
+
+
 for i in range(numSteps):
     print(i)
-    dr.get_next_training_batch(batchSize)
+    dr.get_next_training_batch(shuffle=True)
 
     if i % validEvery == 0:
-        dr._get_data_in_batches(20, 'validate')
+        list(dr.get_validation_data_in_batches())

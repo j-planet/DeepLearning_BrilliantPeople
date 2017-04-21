@@ -20,7 +20,7 @@ def patch_arrays(arrays, numrows=None):
     :param arrays: 
     :return:  
     """
-    print('patching')
+
     lengths = np.array([arr.shape[0] for arr in arrays])
     padLen = lengths.max()
 
@@ -31,8 +31,6 @@ def patch_arrays(arrays, numrows=None):
 
     for i, arr in enumerate(arrays):
         res[i][:arr.shape[0], :] = arr
-
-    print('done patching')
 
     return res, lengths
 
