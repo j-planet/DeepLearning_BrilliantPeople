@@ -38,8 +38,8 @@ class ModelConfig(object):
 
         elif scale=='full':
             self.initialLearningRate = 0.001
-            self.numHiddenLayerFeatures = [128, 128, 64, 32, 32]
-            self.outputKeepProbs = [0.5, 0.5, 0.6, 0.9, 0.9]
+            self.numHiddenLayerFeatures = [256, 64, 64, 32, 32]
+            self.outputKeepProbs = [0.5, 0.8, 0.8, 0.9, 0.9]
 
 
         assert len(self.numHiddenLayerFeatures)==len(self.outputKeepProbs)

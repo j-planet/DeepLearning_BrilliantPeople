@@ -52,7 +52,7 @@ def evaluate_in_batches(batchGenerator_, classLabels_, evaluationFunc_, logFunc_
 
 def log_progress(step, numDataPoints, lr, c=None, acc=None, logFunc=None):
 
-    res = 'Step %d (%d data pts); lr = %0.4f' % (step, numDataPoints, lr)
+    res = 'Step %d (%d data pts); lr = %.6f' % (step, numDataPoints, lr)
 
     if c is not None: res += '; loss = %.3f' % c
     if acc is not None: res += ', accuracy = %.3f' % acc
@@ -76,7 +76,7 @@ def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./lo
     assert modelScale in ['basic', 'tiny', 'small', 'full']
     assert runScale in ['basic', 'tiny', 'small', 'full']
 
-    def _decrease_learning_rate(numDataPoints_, lowerBound_=1e-5):
+    def _decrease_learning_rate(numDataPoints_, lowerBound_=1e-7):
         """
         :type numDataPoints_: int
         """
@@ -90,10 +90,9 @@ def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./lo
     st = time()
     loggerFactory = LoggerFactory(logDir)
     runConfig = RunConfig(runScale, loggerFactory)
-    initialLr = ModelConfig(modelScale).initialLearningRate
     dataReader = DataReader(dataDir, 'bucketing', runConfig.batchSize, loggerFactory)
-
     model = modelKlass(modelScale, dataReader.input, dataReader.numClasses, loggerFactory)
+    initialLr = model.config.initialLearningRate
 
     # =========== set up tensorboard ===========
     train_writer, valid_writer = tensorflowFilewriters(logDir)
@@ -109,7 +108,7 @@ def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./lo
     dataReader.start_batch_from_beginning()     # technically unnecessary
     batchSize, numSteps, logValidationEvery = runConfig.batchSize, runConfig.numSteps, runConfig.logValidationEvery
     bestValidC, bestValidAcc, numValidWorse = 100, 0, 0   # for early stopping if the model isn't getting anywhere :(
-    decayPerCycle = 0.95
+    decayPerCycle = 0.9
 
     for step in range(numSteps):
         numDataPoints = (step+1) * runConfig.batchSize
@@ -127,8 +126,8 @@ def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./lo
 
             if curValidC >= bestValidC and curValidAcc <= bestValidAcc:
                 numValidWorse += 1
-                decayPerCycle *= 0.9
-                validLogFunc('Worse than best validation result so far %d times. Decreasing decayPerCycle to %0.3f.' % (numValidWorse, decayPerCycle))
+                decayPerCycle *= 0.95
+                validLogFunc('Worse than best validation result so far %d time(s). Decreasing decayPerCycle to %0.3f.' % (numValidWorse, decayPerCycle))
 
                 if numValidWorse >= runConfig.failToImproveTolerance:
                     validLogFunc('Results have not improved in %d validations. Quitting.' % numValidWorse)
@@ -197,10 +196,10 @@ if __name__ == '__main__':
                  'full_2occupations': './data/peopleData/earlyLifesWordMats_42B300d/politician_scientist',
                  'full': './data/peopleData/earlyLifesWordMats_42B300d'}
 
-    # with tf.device('/cpu:0'):
+    with tf.device('/cpu:0'):
     # main(DATA_DIRs['tiny_fake_2'], Model, modelScale='basic', runScale='basic')
     # main(DATA_DIRs['small_2occupations'], Model, modelScale='basic', runScale='tiny')
-    main(DATA_DIRs['full'], Model, modelScale='full', runScale='full')
+        main(DATA_DIRs['full'], Model, modelScale='full', runScale='full')
 
 
 

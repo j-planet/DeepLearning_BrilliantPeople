@@ -22,24 +22,28 @@ class Model2Config(object):
         assert scale in ['basic', 'tiny', 'small', 'full']
 
         if scale == 'basic':
+            self.initialLearningRate = 0.002
             self.layer1CellUnits = [8]
             self.layer1keepProbs = [0.75]
             self.layer2CellUnits = 4
             self.layer2keepProb = 0.9
 
         elif scale == 'tiny':
+            self.initialLearningRate = 0.002
             self.layer1CellUnits = [32, 8]
             self.layer1keepProbs = [0.5, 0.75]
             self.layer2CellUnits = 8
             self.layer2keepProb = 0.9
 
         elif scale == 'small':
+            self.initialLearningRate = 0.001
             self.layer1CellUnits = [32, 16, 8]
             self.layer1keepProbs = [0.5, 0.7, 0.9]
             self.layer2CellUnits = 8
             self.layer2keepProb = 1.
 
         elif scale=='full':
+            self.initialLearningRate = 0.001
             self.layer1CellUnits = [128, 128, 64, 32]
             self.layer1keepProbs = [0.5, 0.5, 0.6, 0.9]
             self.layer2CellUnits = 32
@@ -61,7 +65,7 @@ class Model2Config(object):
 
 
 class Model2(object):
-    def __init__(self, configScale_, input_, numClasses_, initialLearningRate_, loggerFactory=None):
+    def __init__(self, configScale_, input_, numClasses_, loggerFactory=None):
         """
         :type configScale_: string
         :type numClasses_: int
@@ -70,7 +74,7 @@ class Model2(object):
         assert configScale_ in ['basic', 'tiny', 'small', 'full']
         self.config = Model2Config(configScale_, loggerFactory)
 
-        self._lr = tf.Variable(initialLearningRate_, name='learningRate')
+        self._lr = tf.Variable(self.config.initialLearningRate, name='learningRate')
         x = input_['x']
         y = input_['y']
         numSeqs = input_['numSeqs']
@@ -79,16 +83,16 @@ class Model2(object):
         forwardCells = self.make_stacked_cells()
         backwardCells = self.make_stacked_cells()
 
-        # self.layer1outputs = tf.concat(
-        #     tf.nn.bidirectional_dynamic_rnn(forwardCells, backwardCells,
-        #                                     time_major=False, inputs=x, dtype=tf.float32,
-        #                                     sequence_length=numSeqs,
-        #                                     swap_memory=True)[0], 2)
-
-        self.layer1outputs = tf.nn.bidirectional_dynamic_rnn(forwardCells, backwardCells,
+        self.layer1outputs = tf.concat(
+            tf.nn.bidirectional_dynamic_rnn(forwardCells, backwardCells,
                                             time_major=False, inputs=x, dtype=tf.float32,
                                             sequence_length=numSeqs,
-                                            swap_memory=True)[1][0]
+                                            swap_memory=True)[0], 2)
+
+        # self.layer1outputs = tf.nn.bidirectional_dynamic_rnn(forwardCells, backwardCells,
+        #                                     time_major=False, inputs=x, dtype=tf.float32,
+        #                                     sequence_length=numSeqs,
+        #                                     swap_memory=True)[1][0]
 
         # ------ single RNN layer ------
         self.outputs = tf.nn.dynamic_rnn(
@@ -136,14 +140,14 @@ class Model2(object):
         return sess_.run([self.cost, self.accuracy, self.trueY, self.pred], feedDict_)
 
 if __name__ == '__main__':
-    dr = DataReader('./data/peopleData/2_samples', 'bucketing')
-    model = Model2('basic', dr.input, dr.numClasses, 0.001)
+    with tf.device('/cpu:0'):
 
-    sess = tf.InteractiveSession()
-    sess.run(tf.global_variables_initializer())
-    validationData = dr.get_all_validation_data()[0]
+        dr = DataReader('./data/peopleData/2_samples', 'bucketing', batchSize_=10)
+        model = Model2('basic', dr.input, dr.numClasses)
 
-    for step in range(10):
-        _, c, acc = model.train_op(sess, dr.get_next_training_batch(20)[0], True)
-        validC, validAcc, _, _ = model.evaluate(sess, validationData)
-        print('Step %d: (cost, accuracy): training (%0.3f, %0.3f), validation (%0.3f, %0.3f)' % (step, c, acc, validC, validAcc))
+        sess = tf.InteractiveSession()
+        sess.run(tf.global_variables_initializer())
+
+        for step in range(10):
+            _, c, acc = model.train_op(sess, dr.get_next_training_batch()[0], True)
+            print('Step %d: (cost, accuracy): training (%0.3f, %0.3f)' % (step, c, acc))
