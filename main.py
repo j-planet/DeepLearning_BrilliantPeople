@@ -1,19 +1,20 @@
 from time import time
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
+os.environ['TF_CPP_MIN_LOG_LEVEL']='0'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import tensorflow as tf
 
 from data_reader import DataReader
 from model import Model
 from model2 import Model2
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
+from model import ModelConfig
 
 
-# sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.9)))
-sess = tf.InteractiveSession()
+sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.85)))
+# sess = tf.InteractiveSession()
 
 
-def evaluate_in_batches(batchGenerator_, classLabels_, evaluationFunc_, logFunc_=None):
+def evaluate_in_batches(batchGenerator_, classLabels_, evaluationFunc_, logFunc_=None, verbose_=True):
     logFunc_ = logFunc_ or print
 
     # data = dataReader.get_data_in_batches(batchSize_, validateOrTest_)
@@ -42,7 +43,8 @@ def evaluate_in_batches(batchGenerator_, classLabels_, evaluationFunc_, logFunc_
 
     logFunc_('-------------')
     logFunc_('loss = %.3f, accuracy = %.3f' % (avgCost, avgAccuracy))
-    label_comparison(allTrueYInds, allPredYInds, allNames, classLabels_, logFunc_)
+    if verbose_:
+        label_comparison(allTrueYInds, allPredYInds, allNames, classLabels_, logFunc_)
     logFunc_('-------------')
 
     return avgCost, avgAccuracy
@@ -74,13 +76,13 @@ def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./lo
     assert modelScale in ['basic', 'tiny', 'small', 'full']
     assert runScale in ['basic', 'tiny', 'small', 'full']
 
-    def _decrease_learning_rate(numDataPoints_, decayPerCycle_=0.95, lowerBound_=1e-4):
+    def _decrease_learning_rate(numDataPoints_, lowerBound_=1e-5):
         """
         :type numDataPoints_: int
         """
 
-        lrDecay = decayPerCycle_ ** (numDataPoints_ / dataReader.trainSize)
-        newLr = max(runConfig.initialLearningRate * lrDecay, lowerBound_)
+        lrDecay = decayPerCycle ** (numDataPoints_ / dataReader.trainSize)
+        newLr = max(initialLr * lrDecay, lowerBound_)
         model.assign_lr(sess, newLr)
 
         return newLr
@@ -88,9 +90,10 @@ def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./lo
     st = time()
     loggerFactory = LoggerFactory(logDir)
     runConfig = RunConfig(runScale, loggerFactory)
+    initialLr = ModelConfig(modelScale).initialLearningRate
     dataReader = DataReader(dataDir, 'bucketing', runConfig.batchSize, loggerFactory)
 
-    model = modelKlass(modelScale, dataReader.input, dataReader.numClasses, runConfig.initialLearningRate, loggerFactory)
+    model = modelKlass(modelScale, dataReader.input, dataReader.numClasses, loggerFactory)
 
     # =========== set up tensorboard ===========
     train_writer, valid_writer = tensorflowFilewriters(logDir)
@@ -106,6 +109,7 @@ def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./lo
     dataReader.start_batch_from_beginning()     # technically unnecessary
     batchSize, numSteps, logValidationEvery = runConfig.batchSize, runConfig.numSteps, runConfig.logValidationEvery
     bestValidC, bestValidAcc, numValidWorse = 100, 0, 0   # for early stopping if the model isn't getting anywhere :(
+    decayPerCycle = 0.95
 
     for step in range(numSteps):
         numDataPoints = (step+1) * runConfig.batchSize
@@ -118,13 +122,15 @@ def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./lo
         log_progress(step, numDataPoints, lr, c, acc, trainLogFunc)
 
         if step % logValidationEvery == 0:
-            curValidC, curValidAcc = evaluate_in_batches(dataReader.get_validation_data_in_batches(), dataReader.classLabels, model.evaluate, validLogFunc)
+            curValidC, curValidAcc = evaluate_in_batches(dataReader.get_validation_data_in_batches(), dataReader.classLabels, model.evaluate, validLogFunc, verbose_=False)
             saver.save(sess, savePath, global_step=numDataPoints)
 
             if curValidC >= bestValidC and curValidAcc <= bestValidAcc:
-                validLogFunc('Worse than best validation result so far.')
                 numValidWorse += 1
-                if numValidWorse >= 3:
+                decayPerCycle *= 0.9
+                validLogFunc('Worse than best validation result so far %d times. Decreasing decayPerCycle to %0.3f.' % (numValidWorse, decayPerCycle))
+
+                if numValidWorse >= runConfig.failToImproveTolerance:
                     validLogFunc('Results have not improved in %d validations. Quitting.' % numValidWorse)
                     break
             else:
@@ -133,8 +139,8 @@ def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./lo
                 numValidWorse = 0
 
 
-    testLogFunc('Time elapsed: ' + str(time()-st))
-    evaluate_in_batches(dataReader.get_test_data_in_batches(), dataReader.classLabels, model.evaluate, testLogFunc)
+    testLogFunc('Time elapsed: %0.3f ' % (time()-st) )
+    evaluate_in_batches(dataReader.get_test_data_in_batches(), dataReader.classLabels, model.evaluate, testLogFunc, verbose_=True)
 
     saver.save(sess, savePath)
     train_writer.close()
@@ -146,35 +152,30 @@ class RunConfig(object):
         assert scale in ['basic', 'tiny', 'small', 'medium', 'full']
 
         if scale == 'basic':
-            self.initialLearningRate = 0.001
             self.numSteps = 5
             self.batchSize = 10
             self.logValidationEvery = 3
             self.failToImproveTolerance = 1
 
         elif scale == 'tiny':
-            self.initialLearningRate = 0.003
             self.numSteps = 10
             self.batchSize = 20
             self.logValidationEvery = 3
             self.failToImproveTolerance = 1
 
         elif scale == 'small':
-            self.initialLearningRate = 0.002
             self.numSteps = 100
             self.batchSize = 50
             self.logValidationEvery = 5
             self.failToImproveTolerance = 2
 
         elif scale == 'medium':
-            self.initialLearningRate = 0.002
             self.numSteps = 200
             self.batchSize = 100
             self.logValidationEvery = 10
-            self.failToImproveTolerance = 2
+            self.failToImproveTolerance = 3
 
         elif scale == 'full':
-            self.initialLearningRate = 0.002
             self.numSteps = 1000
             self.batchSize = 200
             self.logValidationEvery = 15
@@ -185,7 +186,7 @@ class RunConfig(object):
         self.print()
 
     def print(self):
-        self._logFunc('batch size %d, initial learning rate %.3f' % (self.batchSize, self.initialLearningRate))
+        self._logFunc('batch size %d, validation worse run tolerance %d' % (self.batchSize, self.failToImproveTolerance))
 
 
 if __name__ == '__main__':
@@ -197,8 +198,9 @@ if __name__ == '__main__':
                  'full': './data/peopleData/earlyLifesWordMats_42B300d'}
 
     # with tf.device('/cpu:0'):
-    main(DATA_DIRs['tiny_fake_2'], Model, modelScale='basic', runScale='tiny')
+    # main(DATA_DIRs['tiny_fake_2'], Model, modelScale='basic', runScale='basic')
     # main(DATA_DIRs['small_2occupations'], Model, modelScale='basic', runScale='tiny')
+    main(DATA_DIRs['full'], Model, modelScale='full', runScale='full')
 
 
 

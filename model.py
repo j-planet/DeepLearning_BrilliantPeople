@@ -22,18 +22,22 @@ class ModelConfig(object):
         assert scale in ['basic', 'tiny', 'small', 'full']
 
         if scale == 'basic':
+            self.initialLearningRate = 0.002
             self.numHiddenLayerFeatures = [8]
             self.outputKeepProbs = [0.9]
 
         elif scale == 'tiny':
+            self.initialLearningRate = 0.002
             self.numHiddenLayerFeatures = [32, 8]
             self.outputKeepProbs = [0.5, 0.9]
 
         elif scale == 'small':
+            self.initialLearningRate = 0.002
             self.numHiddenLayerFeatures = [32, 16, 8]
             self.outputKeepProbs = [0.5, 0.7, 0.9]
 
         elif scale=='full':
+            self.initialLearningRate = 0.001
             self.numHiddenLayerFeatures = [128, 128, 64, 32, 32]
             self.outputKeepProbs = [0.5, 0.5, 0.6, 0.9, 0.9]
 
@@ -48,10 +52,11 @@ class ModelConfig(object):
         self._logFunc('SHUFFLED %d hidden layer(s)' % len(self.numHiddenLayerFeatures))
         self._logFunc('number of LSTM cell units: ' + str(self.numHiddenLayerFeatures))
         self._logFunc('dropoutKeepProbs: ' + str(self.outputKeepProbs))
+        self._logFunc('initial learning rate: %0.3f' % self.initialLearningRate)
 
 
 class Model(object):
-    def __init__(self, configScale_, input_, numClasses_, initialLearningRate_, loggerFactory=None):
+    def __init__(self, configScale_, input_, numClasses_, loggerFactory=None):
         """
         :type configScale_: string
         :type numClasses_: int
@@ -60,7 +65,7 @@ class Model(object):
         assert configScale_ in ['basic', 'tiny', 'small', 'full']
         self.config = ModelConfig(configScale_, loggerFactory)
 
-        self._lr = tf.Variable(initialLearningRate_, name='learningRate')
+        self._lr = tf.Variable(self.config.initialLearningRate, name='learningRate')
         x = input_['x']
         y = input_['y']
         numSeqs = input_['numSeqs']
@@ -114,14 +119,12 @@ class Model(object):
         return sess_.run([self.cost, self.accuracy, self.trueY, self.pred], feedDict_)
 
 if __name__ == '__main__':
-    dr = DataReader('./data/peopleData/2_samples', 'bucketing')
-    model = Model('tiny', dr.input, dr.numClasses, 0.001)
+    dr = DataReader('./data/peopleData/2_samples', 'bucketing', 20)
+    model = Model('tiny', dr.input, dr.numClasses)
 
     sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())
-    validationData = dr.get_all_validation_data()[0]
 
     for step in range(10):
-        _, c, acc = model.train_op(sess, dr.get_next_training_batch(20)[0], True)
-        validC, validAcc, _, _ = model.evaluate(sess, validationData)
-        print('Step %d: (cost, accuracy): training (%0.3f, %0.3f), validation (%0.3f, %0.3f)' % (step, c, acc, validC, validAcc))
+        _, c, acc = model.train_op(sess, dr.get_next_training_batch()[0], True)
+        print('Step %d: (cost, accuracy): training (%0.3f, %0.3f)' % (step, c, acc))
