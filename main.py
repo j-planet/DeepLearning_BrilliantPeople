@@ -7,7 +7,6 @@ from data_reader import DataReader
 from model import Model
 from model2 import Model2
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
-from model import ModelConfig
 
 
 sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.85)))
@@ -152,7 +151,7 @@ class RunConfig(object):
 
         if scale == 'basic':
             self.numSteps = 5
-            self.batchSize = 10
+            self.batchSize = 2
             self.logValidationEvery = 3
             self.failToImproveTolerance = 1
 
@@ -198,8 +197,8 @@ if __name__ == '__main__':
 
     with tf.device('/cpu:0'):
     # main(DATA_DIRs['tiny_fake_2'], Model, modelScale='basic', runScale='basic')
-    # main(DATA_DIRs['small_2occupations'], Model, modelScale='basic', runScale='tiny')
-        main(DATA_DIRs['full'], Model, modelScale='full', runScale='full')
+        main(DATA_DIRs['small_2occupations'], Model2, modelScale='basic', runScale='basic')
+    #     main(DATA_DIRs['full'], Model, modelScale='full', runScale='full')
 
 
 
