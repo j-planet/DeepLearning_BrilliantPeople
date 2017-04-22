@@ -10,8 +10,7 @@ from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, cr
 from model import ModelConfig
 
 
-sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.85)))
-# sess = tf.InteractiveSession()
+
 
 
 def evaluate_in_batches(batchGenerator_, classLabels_, evaluationFunc_, logFunc_=None, verbose_=True):
@@ -72,7 +71,7 @@ def evaluate_stored_model(dataDir, modelScale, savePath, batchSize):
     evaluate_in_batches(dataReader.get_test_data_in_batches(), dataReader.classLabels, model.evaluate)
 
 
-def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./logs/main')):
+def main(useCPU, dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./logs/main')):
     assert modelScale in ['basic', 'tiny', 'small', 'full']
     assert runScale in ['basic', 'tiny', 'small', 'full']
 
@@ -91,7 +90,7 @@ def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./lo
     loggerFactory = LoggerFactory(logDir)
     runConfig = RunConfig(runScale, loggerFactory)
     dataReader = DataReader(dataDir, 'bucketing', runConfig.batchSize, loggerFactory)
-    model = modelKlass(modelScale, dataReader.input, dataReader.numClasses, loggerFactory)
+    model = modelKlass(useCPU, modelScale, dataReader.input, dataReader.numClasses, loggerFactory)
     initialLr = model.config.initialLearningRate
 
     # =========== set up tensorboard ===========
@@ -188,18 +187,49 @@ class RunConfig(object):
         self._logFunc('batch size %d, validation worse run tolerance %d' % (self.batchSize, self.failToImproveTolerance))
 
 
-if __name__ == '__main__':
-    DATA_DIRs = {'tiny_fake_2': './data/peopleData/2_samples',
-                 'tiny_fake_4': './data/peopleData/4_samples',
-                 'small_2occupations': './data/peopleData/earlyLifesWordMats/politician_scientist',
-                 'small': './data/peopleData/earlyLifesWordMats',
-                 'full_2occupations': './data/peopleData/earlyLifesWordMats_42B300d/politician_scientist',
-                 'full': './data/peopleData/earlyLifesWordMats_42B300d'}
 
+
+DATA_DIRs = {'tiny_fake_2': './data/peopleData/2_samples',
+             'tiny_fake_4': './data/peopleData/4_samples',
+             'small_2occupations': './data/peopleData/earlyLifesWordMats/politician_scientist',
+             'small': './data/peopleData/earlyLifesWordMats',
+             'full_2occupations': './data/peopleData/earlyLifesWordMats_42B300d/politician_scientist',
+             'full': './data/peopleData/earlyLifesWordMats_42B300d'}
+
+
+just_run = {
+    'dataDir': DATA_DIRs['tiny_fake_2'],
+    'modelScale': 'basic',
+    'runScale': 'basic'
+}
+
+quick_learn = {
+    'dataDir': DATA_DIRs['small_2occupations'],
+    'modelScale': 'tiny',
+    'runScale': 'small'
+}
+
+full_learn = {
+    'dataDir': DATA_DIRs['full'],
+    'modelScale': 'full',
+    'runScale': 'full'
+}
+
+# ============= CHANGE BELOW THIS LINE ==============
+paramsToUse = just_run
+useCPU = True
+modelToRun = Model
+# ============= CHANGE ABOVE THIS LINE ==============
+
+sess = tf.InteractiveSession() if useCPU \
+    else tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.85)))
+
+if useCPU:
     with tf.device('/cpu:0'):
     # main(DATA_DIRs['tiny_fake_2'], Model, modelScale='basic', runScale='basic')
     # main(DATA_DIRs['small_2occupations'], Model, modelScale='basic', runScale='tiny')
-        main(DATA_DIRs['full'], Model, modelScale='full', runScale='full')
-
-
+    #     main(DATA_DIRs['small_2occupations'], Model2, modelScale='tiny', runScale='small')
+        main(useCPU=useCPU, modelKlass=modelToRun, **paramsToUse)
+else:
+    main(useCPU=useCPU, modelKlass=modelToRun, **paramsToUse)
 

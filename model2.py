@@ -22,7 +22,7 @@ class Model2Config(object):
         assert scale in ['basic', 'tiny', 'small', 'full']
 
         if scale == 'basic':
-            self.initialLearningRate = 0.002
+            self.initialLearningRate = 0.0001
             self.layer1CellUnits = [8]
             self.layer1keepProbs = [0.75]
             self.layer2CellUnits = 4
@@ -73,6 +73,8 @@ class Model2(object):
         """
         assert configScale_ in ['basic', 'tiny', 'small', 'full']
         self.config = Model2Config(configScale_, loggerFactory)
+        self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('Model').info
+        self._logFunc('Class: Model2')
 
         self._lr = tf.Variable(self.config.initialLearningRate, name='learningRate')
         x = input_['x']
