@@ -7,7 +7,6 @@ from data_reader import DataReader
 from model import Model
 from model2 import Model2
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
-from model import ModelConfig
 
 
 
@@ -151,7 +150,7 @@ class RunConfig(object):
 
         if scale == 'basic':
             self.numSteps = 5
-            self.batchSize = 10
+            self.batchSize = 2
             self.logValidationEvery = 3
             self.failToImproveTolerance = 1
 
@@ -226,10 +225,6 @@ sess = tf.InteractiveSession() if useCPU \
 
 if useCPU:
     with tf.device('/cpu:0'):
-    # main(DATA_DIRs['tiny_fake_2'], Model, modelScale='basic', runScale='basic')
-    # main(DATA_DIRs['small_2occupations'], Model, modelScale='basic', runScale='tiny')
-    #     main(DATA_DIRs['small_2occupations'], Model2, modelScale='tiny', runScale='small')
         main(useCPU=useCPU, modelKlass=modelToRun, **paramsToUse)
 else:
     main(useCPU=useCPU, modelKlass=modelToRun, **paramsToUse)
-

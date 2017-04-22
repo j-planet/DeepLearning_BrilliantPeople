@@ -85,11 +85,13 @@ class Model2(object):
         forwardCells = self.make_stacked_cells()
         backwardCells = self.make_stacked_cells()
 
-        self.layer1outputs = tf.concat(
-            tf.nn.bidirectional_dynamic_rnn(forwardCells, backwardCells,
-                                            time_major=False, inputs=x, dtype=tf.float32,
-                                            sequence_length=numSeqs,
-                                            swap_memory=True)[0], 2)
+        self.layer1outputs, self.layer1states = tf.nn.bidirectional_dynamic_rnn(forwardCells, backwardCells,
+                                                                                time_major=False, inputs=x, dtype=tf.float32,
+                                                                                sequence_length=numSeqs,
+                                                                                swap_memory=True)
+        # self.layer2inputs = last_relevant(tf.concat(self.layer1outputs, 2), numSeqs)
+        # self.output = last_relevant(self.outputs, numSeqs)
+        self.layer2inputs = self.layer1states[0][0][0]
 
         # self.layer1outputs = tf.nn.bidirectional_dynamic_rnn(forwardCells, backwardCells,
         #                                     time_major=False, inputs=x, dtype=tf.float32,
@@ -100,9 +102,8 @@ class Model2(object):
         self.outputs = tf.nn.dynamic_rnn(
             DropoutWrapper(BasicLSTMCell(self.config.layer2CellUnits), output_keep_prob=self.config.layer2keepProb),
             time_major=False, dtype=tf.float32,
-            inputs=self.layer1outputs, sequence_length=numSeqs)[0]
-
-        self.output = last_relevant(self.outputs, numSeqs)
+            inputs=self.layer2inputs)[0]
+        self.output = self.outputs[:, -1, :]
 
         # ------ final softmax layer ------
         weights = tf.Variable(tf.random_normal([self.config.layer2CellUnits, numClasses_]), name='weights')
