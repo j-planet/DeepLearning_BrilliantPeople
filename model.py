@@ -25,21 +25,25 @@ class ModelConfig(object):
             self.initialLearningRate = 0.002
             self.numHiddenLayerFeatures = [8]
             self.outputKeepProbs = [0.9]
+            self.l2RegLambda = 0
 
         elif scale == 'tiny':
             self.initialLearningRate = 0.002
             self.numHiddenLayerFeatures = [32, 8]
             self.outputKeepProbs = [0.5, 0.9]
+            self.l2RegLambda = 1e-3
 
         elif scale == 'small':
             self.initialLearningRate = 0.002
             self.numHiddenLayerFeatures = [32, 16, 8]
             self.outputKeepProbs = [0.5, 0.7, 0.9]
+            self.l2RegLambda = 1e-3
 
         elif scale=='full':
             self.initialLearningRate = 0.001
             self.numHiddenLayerFeatures = [256, 128, 32, 32]
             self.outputKeepProbs = [0.5, 0.5, 0.9, 0.9]
+            self.l2RegLambda = 1e-4
 
 
         assert len(self.numHiddenLayerFeatures)==len(self.outputKeepProbs)
@@ -53,6 +57,7 @@ class ModelConfig(object):
         self._logFunc('number of LSTM cell units: ' + str(self.numHiddenLayerFeatures))
         self._logFunc('dropoutKeepProbs: ' + str(self.outputKeepProbs))
         self._logFunc('initial learning rate: %0.3f' % self.initialLearningRate)
+        self._logFunc('L2 penalty lambda: %0.5f' % self.l2RegLambda)
 
 
 class Model(object):
@@ -68,6 +73,7 @@ class Model(object):
         self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('Model').info
         self._logFunc('Class: Model')
         self._isTraining = True     # in order to turn off dropout during evaluation
+        self._l2RegLambda = self.config.l2RegLambda
 
         self._lr = tf.Variable(self.config.initialLearningRate, name='learningRate')
         x = input_['x']
@@ -89,10 +95,11 @@ class Model(object):
         self._logFunc('final softmax layer')
         weights = tf.Variable(tf.random_normal([2 * self.config.numHiddenLayerFeatures[-1], numClasses_]), name='weights')
         biases = tf.Variable(tf.random_normal([numClasses_]), name='biases')
+        self.l2Loss = self._l2RegLambda * (tf.nn.l2_loss(weights) + tf.nn.l2_loss(biases))
 
         self.output = last_relevant(self.outputs, input_['numSeqs'])
         self.logits = tf.matmul(self.output, weights) + biases
-        self.cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=y))
+        self.cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=y)) + self.l2Loss
 
         # ------ optimizer ------
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self._lr).minimize(self.cost)

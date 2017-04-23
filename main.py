@@ -199,7 +199,7 @@ DATA_DIRs = {'tiny_fake_2': './data/peopleData/2_samples',
 just_run = {
     'dataDir': DATA_DIRs['tiny_fake_2'],
     'modelScale': 'basic',
-    'runScale': 'basic'
+    'runScale': 'basic',
 }
 
 quick_learn = {
@@ -216,16 +216,15 @@ full_learn = {
 
 
 # ============= CHANGE BELOW THIS LINE ==============
-paramsToUse = just_run
-useCPU = False
+paramsToUse = quick_learn
+useCPU = True
 modelToRun = Model
 # ============= CHANGE ABOVE THIS LINE ==============
 
 
-sess = tf.InteractiveSession(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) if useCPU \
+sess = tf.InteractiveSession(config=tf.ConfigProto(allow_soft_placement=True)) if useCPU \
     else tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.85),
-                                                     allow_soft_placement=True,
-                                                     log_device_placement=True))
+                                                     allow_soft_placement=True))
 
 if useCPU:
     with tf.device('/cpu:0'):
