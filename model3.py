@@ -17,7 +17,7 @@ def last_relevant(output_, lengths_):
     return tf.gather(flat, index)
 
 
-class ModelConfig(object):
+class Model3Config(object):
     def __init__(self, scale, loggerFactory=None):
         assert scale in ['basic', 'tiny', 'small', 'full']
 
@@ -55,9 +55,18 @@ class ModelConfig(object):
         self._logFunc('initial learning rate: %0.3f' % self.initialLearningRate)
 
 
-class Model(object):
+class Model3(object):
 
-    def __init__(self, configScale_, input_, numClasses_, loggerFactory=None):
+
+    def __init__(self, useCPU, configScale_, input_, numClasses_, loggerFactory=None):
+        # if useCPU:
+        #     with tf.device('/cpu:0'):
+        #         self.init(configScale_, input_, numClasses_, loggerFactory)
+
+        # else:
+        self.init(configScale_, input_, numClasses_, loggerFactory)
+
+    def init(self, configScale_, input_, numClasses_, loggerFactory=None):
         """
         :type configScale_: string
         :type numClasses_: int
@@ -67,7 +76,6 @@ class Model(object):
         self.config = ModelConfig(configScale_, loggerFactory)
         self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('Model').info
         self._logFunc('Class: Model')
-        self._isTraining = True     # in order to turn off dropout during evaluation
 
         self._lr = tf.Variable(self.config.initialLearningRate, name='learningRate')
         x = input_['x']
@@ -107,11 +115,11 @@ class Model(object):
         self.merged_summaries = summary.merge_all()
 
     def make_stacked_cells(self):
-        # keepProbs = self.config.outputKeepProbs if self._isTraining else [1]*len(self.config.numHiddenLayerFeatures)
-        keepProbs = self.config.outputKeepProbs
+        # return MultiRNNCell([DropoutWrapper(BasicLSTMCell(f), output_keep_prob=k) if k < 1 else BasicLSTMCell(f)
+        #                      for f, k in zip(self.config.numHiddenLayerFeatures, self.config.outputKeepProbs)])
 
-        return MultiRNNCell([DropoutWrapper(BasicLSTMCell(f), output_keep_prob=k)
-                             for f, k in zip(self.config.numHiddenLayerFeatures, keepProbs)])
+        return MultiRNNCell([DropoutWrapper(GRUCell(f), output_keep_prob=k) if k < 1 else BasicLSTMCell(f)
+                             for f, k in zip(self.config.numHiddenLayerFeatures, self.config.outputKeepProbs)])
 
     def lr(self, sess_):
         return sess_.run(self._lr)
@@ -120,13 +128,11 @@ class Model(object):
         sess_.run(tf.assign(self._lr, newLearningRate_))
 
     def train_op(self, sess_, feedDict_, computeMetrics_):
-        self._isTraining = True
         thingsToRun = [self.optimizer] + [self.merged_summaries, self.cost, self.accuracy] if computeMetrics_ else []
 
         return sess_.run(thingsToRun, feedDict_)[1:]
 
     def evaluate(self, sess_, feedDict_):
-        self._isTraining = False
         return sess_.run([self.cost, self.accuracy, self.trueY, self.pred], feedDict_)
 
 if __name__ == '__main__':

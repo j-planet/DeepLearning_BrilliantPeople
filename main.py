@@ -1,11 +1,11 @@
-from time import time
 import os
+from time import time
+
 os.environ['TF_CPP_MIN_LOG_LEVEL']='0'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import tensorflow as tf
 
 from data_reader import DataReader
 from model import Model
-from model2 import Model2
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
 
 
@@ -70,7 +70,7 @@ def evaluate_stored_model(dataDir, modelScale, savePath, batchSize):
     evaluate_in_batches(dataReader.get_test_data_in_batches(), dataReader.classLabels, model.evaluate)
 
 
-def main(useCPU, dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./logs/main')):
+def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./logs/main')):
     assert modelScale in ['basic', 'tiny', 'small', 'full']
     assert runScale in ['basic', 'tiny', 'small', 'full']
 
@@ -89,7 +89,7 @@ def main(useCPU, dataDir, modelKlass, modelScale, runScale, logDir=create_time_d
     loggerFactory = LoggerFactory(logDir)
     runConfig = RunConfig(runScale, loggerFactory)
     dataReader = DataReader(dataDir, 'bucketing', runConfig.batchSize, loggerFactory)
-    model = modelKlass(useCPU, modelScale, dataReader.input, dataReader.numClasses, loggerFactory)
+    model = modelKlass(modelScale, dataReader.input, dataReader.numClasses, loggerFactory)
     initialLr = model.config.initialLearningRate
 
     # =========== set up tensorboard ===========
@@ -214,17 +214,21 @@ full_learn = {
     'runScale': 'full'
 }
 
+
 # ============= CHANGE BELOW THIS LINE ==============
 paramsToUse = just_run
-useCPU = True
+useCPU = False
 modelToRun = Model
 # ============= CHANGE ABOVE THIS LINE ==============
 
-sess = tf.InteractiveSession() if useCPU \
-    else tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.85)))
+
+sess = tf.InteractiveSession(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) if useCPU \
+    else tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.85),
+                                                     allow_soft_placement=True,
+                                                     log_device_placement=True))
 
 if useCPU:
     with tf.device('/cpu:0'):
-        main(useCPU=useCPU, modelKlass=modelToRun, **paramsToUse)
+        main(modelKlass=modelToRun, **paramsToUse)
 else:
-    main(useCPU=useCPU, modelKlass=modelToRun, **paramsToUse)
+    main(modelKlass=modelToRun, **paramsToUse)
