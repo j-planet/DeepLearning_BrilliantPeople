@@ -2,7 +2,7 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import tensorflow as tf
 from tensorflow import summary
-from tensorflow.contrib.rnn import BasicLSTMCell, MultiRNNCell, DropoutWrapper, GridLSTMCell, GRUCell
+from tensorflow.contrib.rnn import BasicLSTMCell, MultiRNNCell, DropoutWrapper
 
 from data_reader import DataReader
 
@@ -23,66 +23,92 @@ class Model3Config(object):
 
         if scale == 'basic':
             self.initialLearningRate = 0.002
-            self.numHiddenLayerFeatures = [8]
-            self.outputKeepProbs = [0.9]
+
+            self.rnn_num_cell_units = [8]
+            self.rnn_dropkeepprobs = [1.] * len(self.rnn_num_cell_units)
+
+            self.cnn_filter_widths = [1]
+            self.cnn_num_features_per_filter = 2
+            self.cnn_dropkeepprob = 1.
+
+            self.l2RegLambda = 1e-3
 
         elif scale == 'tiny':
             self.initialLearningRate = 0.002
-            self.numHiddenLayerFeatures = [32, 8]
-            self.outputKeepProbs = [0.5, 0.9]
+
+            self.rnn_num_cell_units = [32, 8]
+            self.rnn_dropkeepprobs = [0.5, 0.9]
+
+            self.cnn_filter_widths = [2]
+            self.cnn_num_features_per_filter = 2
+            self.cnn_dropkeepprob = 1.
+
+            self.l2RegLambda = 1e-3
 
         elif scale == 'small':
             self.initialLearningRate = 0.002
-            self.numHiddenLayerFeatures = [32, 16, 8]
-            self.outputKeepProbs = [0.5, 0.7, 0.9]
+
+            self.rnn_num_cell_units = [32, 16, 8]
+            self.rnn_dropkeepprobs = [0.5, 0.7, 0.9]
+
+            self.cnn_filter_widths = [1, 2]
+            self.cnn_num_features_per_filter = 4
+            self.cnn_dropkeepprob = 0.9
+
+            self.l2RegLambda = 1e-4
 
         elif scale=='full':
             self.initialLearningRate = 0.001
-            self.numHiddenLayerFeatures = [256, 128, 32, 32]
-            self.outputKeepProbs = [0.5, 0.5, 0.9, 0.9]
+
+            self.rnn_num_cell_units = [256, 128, 32, 32]
+            self.rnn_dropkeepprobs = [0.5, 0.5, 0.9, 0.9]
+
+            self.cnn_filter_widths = [1, 2, 3]
+            self.cnn_num_features_per_filter = 64
+            self.cnn_dropkeepprob = 1.
+
+            self.l2RegLambda = 1e-4
 
 
-        assert len(self.numHiddenLayerFeatures)==len(self.outputKeepProbs)
+        assert len(self.rnn_num_cell_units) == len(self.rnn_dropkeepprobs)
 
         self.scale = scale
         self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('config.network').info
         self.print()
 
     def print(self):
-        self._logFunc('SHUFFLED %d hidden layer(s)' % len(self.numHiddenLayerFeatures))
-        self._logFunc('number of LSTM cell units: ' + str(self.numHiddenLayerFeatures))
-        self._logFunc('dropoutKeepProbs: ' + str(self.outputKeepProbs))
+        self._logFunc('SHUFFLED %d hidden layer(s)' % len(self.rnn_num_cell_units))
+        self._logFunc('number of LSTM cell units: ' + str(self.rnn_num_cell_units))
+        self._logFunc('dropoutKeepProbs: ' + str(self.rnn_dropkeepprobs))
         self._logFunc('initial learning rate: %0.3f' % self.initialLearningRate)
+        self._logFunc('L2 penalty lambda: %0.5f' % self.l2RegLambda)
 
 
 class Model3(object):
 
-
-    def __init__(self, useCPU, configScale_, input_, numClasses_, loggerFactory=None):
-        # if useCPU:
-        #     with tf.device('/cpu:0'):
-        #         self.init(configScale_, input_, numClasses_, loggerFactory)
-
-        # else:
-        self.init(configScale_, input_, numClasses_, loggerFactory)
-
-    def init(self, configScale_, input_, numClasses_, loggerFactory=None):
+    def __init__(self, configScale_, input_, numClasses_, loggerFactory=None):
         """
         :type configScale_: string
         :type numClasses_: int
         :type input_: dict
         """
         assert configScale_ in ['basic', 'tiny', 'small', 'full']
-        self.config = ModelConfig(configScale_, loggerFactory)
+        self.config = Model3Config(configScale_, loggerFactory)
         self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('Model').info
         self._logFunc('Class: Model')
+        # self._isTraining = True     # in order to turn off dropout during evaluation
+        self._filterWidths = self.config.cnn_filter_widths
+        self._numFeaturesPerFilter = self.config.cnn_num_features_per_filter
+        self._cnnPooledDropoutKeep = self.config.cnn_dropkeepprob
+
+        self._l2RegLambda = self.config.l2RegLambda
 
         self._lr = tf.Variable(self.config.initialLearningRate, name='learningRate')
         x = input_['x']
         y = input_['y']
         numSeqs = input_['numSeqs']
 
-        # ------ stack of LSTM - bi-directional RNN layer ------
+        # ------ layer #1: stack of LSTM - bi-directional RNN layer ------
         self._logFunc('stack of LSTM - bi-directional RNN layer')
         forwardCells = self.make_stacked_cells()
         backwardCells = self.make_stacked_cells()
@@ -92,15 +118,55 @@ class Model3(object):
                                             time_major=False, inputs=x, dtype=tf.float32,
                                             sequence_length=numSeqs,
                                             swap_memory=True)[0], 2)
+        self.layer1output = last_relevant(self.outputs, input_['numSeqs'])
+
+        # ------ layer #2: CNN layer ------
+        self.layer2input = tf.expand_dims(tf.expand_dims(self.layer1output, 1), -1) # changes 2x16 to 2x1x16x1
+        self.pooled_outputs = []
+        self.relus = []
+        self.convs = []
+        for filterWidth in self._filterWidths:
+            with tf.name_scope('conv-maxpool-%d' % filterWidth):
+                # the second parameter is shape[2] of the input
+                filterShape = [filterWidth, 2 * self.config.rnn_num_cell_units[-1], 1, self._numFeaturesPerFilter]
+                # filterShape = [filterWidth, 1, 1, self._numFeaturesPerFilter]
+
+                cnnSeqLen = 1
+                cnnFilterMat = tf.Variable(tf.truncated_normal(filterShape, stddev=0.1), name='W')
+                cnnFilterBias = tf.Variable(tf.constant(0.1, shape=[self._numFeaturesPerFilter]), name='b')
+
+                # padd along the number of sequences axis if not enough for the conv filter
+                curInput = tf.tile(self.layer2input, [1, filterWidth, 1, 1]) if cnnSeqLen < filterWidth else self.layer2input
+                conv = tf.nn.conv2d(curInput, cnnFilterMat, strides=[1,1,1,1], padding='VALID', name='conv')
+                h = tf.nn.relu(tf.nn.bias_add(conv, cnnFilterBias), name='relu')
+                self.convs.append(conv)
+                self.relus.append(h)
+
+                pooled = tf.nn.max_pool(
+                    h,
+                    ksize=[1, max(cnnSeqLen - filterWidth, 0) + 1, 1, 1],   # padding='VALID' may not work for small seq lens
+                    strides=[1, 1, 1, 1],
+                    padding='VALID',
+                    name='pool')
+
+                self.pooled_outputs.append(pooled)
+
+        self.numTotalCnnFilters = self._numFeaturesPerFilter * len(self._filterWidths)
+        self.pooled_outputs_flat = tf.reshape(tf.concat(self.pooled_outputs, 3), [-1, self.numTotalCnnFilters])
+
+        # dropout the CNN pooled results
+        self.layer2output = tf.nn.dropout(self.pooled_outputs_flat, self._cnnPooledDropoutKeep)
+
 
         # ------ final softmax layer ------
         self._logFunc('final softmax layer')
-        weights = tf.Variable(tf.random_normal([2 * self.config.numHiddenLayerFeatures[-1], numClasses_]), name='weights')
+        weights = tf.Variable(tf.random_normal([self.numTotalCnnFilters, numClasses_]), name='weights')
         biases = tf.Variable(tf.random_normal([numClasses_]), name='biases')
+        self.l2Loss = self._l2RegLambda * (tf.nn.l2_loss(weights) + tf.nn.l2_loss(biases))
 
-        self.output = last_relevant(self.outputs, input_['numSeqs'])
-        self.logits = tf.matmul(self.output, weights) + biases
-        self.cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=y))
+        # self.output = last_relevant(self.outputs, input_['numSeqs'])
+        self.logits = tf.nn.xw_plus_b(self.layer2output, weights, biases, name='logits')
+        self.cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=y)) + self.l2Loss
 
         # ------ optimizer ------
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self._lr).minimize(self.cost)
@@ -115,11 +181,11 @@ class Model3(object):
         self.merged_summaries = summary.merge_all()
 
     def make_stacked_cells(self):
-        # return MultiRNNCell([DropoutWrapper(BasicLSTMCell(f), output_keep_prob=k) if k < 1 else BasicLSTMCell(f)
-        #                      for f, k in zip(self.config.numHiddenLayerFeatures, self.config.outputKeepProbs)])
+        # keepProbs = self.config.outputKeepProbs if self._isTraining else [1]*len(self.config.numHiddenLayerFeatures)
+        keepProbs = self.config.rnn_dropkeepprobs
 
-        return MultiRNNCell([DropoutWrapper(GRUCell(f), output_keep_prob=k) if k < 1 else BasicLSTMCell(f)
-                             for f, k in zip(self.config.numHiddenLayerFeatures, self.config.outputKeepProbs)])
+        return MultiRNNCell([DropoutWrapper(BasicLSTMCell(f), output_keep_prob=k)
+                             for f, k in zip(self.config.rnn_num_cell_units, keepProbs)])
 
     def lr(self, sess_):
         return sess_.run(self._lr)
@@ -128,16 +194,18 @@ class Model3(object):
         sess_.run(tf.assign(self._lr, newLearningRate_))
 
     def train_op(self, sess_, feedDict_, computeMetrics_):
+        # self._isTraining = True
         thingsToRun = [self.optimizer] + [self.merged_summaries, self.cost, self.accuracy] if computeMetrics_ else []
 
         return sess_.run(thingsToRun, feedDict_)[1:]
 
     def evaluate(self, sess_, feedDict_):
+        # self._isTraining = False
         return sess_.run([self.cost, self.accuracy, self.trueY, self.pred], feedDict_)
 
 if __name__ == '__main__':
     dr = DataReader('./data/peopleData/2_samples', 'bucketing', 20)
-    model = Model('tiny', dr.input, dr.numClasses)
+    model = Model3('tiny', dr.input, dr.numClasses)
 
     sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())

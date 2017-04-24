@@ -6,6 +6,7 @@ import tensorflow as tf
 
 from data_reader import DataReader
 from model import Model
+from model3 import Model3
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
 
 
@@ -216,9 +217,9 @@ full_learn = {
 
 
 # ============= CHANGE BELOW THIS LINE ==============
-paramsToUse = quick_learn
+paramsToUse = just_run
 useCPU = True
-modelToRun = Model
+modelToRun = Model3
 # ============= CHANGE ABOVE THIS LINE ==============
 
 

@@ -2,7 +2,7 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import tensorflow as tf
 from tensorflow import summary
-from tensorflow.contrib.rnn import BasicLSTMCell, MultiRNNCell, DropoutWrapper, GridLSTMCell, GRUCell
+from tensorflow.contrib.rnn import BasicLSTMCell, MultiRNNCell, DropoutWrapper
 
 from data_reader import DataReader
 
