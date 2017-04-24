@@ -25,25 +25,26 @@ class ModelConfig(object):
             self.initialLearningRate = 0.002
             self.numHiddenLayerFeatures = [8]
             self.outputKeepProbs = [0.9]
-            self.l2RegLambda = 0
+            self.l2RegLambda = 1e-4
 
         elif scale == 'tiny':
             self.initialLearningRate = 0.002
             self.numHiddenLayerFeatures = [32, 8]
-            self.outputKeepProbs = [0.5, 0.9]
-            self.l2RegLambda = 1e-3
+            self.outputKeepProbs = [1, 1]
+            self.l2RegLambda = 1e-4
 
         elif scale == 'small':
             self.initialLearningRate = 0.002
             self.numHiddenLayerFeatures = [32, 16, 8]
             self.outputKeepProbs = [0.5, 0.7, 0.9]
-            self.l2RegLambda = 1e-3
+            self.l2RegLambda = 1e-4
 
         elif scale=='full':
             self.initialLearningRate = 0.001
             self.numHiddenLayerFeatures = [256, 128, 32, 32]
-            self.outputKeepProbs = [0.5, 0.5, 0.9, 0.9]
-            self.l2RegLambda = 1e-4
+            # self.outputKeepProbs = [0.5, 0.5, 0.9, 0.9]
+            self.outputKeepProbs = [1.] * len(self.numHiddenLayerFeatures)
+            self.l2RegLambda = 1e-5
 
 
         assert len(self.numHiddenLayerFeatures)==len(self.outputKeepProbs)
@@ -57,7 +58,7 @@ class ModelConfig(object):
         self._logFunc('number of LSTM cell units: ' + str(self.numHiddenLayerFeatures))
         self._logFunc('dropoutKeepProbs: ' + str(self.outputKeepProbs))
         self._logFunc('initial learning rate: %0.3f' % self.initialLearningRate)
-        self._logFunc('L2 penalty lambda: %0.5f' % self.l2RegLambda)
+        self._logFunc('L2 penalty lambda: %f' % self.l2RegLambda)
 
 
 class Model(object):
@@ -73,6 +74,7 @@ class Model(object):
         self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('Model').info
         self._logFunc('Class: Model')
         self._isTraining = True     # in order to turn off dropout during evaluation
+        # self._l2RegLambda = self.config.l2RegLambdaPerClass * numClasses_
         self._l2RegLambda = self.config.l2RegLambda
 
         self._lr = tf.Variable(self.config.initialLearningRate, name='learningRate')
@@ -93,12 +95,15 @@ class Model(object):
 
         # ------ final softmax layer ------
         self._logFunc('final softmax layer')
-        weights = tf.Variable(tf.random_normal([2 * self.config.numHiddenLayerFeatures[-1], numClasses_]), name='weights')
+        weightShape = [2 * self.config.numHiddenLayerFeatures[-1], numClasses_]
+        weights = tf.Variable(tf.random_normal(weightShape), name='weights')
         biases = tf.Variable(tf.random_normal([numClasses_]), name='biases')
-        self.l2Loss = self._l2RegLambda * (tf.nn.l2_loss(weights) + tf.nn.l2_loss(biases))
+        # self.l2Loss = self._l2RegLambda * (tf.nn.l2_loss(weights) + tf.nn.l2_loss(biases))
 
         self.output = last_relevant(self.outputs, input_['numSeqs'])
         self.logits = tf.matmul(self.output, weights) + biases
+
+        self.l2Loss = self._l2RegLambda * sum(tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables())
         self.cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=y)) + self.l2Loss
 
         # ------ optimizer ------

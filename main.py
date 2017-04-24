@@ -174,7 +174,7 @@ class RunConfig(object):
 
         elif scale == 'full':
             self.numSteps = 1000
-            self.batchSize = 200
+            self.batchSize = 150
             self.logValidationEvery = 15
             self.failToImproveTolerance = 4
 
@@ -208,6 +208,12 @@ quick_learn = {
     'runScale': 'small'
 }
 
+medium_2_classes = {
+    'dataDir': DATA_DIRs['full_2occupations'],
+    'modelScale': 'small',
+    'runScale': 'merdium'
+}
+
 full_learn = {
     'dataDir': DATA_DIRs['full'],
     'modelScale': 'full',
@@ -216,7 +222,7 @@ full_learn = {
 
 
 # ============= CHANGE BELOW THIS LINE ==============
-paramsToUse = quick_learn
+paramsToUse = full_learn
 useCPU = True
 modelToRun = Model
 # ============= CHANGE ABOVE THIS LINE ==============
