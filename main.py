@@ -6,7 +6,7 @@ import tensorflow as tf
 
 from data_reader import DataReader
 from model import Model
-from model3 import Model3
+from model3 import Model3, Model3Config
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
 
 
@@ -71,7 +71,7 @@ def evaluate_stored_model(dataDir, modelScale, savePath, batchSize):
     evaluate_in_batches(dataReader.get_test_data_in_batches(), dataReader.classLabels, model.evaluate)
 
 
-def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./logs/main')):
+def main(dataDir, modelKlass, modelConfigKlass, runScale, modelScale, extraModelConfigs={}, logDir=create_time_dir('./logs/main')):
     assert modelScale in ['basic', 'tiny', 'small', 'full']
     assert runScale in ['basic', 'tiny', 'small', 'full']
 
@@ -89,9 +89,11 @@ def main(dataDir, modelKlass, modelScale, runScale, logDir=create_time_dir('./lo
     st = time()
     loggerFactory = LoggerFactory(logDir)
     runConfig = RunConfig(runScale, loggerFactory)
+    modelConfig = modelConfigKlass(modelScale, extraModelConfigs, loggerFactory).data
+
     dataReader = DataReader(dataDir, 'bucketing', runConfig.batchSize, loggerFactory)
-    model = modelKlass(modelScale, dataReader.input, dataReader.numClasses, loggerFactory)
-    initialLr = model.config.initialLearningRate
+    model = modelKlass(modelConfig, dataReader.input, dataReader.numClasses, loggerFactory)
+    initialLr = modelConfig['initialLearningRate']
 
     # =========== set up tensorboard ===========
     train_writer, valid_writer = tensorflowFilewriters(logDir)
@@ -199,8 +201,8 @@ DATA_DIRs = {'tiny_fake_2': './data/peopleData/2_samples',
 
 just_run = {
     'dataDir': DATA_DIRs['tiny_fake_2'],
-    'modelScale': 'basic',
     'runScale': 'basic',
+    'modelScale': 'basic'
 }
 
 quick_learn = {
@@ -212,7 +214,7 @@ quick_learn = {
 medium_2_classes = {
     'dataDir': DATA_DIRs['full_2occupations'],
     'modelScale': 'small',
-    'runScale': 'merdium'
+    'runScale': 'medium'
 }
 
 full_learn = {
@@ -223,18 +225,34 @@ full_learn = {
 
 
 # ============= CHANGE BELOW THIS LINE ==============
-paramsToUse = just_run
 useCPU = True
-modelToRun = Model3
+
+paramsToUse = [{**just_run,
+                **{
+                    'modelKlass':  Model3,
+                    'modelConfigKlass': Model3Config,
+                    'extraModelConfigs': {}
+                }},
+               {**just_run,
+                **{
+                    'modelKlass':  Model3,
+                    'modelConfigKlass': Model3Config,
+                    'extraModelConfigs': {'cnn_num_features_per_filter': 64}
+                }}
+               ]
 # ============= CHANGE ABOVE THIS LINE ==============
 
 
-sess = tf.InteractiveSession(config=tf.ConfigProto(allow_soft_placement=True)) if useCPU \
-    else tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.85),
-                                                     allow_soft_placement=True))
 
-if useCPU:
-    with tf.device('/cpu:0'):
-        main(modelKlass=modelToRun, **paramsToUse)
-else:
-    main(modelKlass=modelToRun, **paramsToUse)
+for p in paramsToUse:
+
+    tf.reset_default_graph()
+
+    if useCPU:
+        with tf.device('/cpu:0'):
+            sess = tf.InteractiveSession(config=tf.ConfigProto(allow_soft_placement=True))
+            main(**p)
+    else:
+        sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.85),
+                                                           allow_soft_placement=True))
+        main(**p)

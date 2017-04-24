@@ -1,5 +1,6 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
+import numpy as np
 import tensorflow as tf
 from tensorflow import summary
 from tensorflow.contrib.rnn import BasicLSTMCell, MultiRNNCell, DropoutWrapper
@@ -18,98 +19,126 @@ def last_relevant(output_, lengths_):
 
 
 class Model3Config(object):
-    def __init__(self, scale, loggerFactory=None):
-        assert scale in ['basic', 'tiny', 'small', 'full']
+    def __init__(self, scale=None, extraConfigDict={}, loggerFactory=None):
+        assert scale in [None, 'basic', 'tiny', 'small', 'full']
+        self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('config.network').info
 
-        if scale == 'basic':
-            self.initialLearningRate = 0.002
+        if scale is None:
+            self.data = {
+                'initialLearningRate': None,
 
-            self.rnn_num_cell_units = [8]
-            self.rnn_dropkeepprobs = [1.] * len(self.rnn_num_cell_units)
+                'rnn_num_cell_units': None,
+                'rnn_dropkeepprobs': None,
 
-            self.cnn_filter_widths = [1]
-            self.cnn_num_features_per_filter = 2
-            self.cnn_dropkeepprob = 1.
+                'cnn_filter_widths': None,
+                'cnn_num_features_per_filter': None,
+                'cnn_dropkeepprob': None,
 
-            self.l2RegLambda = 1e-3
+                'l2RegLambda': None
+            }
+
+        elif scale == 'basic':
+            self.data = {
+                'initialLearningRate': 0.002,
+
+                'rnn_num_cell_units': [8],
+                'rnn_dropkeepprobs': [1.],
+
+                'cnn_filter_widths': [1],
+                'cnn_num_features_per_filter': 2,
+                'cnn_dropkeepprob': 1.,
+
+                'l2RegLambda': 0
+            }
 
         elif scale == 'tiny':
-            self.initialLearningRate = 0.002
+            self.data = {
+                'initialLearningRate': 0.002,
 
-            self.rnn_num_cell_units = [32, 8]
-            self.rnn_dropkeepprobs = [0.5, 0.9]
+                'rnn_num_cell_units': [32, 8],
+                'rnn_dropkeepprobs': [0.5, 0.9],
 
-            self.cnn_filter_widths = [2]
-            self.cnn_num_features_per_filter = 2
-            self.cnn_dropkeepprob = 1.
+                'cnn_filter_widths': [2],
+                'cnn_num_features_per_filter': 2,
+                'cnn_dropkeepprob': 1.,
 
-            self.l2RegLambda = 1e-3
+                'l2RegLambda': 1e-3
+            }
 
         elif scale == 'small':
-            self.initialLearningRate = 0.002
+            self.data = {
+                'initialLearningRate': 0.002,
 
-            self.rnn_num_cell_units = [32, 16, 8]
-            self.rnn_dropkeepprobs = [0.5, 0.7, 0.9]
+                'rnn_num_cell_units': [32, 16, 8],
+                'rnn_dropkeepprobs': [0.5, 0.7, 0.9],
 
-            self.cnn_filter_widths = [1, 2]
-            self.cnn_num_features_per_filter = 4
-            self.cnn_dropkeepprob = 0.9
+                'cnn_filter_widths': [1, 2],
+                'cnn_num_features_per_filter': 4,
+                'cnn_dropkeepprob': 0.9,
 
-            self.l2RegLambda = 1e-4
+                'l2RegLambda': 1e-4
+            }
 
         elif scale=='full':
-            self.initialLearningRate = 0.001
+            self.data = {
+                'initialLearningRate': 0.001,
 
-            self.rnn_num_cell_units = [256, 128, 32, 32]
-            self.rnn_dropkeepprobs = [0.5, 0.5, 0.9, 0.9]
+                'rnn_num_cell_units': [256, 128, 32, 32],
+                'rnn_dropkeepprobs': [1]*4,
 
-            self.cnn_filter_widths = [1, 2, 3]
-            self.cnn_num_features_per_filter = 64
-            self.cnn_dropkeepprob = 1.
+                'cnn_filter_widths': [1, 2, 3],
+                'cnn_num_features_per_filter': 64,
+                'cnn_dropkeepprob': 0.9,
 
-            self.l2RegLambda = 1e-4
+                'l2RegLambda': 1e-4
+            }
 
 
-        assert len(self.rnn_num_cell_units) == len(self.rnn_dropkeepprobs)
+        assert len(self.data['rnn_num_cell_units']) == len(self.data['rnn_dropkeepprobs'])
+        assert np.all([v is not None for v in self.data.values()]), 'Not all configs are provided.'
 
-        self.scale = scale
-        self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('config.network').info
+        for k, v in extraConfigDict.items():
+            if k in self.data:
+                self.data[k] = v
+            else:
+                self._logFunc('%s is not configurable. Skipping...' % k)
+
+
+        self.configKeys = self.data.keys()
+
         self.print()
 
     def print(self):
-        self._logFunc('SHUFFLED %d hidden layer(s)' % len(self.rnn_num_cell_units))
-        self._logFunc('number of LSTM cell units: ' + str(self.rnn_num_cell_units))
-        self._logFunc('dropoutKeepProbs: ' + str(self.rnn_dropkeepprobs))
-        self._logFunc('initial learning rate: %0.3f' % self.initialLearningRate)
-        self._logFunc('L2 penalty lambda: %0.5f' % self.l2RegLambda)
+        for k, v in self.data.items(): self._logFunc(k + ': ' + str(v))
 
 
 class Model3(object):
 
-    def __init__(self, configScale_, input_, numClasses_, loggerFactory=None):
+    def __init__(self, config_, input_, numClasses_, loggerFactory=None):
         """
-        :type configScale_: string
+        :type config_: dict
         :type numClasses_: int
         :type input_: dict
         """
-        assert configScale_ in ['basic', 'tiny', 'small', 'full']
-        self.config = Model3Config(configScale_, loggerFactory)
+        # assert configScale_ in ['basic', 'tiny', 'small', 'full']
+        # self.config = Model3Config(configScale_, loggerFactory)
+        self.config = config_
         self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('Model').info
         self._logFunc('Class: Model')
         # self._isTraining = True     # in order to turn off dropout during evaluation
-        self._filterWidths = self.config.cnn_filter_widths
-        self._numFeaturesPerFilter = self.config.cnn_num_features_per_filter
-        self._cnnPooledDropoutKeep = self.config.cnn_dropkeepprob
+        self._filterWidths = self.config['cnn_filter_widths']
+        self._numFeaturesPerFilter = self.config['cnn_num_features_per_filter']
+        self._cnnPooledDropoutKeep = self.config['cnn_dropkeepprob']
 
-        self._l2RegLambda = self.config.l2RegLambda
+        self._l2RegLambda = self.config['l2RegLambda']
 
-        self._lr = tf.Variable(self.config.initialLearningRate, name='learningRate')
+        self._lr = tf.Variable(self.config['initialLearningRate'], name='learningRate')
         x = input_['x']
         y = input_['y']
         numSeqs = input_['numSeqs']
 
         # ------ layer #1: stack of LSTM - bi-directional RNN layer ------
-        self._logFunc('stack of LSTM - bi-directional RNN layer')
+        self._logFunc('layer #1: stack of LSTM - bi-directional RNN layer')
         forwardCells = self.make_stacked_cells()
         backwardCells = self.make_stacked_cells()
 
@@ -121,6 +150,8 @@ class Model3(object):
         self.layer1output = last_relevant(self.outputs, input_['numSeqs'])
 
         # ------ layer #2: CNN layer ------
+        self._logFunc('layer #2: CNN layer')
+
         self.layer2input = tf.expand_dims(tf.expand_dims(self.layer1output, 1), -1) # changes 2x16 to 2x1x16x1
         self.pooled_outputs = []
         self.relus = []
@@ -128,7 +159,7 @@ class Model3(object):
         for filterWidth in self._filterWidths:
             with tf.name_scope('conv-maxpool-%d' % filterWidth):
                 # the second parameter is shape[2] of the input
-                filterShape = [filterWidth, 2 * self.config.rnn_num_cell_units[-1], 1, self._numFeaturesPerFilter]
+                filterShape = [filterWidth, 2 * self.config['rnn_num_cell_units'][-1], 1, self._numFeaturesPerFilter]
                 # filterShape = [filterWidth, 1, 1, self._numFeaturesPerFilter]
 
                 cnnSeqLen = 1
@@ -162,10 +193,9 @@ class Model3(object):
         self._logFunc('final softmax layer')
         weights = tf.Variable(tf.random_normal([self.numTotalCnnFilters, numClasses_]), name='weights')
         biases = tf.Variable(tf.random_normal([numClasses_]), name='biases')
-        self.l2Loss = self._l2RegLambda * (tf.nn.l2_loss(weights) + tf.nn.l2_loss(biases))
-
-        # self.output = last_relevant(self.outputs, input_['numSeqs'])
         self.logits = tf.nn.xw_plus_b(self.layer2output, weights, biases, name='logits')
+
+        self.l2Loss = self._l2RegLambda * sum(tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables())
         self.cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=y)) + self.l2Loss
 
         # ------ optimizer ------
@@ -182,10 +212,10 @@ class Model3(object):
 
     def make_stacked_cells(self):
         # keepProbs = self.config.outputKeepProbs if self._isTraining else [1]*len(self.config.numHiddenLayerFeatures)
-        keepProbs = self.config.rnn_dropkeepprobs
+        keepProbs = self.config['rnn_dropkeepprobs']
 
         return MultiRNNCell([DropoutWrapper(BasicLSTMCell(f), output_keep_prob=k)
-                             for f, k in zip(self.config.rnn_num_cell_units, keepProbs)])
+                             for f, k in zip(self.config['rnn_num_cell_units'], keepProbs)])
 
     def lr(self, sess_):
         return sess_.run(self._lr)
@@ -205,7 +235,8 @@ class Model3(object):
 
 if __name__ == '__main__':
     dr = DataReader('./data/peopleData/2_samples', 'bucketing', 20)
-    model = Model3('tiny', dr.input, dr.numClasses)
+    config = Model3Config('tiny').data
+    model = Model3(config, dr.input, dr.numClasses)
 
     sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())

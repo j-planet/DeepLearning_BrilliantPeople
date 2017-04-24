@@ -95,10 +95,8 @@ class Model(object):
 
         # ------ final softmax layer ------
         self._logFunc('final softmax layer')
-        weightShape = [2 * self.config.numHiddenLayerFeatures[-1], numClasses_]
-        weights = tf.Variable(tf.random_normal(weightShape), name='weights')
+        weights = tf.Variable(tf.random_normal([2 * self.config.numHiddenLayerFeatures[-1], numClasses_]), name='weights')
         biases = tf.Variable(tf.random_normal([numClasses_]), name='biases')
-        # self.l2Loss = self._l2RegLambda * (tf.nn.l2_loss(weights) + tf.nn.l2_loss(biases))
 
         self.output = last_relevant(self.outputs, input_['numSeqs'])
         self.logits = tf.matmul(self.output, weights) + biases
