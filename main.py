@@ -227,18 +227,44 @@ full_learn = {
 # ============= CHANGE BELOW THIS LINE ==============
 useCPU = True
 
-paramsToUse = [{**just_run,
+paramsToUse = [{**full_learn,
                 **{
                     'modelKlass':  Model3,
                     'modelConfigKlass': Model3Config,
-                    'extraModelConfigs': {}
+                    'extraModelConfigs': {
+                        'rnn_num_cell_units': [128, 64, 64], 'rnn_dropkeepprobs': [1]*3,
+                        'cnn_filter_widths': [1, 2, 4], 'cnn_num_features_per_filter': 16,
+                        'cnn_dropkeepprob': 1
+                    }
                 }},
-               {**just_run,
+               {**full_learn,
+                **{
+                    'modelKlass': Model3,
+                    'modelConfigKlass': Model3Config,
+                    'extraModelConfigs': {
+                        'rnn_num_cell_units': [128, 64, 64], 'rnn_dropkeepprobs': [1] * 3,
+                        'cnn_filter_widths': [1, 2, 4], 'cnn_num_features_per_filter': 16,
+                        'cnn_dropkeepprob': 0.75
+                    }
+                }},
+               {**full_learn,
                 **{
                     'modelKlass':  Model3,
                     'modelConfigKlass': Model3Config,
-                    'extraModelConfigs': {'cnn_num_features_per_filter': 64}
-                }}
+                    'extraModelConfigs': {
+                        'rnn_num_cell_units': [128, 64, 64], 'rnn_dropkeepprobs': [1]*3,
+                        'cnn_filter_widths': [1, 2, 4], 'cnn_num_features_per_filter': 128,
+                    }
+                }},
+               {**full_learn,
+                **{
+                    'modelKlass': Model3,
+                    'modelConfigKlass': Model3Config,
+                    'extraModelConfigs': {
+                        'rnn_num_cell_units': [256, 128, 64, 32], 'rnn_dropkeepprobs': [1, 1, 1, 1],
+                        'cnn_filter_widths': [1, 2, 3], 'cnn_num_features_per_filter': 32,
+                    }
+                }},
                ]
 # ============= CHANGE ABOVE THIS LINE ==============
 
