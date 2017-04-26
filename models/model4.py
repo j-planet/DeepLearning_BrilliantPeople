@@ -110,16 +110,6 @@ class Model4Config(object):
 
 
 
-def last_relevant(output_, lengths_, numRows_=1):
-    batch_size = tf.shape(output_)[0]
-    max_length = tf.shape(output_)[1]
-    out_size = int(output_.get_shape()[2])
-    index = tf.expand_dims(tf.range(0, batch_size),-1) * max_length \
-            + tf.tile(tf.expand_dims(lengths_ - 1, -1), [1, numRows_]) + tf.range(-numRows_+1, 1)
-
-    flat = tf.reshape(output_, [-1, out_size])
-
-    return tf.gather(flat, index), index
 
 class Model4(object):
 

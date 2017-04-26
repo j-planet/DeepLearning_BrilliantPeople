@@ -85,3 +85,24 @@ class LoggerFactory(object):
     def getLogger(self, n_):
         self.loggers[n_] = logging.getLogger(n_)
         return self.loggers[n_]
+
+
+def last_relevant(output_, lengths_, numRows_=1):
+    batch_size = tf.shape(output_)[0]
+    max_length = tf.shape(output_)[1]
+    out_size = int(output_.get_shape()[2])
+    index = tf.expand_dims(tf.range(0, batch_size),-1) * max_length \
+            + tf.tile(tf.expand_dims(lengths_ - 1, -1), [1, numRows_]) + tf.range(-numRows_+1, 1)
+
+    flat = tf.reshape(output_, [-1, out_size])
+
+    return tf.gather(flat, index)
+
+
+def str_2_activation_function(name):
+    assert name in [None, 'relu', 'sigmoid', 'tanh']
+
+    if name is None: return lambda x: x
+    if name=='relu': return tf.nn.relu
+    if name=='tanh': return tf.nn.tanh
+    if name=='sigmoid': return tf.nn.sigmoid

@@ -6,16 +6,7 @@ from tensorflow import summary
 from tensorflow.contrib.rnn import BasicLSTMCell, MultiRNNCell, DropoutWrapper
 
 from data_reader import DataReader
-
-
-def last_relevant(output_, lengths_):
-    batch_size = tf.shape(output_)[0]
-    max_length = tf.shape(output_)[1]
-    out_size = int(output_.get_shape()[2])
-    index = tf.range(0, batch_size) * max_length + (lengths_ - 1)
-    flat = tf.reshape(output_, [-1, out_size])
-
-    return tf.gather(flat, index)
+from utilities import last_relevant
 
 
 class Model3Config(object):

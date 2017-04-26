@@ -5,9 +5,8 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='0'  # Defaults to 0: all logs; 1: filter out
 import tensorflow as tf
 
 from data_reader import DataReader
-from model import Model
+from models.model import Model, ModelConfig
 from model3 import Model3, Model3Config
-from model4 import Model4, Model4Config
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
 
 
@@ -273,7 +272,7 @@ useCPU = True
 #                     }
 #                 }},
 #                ]
-paramsToUse = [{**fake_learn, **{'modelKlass': Model4, 'modelConfigKlass': Model4Config}}]
+paramsToUse = [{**fake_learn, **{'modelKlass': Model3, 'modelConfigKlass': Model3Config}}]
 # ============= CHANGE ABOVE THIS LINE ==============
 
 
