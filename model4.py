@@ -37,8 +37,8 @@ class Model4Config(object):
                 'rnn_dropkeepprobs': [1.],
                 'rnn_num_output_rows': 2,
 
-                'cnn_filter_widths': [1],
-                'cnn_num_features_per_filter': 2,
+                'cnn_filter_widths': [2],
+                'cnn_num_features_per_filter': 4,
                 'cnn_dropkeepprob': 1.,
 
                 'l2RegLambda': 0

@@ -206,6 +206,12 @@ just_run = {
     'modelScale': 'basic'
 }
 
+fake_learn = {
+    'dataDir': DATA_DIRs['tiny_fake_2'],
+    'runScale': 'tiny',
+    'modelScale': 'basic'
+}
+
 quick_learn = {
     'dataDir': DATA_DIRs['small_2occupations'],
     'modelScale': 'tiny',
@@ -267,7 +273,7 @@ useCPU = True
 #                     }
 #                 }},
 #                ]
-paramsToUse = [{**just_run, **{'modelKlass': Model4, 'modelConfigKlass': Model4Config}}]
+paramsToUse = [{**fake_learn, **{'modelKlass': Model4, 'modelConfigKlass': Model4Config}}]
 # ============= CHANGE ABOVE THIS LINE ==============
 
 
