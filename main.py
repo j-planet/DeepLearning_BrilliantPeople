@@ -7,6 +7,7 @@ import tensorflow as tf
 from data_reader import DataReader
 from model import Model
 from model3 import Model3, Model3Config
+from model4 import Model4, Model4Config
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
 
 
@@ -227,45 +228,46 @@ full_learn = {
 # ============= CHANGE BELOW THIS LINE ==============
 useCPU = True
 
-paramsToUse = [{**full_learn,
-                **{
-                    'modelKlass':  Model3,
-                    'modelConfigKlass': Model3Config,
-                    'extraModelConfigs': {
-                        'rnn_num_cell_units': [128, 64, 64], 'rnn_dropkeepprobs': [1]*3,
-                        'cnn_filter_widths': [1, 2, 4], 'cnn_num_features_per_filter': 16,
-                        'cnn_dropkeepprob': 1
-                    }
-                }},
-               {**full_learn,
-                **{
-                    'modelKlass': Model3,
-                    'modelConfigKlass': Model3Config,
-                    'extraModelConfigs': {
-                        'rnn_num_cell_units': [128, 64, 64], 'rnn_dropkeepprobs': [1] * 3,
-                        'cnn_filter_widths': [1, 2, 4], 'cnn_num_features_per_filter': 16,
-                        'cnn_dropkeepprob': 0.75
-                    }
-                }},
-               {**full_learn,
-                **{
-                    'modelKlass':  Model3,
-                    'modelConfigKlass': Model3Config,
-                    'extraModelConfigs': {
-                        'rnn_num_cell_units': [128, 64, 64], 'rnn_dropkeepprobs': [1]*3,
-                        'cnn_filter_widths': [1, 2, 4], 'cnn_num_features_per_filter': 128,
-                    }
-                }},
-               {**full_learn,
-                **{
-                    'modelKlass': Model3,
-                    'modelConfigKlass': Model3Config,
-                    'extraModelConfigs': {
-                        'rnn_num_cell_units': [256, 128, 64, 32], 'rnn_dropkeepprobs': [1, 1, 1, 1],
-                        'cnn_filter_widths': [1, 2, 3], 'cnn_num_features_per_filter': 32,
-                    }
-                }},
-               ]
+# paramsToUse = [{**full_learn,
+#                 **{
+#                     'modelKlass':  Model3,
+#                     'modelConfigKlass': Model3Config,
+#                     'extraModelConfigs': {
+#                         'rnn_num_cell_units': [128, 64, 64], 'rnn_dropkeepprobs': [1]*3,
+#                         'cnn_filter_widths': [1, 2, 4], 'cnn_num_features_per_filter': 16,
+#                         'cnn_dropkeepprob': 1
+#                     }
+#                 }},
+#                {**full_learn,
+#                 **{
+#                     'modelKlass': Model3,
+#                     'modelConfigKlass': Model3Config,
+#                     'extraModelConfigs': {
+#                         'rnn_num_cell_units': [128, 64, 64], 'rnn_dropkeepprobs': [1] * 3,
+#                         'cnn_filter_widths': [1, 2, 4], 'cnn_num_features_per_filter': 16,
+#                         'cnn_dropkeepprob': 0.75
+#                     }
+#                 }},
+#                {**full_learn,
+#                 **{
+#                     'modelKlass':  Model3,
+#                     'modelConfigKlass': Model3Config,
+#                     'extraModelConfigs': {
+#                         'rnn_num_cell_units': [128, 64, 64], 'rnn_dropkeepprobs': [1]*3,
+#                         'cnn_filter_widths': [1, 2, 4], 'cnn_num_features_per_filter': 128,
+#                     }
+#                 }},
+#                {**full_learn,
+#                 **{
+#                     'modelKlass': Model3,
+#                     'modelConfigKlass': Model3Config,
+#                     'extraModelConfigs': {
+#                         'rnn_num_cell_units': [256, 128, 64, 32], 'rnn_dropkeepprobs': [1, 1, 1, 1],
+#                         'cnn_filter_widths': [1, 2, 3], 'cnn_num_features_per_filter': 32,
+#                     }
+#                 }},
+#                ]
+paramsToUse = [{**just_run, **{'modelKlass': Model4, 'modelConfigKlass': Model4Config}}]
 # ============= CHANGE ABOVE THIS LINE ==============
 
 

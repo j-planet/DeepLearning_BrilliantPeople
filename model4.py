@@ -8,17 +8,8 @@ from tensorflow.contrib.rnn import BasicLSTMCell, MultiRNNCell, DropoutWrapper
 from data_reader import DataReader
 
 
-def last_relevant(output_, lengths_):
-    batch_size = tf.shape(output_)[0]
-    max_length = tf.shape(output_)[1]
-    out_size = int(output_.get_shape()[2])
-    index = tf.range(0, batch_size) * max_length + (lengths_ - 1)
-    flat = tf.reshape(output_, [-1, out_size])
 
-    return tf.gather(flat, index)
-
-
-class Model3Config(object):
+class Model4Config(object):
     def __init__(self, scale=None, extraConfigDict={}, loggerFactory=None):
         assert scale in [None, 'basic', 'tiny', 'small', 'full']
         self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('config.network').info
@@ -29,6 +20,7 @@ class Model3Config(object):
 
                 'rnn_num_cell_units': None,
                 'rnn_dropkeepprobs': None,
+                'rnn_num_output_rows': 2,
 
                 'cnn_filter_widths': None,
                 'cnn_num_features_per_filter': None,
@@ -39,10 +31,11 @@ class Model3Config(object):
 
         elif scale == 'basic':
             self.data = {
-                'initialLearningRate': 0.002,
+                'initialLearningRate': 0.0001,
 
                 'rnn_num_cell_units': [8],
                 'rnn_dropkeepprobs': [1.],
+                'rnn_num_output_rows': 2,
 
                 'cnn_filter_widths': [1],
                 'cnn_num_features_per_filter': 2,
@@ -57,6 +50,7 @@ class Model3Config(object):
 
                 'rnn_num_cell_units': [32, 8],
                 'rnn_dropkeepprobs': [0.5, 0.9],
+                'rnn_num_output_rows': 2,
 
                 'cnn_filter_widths': [2],
                 'cnn_num_features_per_filter': 2,
@@ -71,6 +65,7 @@ class Model3Config(object):
 
                 'rnn_num_cell_units': [32, 16, 8],
                 'rnn_dropkeepprobs': [0.5, 0.7, 0.9],
+                'rnn_num_output_rows': 2,
 
                 'cnn_filter_widths': [1, 2],
                 'cnn_num_features_per_filter': 4,
@@ -85,6 +80,7 @@ class Model3Config(object):
 
                 'rnn_num_cell_units': [256, 128, 32, 32],
                 'rnn_dropkeepprobs': [1]*4,
+                'rnn_num_output_rows': 2,
 
                 'cnn_filter_widths': [1, 2, 3],
                 'cnn_num_features_per_filter': 64,
@@ -112,7 +108,20 @@ class Model3Config(object):
         for k, v in self.data.items(): self._logFunc(k + ': ' + str(v))
 
 
-class Model3(object):
+
+
+def last_relevant(output_, lengths_, numRows_=1):
+    batch_size = tf.shape(output_)[0]
+    max_length = tf.shape(output_)[1]
+    out_size = int(output_.get_shape()[2])
+    index = tf.expand_dims(tf.range(0, batch_size),-1) * max_length \
+            + tf.tile(tf.expand_dims(lengths_ - 1, -1), [1, numRows_]) + tf.range(-numRows_+1, 1)
+
+    flat = tf.reshape(output_, [-1, out_size])
+
+    return tf.gather(flat, index), index
+
+class Model4(object):
 
     def __init__(self, config_, input_, numClasses_, loggerFactory=None):
         """
@@ -129,6 +138,7 @@ class Model3(object):
         self._filterWidths = self.config['cnn_filter_widths']
         self._numFeaturesPerFilter = self.config['cnn_num_features_per_filter']
         self._cnnPooledDropoutKeep = self.config['cnn_dropkeepprob']
+        self._rnn_num_output_rows = self.config['rnn_num_output_rows']
 
         self._l2RegLambda = self.config['l2RegLambda']
 
@@ -147,12 +157,13 @@ class Model3(object):
                                             time_major=False, inputs=x, dtype=tf.float32,
                                             sequence_length=numSeqs,
                                             swap_memory=True)[0], 2)
-        self.layer1output = last_relevant(self.outputs, input_['numSeqs'])
+        # self.layer1output, self.last_rel_index = last_relevant(self.outputs, input_['numSeqs'], min(input_['numSeqs']))
+        self.layer1output, self.last_rel_index = last_relevant(self.outputs, input_['numSeqs'], self._rnn_num_output_rows)
 
         # ------ layer #2: CNN layer ------
         self._logFunc('layer #2: CNN layer')
 
-        self.layer2input = tf.expand_dims(tf.expand_dims(self.layer1output, 1), -1) # changes 2x16 to 2x1x16x1
+        self.layer2input = tf.expand_dims(self.layer1output, -1) # changes 2x16 to 2x1x16x1
         self.pooled_outputs = []
         self.relus = []
         self.convs = []
@@ -162,12 +173,11 @@ class Model3(object):
                 filterShape = [filterWidth, 2 * self.config['rnn_num_cell_units'][-1], 1, self._numFeaturesPerFilter]
                 # filterShape = [filterWidth, 1, 1, self._numFeaturesPerFilter]
 
-                cnnSeqLen = 1
                 cnnFilterMat = tf.Variable(tf.truncated_normal(filterShape, stddev=0.1), name='W')
                 cnnFilterBias = tf.Variable(tf.constant(0.1, shape=[self._numFeaturesPerFilter]), name='b')
 
                 # padd along the number of sequences axis if not enough for the conv filter
-                curInput = tf.tile(self.layer2input, [1, filterWidth, 1, 1]) if cnnSeqLen < filterWidth else self.layer2input
+                curInput = tf.tile(self.layer2input, [1, filterWidth, 1, 1]) if self._rnn_num_output_rows < filterWidth else self.layer2input
                 conv = tf.nn.conv2d(curInput, cnnFilterMat, strides=[1,1,1,1], padding='VALID', name='conv')
                 h = tf.nn.relu(tf.nn.bias_add(conv, cnnFilterBias), name='relu')
                 self.convs.append(conv)
@@ -175,7 +185,7 @@ class Model3(object):
 
                 pooled = tf.nn.max_pool(
                     h,
-                    ksize=[1, max(cnnSeqLen - filterWidth, 0) + 1, 1, 1],   # padding='VALID' may not work for small seq lens
+                    ksize=[1, max(self._rnn_num_output_rows - filterWidth, 0) + 1, 1, 1],   # padding='VALID' may not work for small seq lens
                     strides=[1, 1, 1, 1],
                     padding='VALID',
                     name='pool')
@@ -235,12 +245,13 @@ class Model3(object):
 
 if __name__ == '__main__':
     dr = DataReader('./data/peopleData/2_samples', 'bucketing', 20)
-    config = Model3Config('tiny').data
-    model = Model3(config, dr.input, dr.numClasses)
+    config = Model4Config('tiny').data
+    model = Model4(config, dr.input, dr.numClasses)
 
     sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())
 
     for step in range(10):
-        _, c, acc = model.train_op(sess, dr.get_next_training_batch()[0], True)
+        fd = dr.get_next_training_batch()[0]
+        _, c, acc = model.train_op(sess, fd, True)
         print('Step %d: (cost, accuracy): training (%0.3f, %0.3f)' % (step, c, acc))
