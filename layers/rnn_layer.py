@@ -11,21 +11,20 @@ from data_reader import DataReader
 # ------ stack of LSTM - bi-directional RNN layer ------
 class RNNLayer(object):
 
-    def __init__(self, input_, numLSTMUnits_, outputKeepProbs_, numStepsToOutput_, loggerFactory=None):
+    def __init__(self, input_, numLSTMUnits_, outputKeepProbs_=1., numStepsToOutput_=1, loggerFactory=None):
         """
         :type input_: dict
         :type numLSTMUnits_: list
-        :type outputKeepProbs_: list
         :type numStepsToOutput_: int
         """
 
         assert 'x' in input_ and 'numSeqs' in input_, 'Currently RNN works only as the top layer.'
 
         self.numLSTMUnits = numLSTMUnits_
-        self.outputKeepProbs = outputKeepProbs_
+        self.outputKeepProbs = [outputKeepProbs_] * len(numLSTMUnits_) if type(outputKeepProbs_) in [float, int] else outputKeepProbs_
         self.numStepsToOutput = numStepsToOutput_
-        self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('Model').info
-        self._logFunc('Constructing: ' + self.__class__.__name__)
+        self.print = print if loggerFactory is None else loggerFactory.getLogger('Model').info
+        self.print('Constructing: ' + self.__class__.__name__)
 
         self.x = input_['x']
         self.numSeqs = input_['numSeqs']

@@ -18,8 +18,8 @@ class MaxpoolLayer(object):
         self.ksize = [1, *ksize, 1]
         self.strides = [1, *strides, 1]
         self.padding = padding
-        self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('Layer').info
-        self._logFunc('Constructing: ' + self.__class__.__name__)
+        self.print = print if loggerFactory is None else loggerFactory.getLogger('Layer').info
+        self.print('Constructing: ' + self.__class__.__name__)
 
         with name_scope(self.__class__.__name__):
 

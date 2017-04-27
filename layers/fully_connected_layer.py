@@ -9,15 +9,15 @@ from utilities import str_2_activation_function
 
 class FullyConnectedLayer(object):
 
-    def __init__(self, input_, numClasses, activationFuncName=None, loggerFactory=None):
+    def __init__(self, input_, numClasses, activation=None, loggerFactory=None):
         """
         :type numClasses: int
         """
 
         self.numClasses = numClasses
-        self.activationFunc = str_2_activation_function(activationFuncName)
-        self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('Model').info
-        self._logFunc('Constructing: ' + self.__class__.__name__)
+        self.activationFunc = str_2_activation_function(activation)
+        self.print = print if loggerFactory is None else loggerFactory.getLogger('Model').info
+        self.print('Constructing: ' + self.__class__.__name__)
 
         with name_scope(self.__class__.__name__):
             self.weights = tf.Variable(tf.random_normal([input_.get_shape()[-1].value, self.numClasses]), name='weights')
@@ -29,7 +29,7 @@ class FullyConnectedLayer(object):
 if __name__ == '__main__':
 
     v = tf.Variable(tf.random_normal([2, 5]))
-    layer = FullyConnectedLayer(v, 2, activationFuncName='relu')
+    layer = FullyConnectedLayer(v, 2, activation='relu')
 
     sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())

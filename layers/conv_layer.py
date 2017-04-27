@@ -30,8 +30,8 @@ class ConvLayer(object):
         self.padding = padding
         self.activationFunc = str_2_activation_function(activationFuncName)
 
-        self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('Model').info
-        self._logFunc('Constructing: ' + self.__class__.__name__)
+        self.print = print if loggerFactory is None else loggerFactory.getLogger('Model').info
+        self.print('Constructing: ' + self.__class__.__name__)
 
         input_ = tf.expand_dims(input_, -1)  # expects 3-d input of shape batch size x num sequences x vec dim
 

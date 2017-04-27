@@ -5,7 +5,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='0'  # Defaults to 0: all logs; 1: filter out
 import tensorflow as tf
 
 from data_reader import DataReader
-from models.model import Model, ModelConfig
+from models.model import Model
 from model3 import Model3, Model3Config
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
 

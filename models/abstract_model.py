@@ -3,7 +3,7 @@ from tensorflow import name_scope, summary
 
 
 
-class ModelBase(object):
+class AbstractModel(object):
 
     def __init__(self, input_, initialLearningRate_, l2RegLambda_, loggerFactory_=None):
         """
@@ -18,11 +18,14 @@ class ModelBase(object):
 
         self.l2RegLambda = l2RegLambda_
         self._lr = tf.Variable(initialLearningRate_, name='learningRate')
+        self.loggerFactory = loggerFactory_
         self.print = print if loggerFactory_ is None else loggerFactory_.getLogger('Model').info
 
+        self.input = input_
         self.x = input_['x']
         self.y = input_['y']
         self.numSeqs = input_['numSeqs']
+        self.numClasses = self.y.get_shape()[-1].value
 
         self.output = self.make_graph()
 
