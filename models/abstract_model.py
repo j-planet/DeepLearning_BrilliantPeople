@@ -5,19 +5,15 @@ from tensorflow import name_scope, summary
 
 class AbstractModel(object):
 
-    def __init__(self, input_, initialLearningRate_, l2RegLambda_, loggerFactory_=None):
+    def __init__(self, input_, loggerFactory_=None):
         """
         :type input_: dict
-        :type initialLearningRate_: float
-        :type l2RegLambda_: float
         """
 
-        assert initialLearningRate_ > 0
-        assert l2RegLambda_ > 0
         assert 'x' in input_ and 'y' in input_ and 'numSeqs' in input_
 
-        self.l2RegLambda = l2RegLambda_
-        self._lr = tf.Variable(initialLearningRate_, name='learningRate')
+        self._lr = tf.Variable(self.initialLearningRate, name='learningRate')
+        # self.batchsize = batchsize_
         self.loggerFactory = loggerFactory_
         self.print = print if loggerFactory_ is None else loggerFactory_.getLogger('Model').info
 
@@ -25,9 +21,11 @@ class AbstractModel(object):
         self.x = input_['x']
         self.y = input_['y']
         self.numSeqs = input_['numSeqs']
+        self.vecDim = self.x.get_shape()[-1].value
         self.numClasses = self.y.get_shape()[-1].value
+        self.outputs = []
 
-        self.output = self.make_graph()
+        self.make_graph()
 
         with name_scope('predictions'):
             self.pred = tf.argmax(self.output, 1)

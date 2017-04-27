@@ -106,3 +106,21 @@ def str_2_activation_function(name):
     if name=='relu': return tf.nn.relu
     if name=='tanh': return tf.nn.tanh
     if name=='sigmoid': return tf.nn.sigmoid
+
+
+def filter_output_size(inputLen, filterWidth, stride, padding):
+    assert min(inputLen, filterWidth, stride) > 0
+    assert padding in ['VALID', 'SAME']
+
+    if padding == 'VALID':
+        assert filterWidth <= inputLen
+        assert stride <= inputLen
+
+        return int((inputLen - filterWidth)/stride) + 1
+
+    if padding == 'SAME':
+
+        if filterWidth > inputLen or stride > inputLen:
+            return 1
+
+        return int(np.ceil(inputLen / stride))

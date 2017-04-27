@@ -9,22 +9,24 @@ from utilities import str_2_activation_function
 
 class FullyConnectedLayer(object):
 
-    def __init__(self, input_, numClasses, activation=None, loggerFactory=None):
+    def __init__(self, input_, weightDim, activation=None, loggerFactory=None):
         """
-        :type numClasses: int
+        :type weightDim: tuple
         """
 
-        self.numClasses = numClasses
+        self.weightDim = weightDim
         self.activationFunc = str_2_activation_function(activation)
         self.print = print if loggerFactory is None else loggerFactory.getLogger('Model').info
         self.print('Constructing: ' + self.__class__.__name__)
 
         with name_scope(self.__class__.__name__):
-            self.weights = tf.Variable(tf.random_normal([input_.get_shape()[-1].value, self.numClasses]), name='weights')
-            self.biases = tf.Variable(tf.random_normal([self.numClasses]), name='biases')
+            self.weights = tf.Variable(tf.random_normal(weightDim), name='weights')
+            self.biases = tf.Variable(tf.random_normal([weightDim[-1]]), name='biases')
 
             self.output = tf.matmul(input_, self.weights) + self.biases
 
+    def output_size(self, batchSize):
+        return batchSize, self.weightDim[-1]
 
 if __name__ == '__main__':
 

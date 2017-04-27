@@ -47,6 +47,9 @@ class RNNLayer(object):
         return MultiRNNCell([DropoutWrapper(BasicLSTMCell(f), output_keep_prob=k)
                              for f, k in zip(self.numLSTMUnits, self.outputKeepProbs)])
 
+    def output_size(self, batchsize):
+        return batchsize, self.numStepsToOutput, 2*self.numLSTMUnits[-1]
+
 if __name__ == '__main__':
     dr = DataReader('../data/peopleData/2_samples', 'bucketing', 10)
     layer = RNNLayer(dr.input, [32, 16], [0.5, 1.], 3)
