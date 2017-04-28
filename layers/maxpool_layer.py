@@ -9,46 +9,47 @@ from layers.abstract_layer import AbstractLayer
 # ------ stack of LSTM - bi-directional RNN layer ------
 class MaxpoolLayer(AbstractLayer):
 
-    def __init__(self, input_, ksize, strides=(1,1), padding='VALID', activation=None, loggerFactory=None):
+    def __init__(self, input_, inputDim_, ksize, strides=(1,1), padding='VALID', activation=None, loggerFactory=None):
         """
         :type ksize: tuple
         :type strides: tuple
         """
 
         assert len(ksize) == len(strides) == 2, 'We only maxpool in the 2nd and 3rd dimensions.'
+        assert len(inputDim_) == 4
 
-        self.input = input_
         self.ksize = [1, *ksize, 1]
         self.strides = [1, *strides, 1]
         self.padding = padding
 
-        super().__init__(activation, loggerFactory)
+        super().__init__(input_, inputDim_, activation, loggerFactory)
 
     def make_graph(self):
         self.output = tf.nn.max_pool(self.input,
                                      ksize=self.ksize, strides=self.strides, padding=self.padding,
                                      name='pool')
+    @property
+    def output_shape(self):
 
-    def output_shape(self, inputDim):
-        """
-        :type inputDim: tuple 
-        """
+        return (self.inputDim[0],
+                *[filter_output_size(self.inputDim[i], self.ksize[i], self.strides[i], self.padding) for i in [1,2]],
+                self.inputDim[3])
 
-        assert len(inputDim) == 4
-
-        return inputDim[0], \
-               filter_output_size(inputDim[1], self.ksize[0], self.strides[0], self.padding), \
-               filter_output_size(inputDim[2], self.ksize[1], self.strides[1], self.padding), \
-               inputDim[3]
-
+    @classmethod
+    def maker(cls, ksize, strides=(1,1), padding='VALID', activation=None, loggerFactory=None):
+        return lambda input_, inputDim_: cls(input_, inputDim_,
+                                             ksize, strides, padding, activation, loggerFactory)
 
 if __name__ == '__main__':
     inputShape = [1, 30, 30, 2]
     ksize = (2, 7)
     stride = (3, 4)
     v = tf.Variable(tf.random_normal(inputShape))
-    l1 = MaxpoolLayer(v, ksize, stride, padding='SAME')
-    l2 = MaxpoolLayer(v, ksize, stride, padding='VALID')
+
+    maker1 = MaxpoolLayer.maker(ksize, stride, padding='SAME')
+    maker2 = MaxpoolLayer.maker(ksize, stride, padding='VALID')
+    l1 = maker1(v, inputShape)
+    l2 = maker1(v, inputShape)
 
     sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())
@@ -65,8 +66,10 @@ if __name__ == '__main__':
     print(output1[0,:,:,0])
     print('\n-------- OUTPUT SHAPE (SAME) --------')
     print(output1.shape)
-    #
+    print(l1.output_shape)
+
     print('\n\n-------- OUTPUT (VALID) --------')
     print(output2[0,:,:,0])
     print('\n-------- OUTPUT SHAPE (VALID) --------')
     print(output2.shape)
+    print(l2.output_shape)

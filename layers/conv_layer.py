@@ -8,7 +8,7 @@ from layers.abstract_layer import AbstractLayer
 
 class ConvLayer(AbstractLayer):
 
-    def __init__(self, input_,
+    def __init__(self, input_, inputDim_,
                  filterShape, numFeaturesPerFilter, strides=(1,1), padding='VALID', activation=None,
                  keepProb=1, loggerFactory=None):
         """
@@ -20,6 +20,7 @@ class ConvLayer(AbstractLayer):
         """
 
         assert len(filterShape) == len(strides) == 2, 'We only conv in the 2nd and 3rd dimensions.'
+        assert len(inputDim_) in [3, 4]
 
         self.filterShape = filterShape
         self.numFeaturesPerFilter = numFeaturesPerFilter
@@ -27,9 +28,15 @@ class ConvLayer(AbstractLayer):
         self.keepProb = keepProb
         self.padding = padding
 
-        self.input = tf.expand_dims(input_, -1)  # expects 3-d input of shape batch size x num sequences x vec dim
+        super().__init__(input_, inputDim_, activation, loggerFactory)
 
-        super().__init__(activation, loggerFactory)
+    def input_modifier(self, val):
+
+        if len(self.inputDim) == 3:
+            self.print('Expanding input dimension by 1.')
+            return tf.expand_dims(val, -1)  # expects 3-d input of shape batch size x num sequences x vec dim
+
+        return val
 
     def make_graph(self):
         filterMat = tf.Variable(tf.truncated_normal([*self.filterShape, 1, self.numFeaturesPerFilter], stddev=0.1), name='W')
@@ -40,22 +47,28 @@ class ConvLayer(AbstractLayer):
 
         self.output = tf.nn.dropout(self.activated, self.keepProb)
 
-    def output_shape(self, inputDim):
-        """
-        :type inputDim: tuple 
-        """
+    @property
+    def output_shape(self):
 
-        assert len(inputDim) == 3
-
-        return inputDim[0], \
-               filter_output_size(inputDim[1], self.filterShape[0], self.strides[0], self.padding), \
-               filter_output_size(inputDim[2], self.filterShape[1], self.strides[1], self.padding), \
+        return self.inputDim[0], \
+               filter_output_size(self.inputDim[1], self.filterShape[0], self.strides[0], self.padding), \
+               filter_output_size(self.inputDim[2], self.filterShape[1], self.strides[1], self.padding), \
                self.numFeaturesPerFilter
+
+    @classmethod
+    def maker(cls, filterShape, numFeaturesPerFilter, strides=(1,1), padding='VALID', activation=None,
+              keepProb=1, loggerFactory=None):
+        return lambda input_, inputDim_: cls(input_, inputDim_,
+                                             filterShape, numFeaturesPerFilter, strides, padding, activation,
+                                             keepProb, loggerFactory)
+
 
 if __name__ == '__main__':
 
-    v = tf.Variable(tf.random_normal([1, 3, 5]))
-    layer = ConvLayer(v, (2, 1), 4, (2, 3), activation='relu')
+    inputDim = [1, 3, 5]
+    v = tf.Variable(tf.random_normal(inputDim))
+    maker = ConvLayer.maker((2, 1), 4, (2, 3), activation='relu')
+    layer = maker(v, inputDim)
 
     sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())
@@ -67,3 +80,4 @@ if __name__ == '__main__':
     print(output[0,:,:])
     print('\n-------- OUTPUT SHAPE --------')
     print(output.shape)
+    print(layer.output_shape)

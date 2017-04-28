@@ -6,11 +6,17 @@ from utilities import str_2_activation_function
 
 class AbstractLayer(metaclass=ABCMeta):
 
-    def __init__(self, activation=None, loggerFactory=None):
+    def __init__(self, input_, inputDim_, activation=None, loggerFactory=None):
+        """
+        :type inputDim_: tuple
+        """
 
         with name_scope(self.__class__.__name__):
 
             self.print = print if loggerFactory is None else loggerFactory.getLogger('Model').info
+            self.inputDim = inputDim_
+            self.input = input_     # does not work if called after self.inputDim is set
+
             self.print('Constructing: ' + self.__class__.__name__)
             self.activationFunc = str_2_activation_function(activation)
 
@@ -28,6 +34,23 @@ class AbstractLayer(metaclass=ABCMeta):
     def make_graph(self):
         raise NotImplementedError('This (%s) is an abstract class.' % self.__class__.__name__)
 
+    @property
     @abstractmethod
-    def output_shape(self, inputDim_):
+    def output_shape(self):
         raise NotImplementedError('This (%s) is an abstract class.' % self.__class__.__name__)
+
+    def input_modifier(self, val):
+        return val
+
+    @property
+    def input(self):
+        return self.__input
+
+    @input.setter
+    def input(self, val):
+        self.__input = self.input_modifier(val)
+
+    @classmethod
+    @abstractmethod
+    def maker(cls, **kwargs):
+        raise NotImplementedError('This (%s) is an abstract class.' % cls.__name__)

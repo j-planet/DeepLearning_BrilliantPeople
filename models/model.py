@@ -3,24 +3,40 @@ import numpy as np
 
 from models.abstract_model import AbstractModel
 from data_reader import DataReader
+from layers.abstract_layer import AbstractLayer
 from layers.rnn_layer import RNNLayer
 from layers.conv_layer import ConvLayer
 from layers.maxpool_layer import MaxpoolLayer
 from layers.fully_connected_layer import FullyConnectedLayer
 
 
-def conv_maxpool_layer(input_, inputDim_, convParams, maxPoolParams):
-    """    
-    :type inputDim_: tuple
-    :type convParams: dict
-    :type maxPoolParams: dict
-    :return: output, output_shape
-    """
+class ConvMaxpoolLayer(AbstractLayer):
 
-    convLayer = ConvLayer(input_, **convParams)
-    maxPoolLayer = MaxpoolLayer(convLayer.output, **maxPoolParams)
+    def __init__(self, input_, inputDim_, convParams_, maxPoolParams_, activation=None, loggerFactory=None):
+        self.convParams = convParams_
+        self.maxPoolParams = maxPoolParams_
 
-    return maxPoolLayer.output, maxPoolLayer.output_shape(convLayer.output_shape(inputDim_))
+        super().__init__(input_, inputDim_, activation, loggerFactory)
+
+    def make_graph(self):
+        self.convLayer = ConvLayer(self.input,
+                                   self.inputDim,
+                                   **self.convParams)
+
+        self.maxPoolLayer = MaxpoolLayer(self.convLayer.output,
+                                         self.convLayer.output_shape,
+                                         **self.maxPoolParams)
+
+        self.output = self.maxPoolLayer.output
+
+    @property
+    def output_shape(self):
+        return self.maxPoolLayer.output_shape
+
+    @classmethod
+    def maker(cls, convParams_, maxPoolParams_, activation=None, loggerFactory=None):
+        return lambda input_, inputDim_: cls(input_, inputDim_,
+                                             convParams_, maxPoolParams_, activation, loggerFactory)
 
 
 class Model(AbstractModel):
@@ -30,41 +46,34 @@ class Model(AbstractModel):
         self.initialLearningRate = 1e-3
         super().__init__(input_, loggerFactory_)
 
+    @property
+    def prevOutput(self):
+        return self.layers[-1].output
 
-    def add_layer(self, input_, inputDim_, layerMaker_):
-        layer = layerMaker_(input_)
+    @property
+    def prevOutputShape(self):
+        return self.layers[-1].output_shape
+
+
+    def add_layer(self, layerMaker_, input_=None, inputDim_=None):
+        input_ = input_ or self.prevOutput
+        inputDim_ = inputDim_ or self.prevOutputShape
+
+        layer = layerMaker_(input_, inputDim_)
         self.layers.append(layer)
-        self.outputs.append({'output': layer.output, 'size': layer.output_shape(inputDim_)})
 
+        return layer
 
     def make_graph(self):
-        rnnOutputSteps = 3
 
-        layer1 = RNNLayer(self.input, [16], numStepsToOutput_ = rnnOutputSteps)   # bs x numSeq x (2*last num hidden units)
-        prevOutputShape = layer1.output_shape(-1)
-        prevOutput = layer1.output
-        self.outputs.append({'output': prevOutput, 'size': prevOutputShape})
+        self.add_layer(RNNLayer.maker([16], numStepsToOutput_ = 3), self.input, (-1, -1, self.vecDim))
 
-        prevOutput, prevOutputShape = conv_maxpool_layer(prevOutput, prevOutputShape,
-                                    convParams={'filterShape': (1,1), 'numFeaturesPerFilter': 8, 'activation': None},
-                                    maxPoolParams={'ksize': (1,1)})
+        self.add_layer(ConvMaxpoolLayer.maker(
+            convParams_={'filterShape': (1,1), 'numFeaturesPerFilter': 8, 'activation': None},
+            maxPoolParams_={'ksize': (1,1)}))
 
-        # prevOutputShape = layer2.output_shape(prevOutputShape)
-        # prevOutput = layer2.output
-        self.outputs.append({'output': prevOutput, 'size': prevOutputShape})
-
-        layer3 = MaxpoolLayer(prevOutput, ksize=(1, 1))
-        prevOutputShape = layer3.output_shape(prevOutputShape)
-        prevOutput = layer3.output
-        self.outputs.append({'output': prevOutput, 'size': prevOutputShape})
-
-        curInput = tf.reshape(prevOutput, [-1, np.product(prevOutputShape[1:])])
-        layer4 = FullyConnectedLayer(curInput, (curInput.get_shape()[-1].value, self.numClasses), None)
-        prevOutputShape = layer4.output_shape(-1)
-        prevOutput = layer4.output
-        self.outputs.append({'output': prevOutput, 'size': prevOutputShape})
-
-        self.output = prevOutput
+        self.add_layer(FullyConnectedLayer.maker(
+            weightDim=(np.product(self.prevOutputShape[1:]), self.numClasses)))
 
 
 if __name__ == '__main__':

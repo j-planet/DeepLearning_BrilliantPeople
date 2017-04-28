@@ -56,6 +56,7 @@ class AbstractModel(metaclass=ABCMeta):
         return sess_.run(self._lr)
 
     def assign_lr(self, sess_, newLearningRate_):
+        assert newLearningRate_ > 0
         sess_.run(tf.assign(self._lr, newLearningRate_))
 
     def train_op(self, sess_, feedDict_, computeMetrics_):
@@ -72,7 +73,7 @@ class AbstractModel(metaclass=ABCMeta):
 
     @l2RegLambda.setter
     def l2RegLambda(self, val):
-        assert val > 0
+        assert val >= 0
         self.__l2RegLambda = val
 
     @property
@@ -86,11 +87,11 @@ class AbstractModel(metaclass=ABCMeta):
 
     @property
     def output(self):
-        return self.__output
+        return self.layers[-1].output
 
-    @output.setter
-    def output(self, val):
-        self.__output = val
+    # @output.setter
+    # def output(self, val):
+    #     self.__output = val
 
     @abstractmethod
     def make_graph(self):

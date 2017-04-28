@@ -11,7 +11,7 @@ from layers.abstract_layer import AbstractLayer
 # ------ stack of LSTM - bi-directional RNN layer ------
 class RNNLayer(AbstractLayer):
 
-    def __init__(self, input_,
+    def __init__(self, input_, inputDim_,
                  numLSTMUnits_, outputKeepProbs_=1., numStepsToOutput_=1,
                  activation=None, loggerFactory=None):
         """
@@ -31,7 +31,7 @@ class RNNLayer(AbstractLayer):
         self.numSeqs = input_['numSeqs']
 
 
-        super().__init__(activation, loggerFactory)
+        super().__init__(input_, inputDim_, activation, loggerFactory)
 
     def make_graph(self):
 
@@ -50,13 +50,23 @@ class RNNLayer(AbstractLayer):
 
         return MultiRNNCell([DropoutWrapper(BasicLSTMCell(f), output_keep_prob=k)
                              for f, k in zip(self.numLSTMUnits, self.outputKeepProbs)])
+    @property
+    def output_shape(self):
+        return self.inputDim[0], self.numStepsToOutput, 2*self.numLSTMUnits[-1]
 
-    def output_shape(self, inputDim_):
-        return inputDim_[0], self.numStepsToOutput, 2*self.numLSTMUnits[-1]
+    @classmethod
+    def maker(cls, numLSTMUnits_, outputKeepProbs_=1., numStepsToOutput_=1,
+              activation=None, loggerFactory=None):
+
+        return lambda input_, inputDim_: \
+            cls(input_, inputDim_, numLSTMUnits_, outputKeepProbs_, numStepsToOutput_, activation, loggerFactory)
+
+
 
 if __name__ == '__main__':
     dr = DataReader('../data/peopleData/2_samples', 'bucketing', 10)
-    layer = RNNLayer(dr.input, [32, 16], [0.5, 1.], 3)
+    maker = RNNLayer.maker([32, 16], [0.5, 1.], 3)
+    layer = maker(dr.input, [10, -1])
 
     sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())
