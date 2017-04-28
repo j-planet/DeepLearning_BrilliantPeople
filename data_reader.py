@@ -69,7 +69,7 @@ def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=T
 
 class DataReader(object):
 
-    def __init__(self, vectorFilesDir, bucketingOrRandom, batchSize_,
+    def __init__(self, vectorFilesDir, bucketingOrRandom, batchSize_, minimumWords,
                  loggerFactory=None, train_valid_test_split_=(0.8, 0.1, 0.1)):
         """
         :param vectorFilesDir: if files have already been converted to vectors, provide this directory. embeddingsFilename will be ignored
@@ -80,6 +80,7 @@ class DataReader(object):
         assert sum(train_valid_test_split_)==1. and np.all([v > 0 for v in train_valid_test_split_]), 'Invalid train-validation-test split values.'
 
         self.vectorFilesDir = vectorFilesDir
+        self.minimumWords = minimumWords
         self.trainBatchIndex = 0
         self._logFunc = loggerFactory.getLogger('DataReader').info if loggerFactory else print
         self._batchSize = batchSize_
@@ -103,17 +104,26 @@ class DataReader(object):
 
         self._logFunc('======= Reading pre-made vector files... =======')
         self._logFunc('Data source: ' + vectorFilesDir)
+        numSkipped = 0
 
         for inputFilename in glob.glob(os.path.join(vectorFilesDir, '*.json')):
 
             with open(inputFilename, encoding='utf8') as ifile:
                 d = json.load(ifile)
 
-            XData.append(np.array(d['mat']))
+            mat = np.array(d['mat'])
+
+            if len(mat) < self.minimumWords:
+                self._logFunc('Skipping %s because it has %d (<%d) words.' % (os.path.basename(inputFilename), len(mat), self.minimumWords))
+                numSkipped += 1
+                continue
+
+            XData.append(mat)
             occ = d['occupation']
             YData.append(occ if type(occ)==str else occ[-1])
             names.append(os.path.basename(inputFilename).split('.json')[0])
 
+        self._logFunc('%d out of %d skipped' % (numSkipped, numSkipped + len(XData)))
         XData = np.array(XData)
         YData_raw_labels = np.array(YData)
         self.maxXLen = max([d.shape[0] for d in XData])

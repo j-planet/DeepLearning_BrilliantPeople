@@ -93,7 +93,7 @@ def learn(dataDir, modelKlass, runScale, logDir=create_time_dir('./logs/main')):
 
     loggerFactory = LoggerFactory(logDir)
     runConfig = RunConfig(runScale, loggerFactory)
-    dataReader = DataReader(dataDir, 'bucketing', runConfig.batchSize, loggerFactory)
+    dataReader = DataReader(dataDir, 'bucketing', runConfig.batchSize, 50, loggerFactory)
     model = modelKlass(dataReader.input)
     initialLr = model.initialLearningRate
 
@@ -204,8 +204,8 @@ if __name__ == '__main__':
     # ============= CHANGE BELOW THIS LINE ==============
     useCPU = True
     # paramsToUse = [{'dataDir': DATA_DIRs['tiny_fake_2'], 'runScale': 'basic', 'modelKlass': Model2}]
-    paramsToUse = [{'dataDir': DATA_DIRs['small_2occupations'], 'runScale': 'tiny', 'modelKlass': Model2}]
-    # paramsToUse = [{'dataDir': DATA_DIRs['full'], 'runScale': 'small', 'modelKlass': Model2}]
+    # paramsToUse = [{'dataDir': DATA_DIRs['small_2occupations'], 'runScale': 'tiny', 'modelKlass': Model2}]
+    paramsToUse = [{'dataDir': DATA_DIRs['full'], 'runScale': 'small', 'modelKlass': Model2}]
 
     # ============= CHANGE ABOVE THIS LINE ==============
 
