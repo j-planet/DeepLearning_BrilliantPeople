@@ -37,8 +37,8 @@ class FullyConnectedLayer(AbstractLayer):
         return tf.reshape(val, [-1, self._weight_first_dim()])
 
     @classmethod
-    def new(cls, outputLastDimLen, activation=None, loggerFactory=None):
-        return lambda input_, inputDim_: cls(input_, inputDim_, outputLastDimLen, activation, loggerFactory)
+    def new(cls, outputLastDimLen, activation=None):
+        return lambda input_, inputDim_, loggerFactory=None: cls(input_, inputDim_, outputLastDimLen, activation, loggerFactory)
 
 if __name__ == '__main__':
     inputShape = [2, 5]

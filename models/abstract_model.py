@@ -71,7 +71,7 @@ class AbstractModel(metaclass=ABCMeta):
         input_ = input_ or self.prevOutput
         inputDim_ = inputDim_ or self.prevOutputShape
 
-        layer = layerMaker_(input_, inputDim_)
+        layer = layerMaker_(input_, inputDim_, self.loggerFactory)
         self.layers.append(layer)
         self.outputs.append({'output': layer.output, 'output_shape': layer.output_shape})
 

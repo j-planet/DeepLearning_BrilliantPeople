@@ -13,7 +13,8 @@ class AbstractLayer(metaclass=ABCMeta):
 
         with name_scope(self.__class__.__name__):
 
-            self.print = print if loggerFactory is None else loggerFactory.getLogger('Model').info
+            self.loggerFactory = loggerFactory
+            self.print = print if loggerFactory is None else loggerFactory.getLogger(self.__class__.__name__).info
             self.inputDim = inputDim_
             self.input = input_     # does not work if called after self.inputDim is set
 

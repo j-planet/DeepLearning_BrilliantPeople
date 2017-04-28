@@ -2,7 +2,6 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import tensorflow as tf
 
-from utilities import filter_output_size
 from layers.abstract_layer import AbstractLayer
 
 
@@ -38,9 +37,10 @@ class MaxpoolLayer(AbstractLayer):
         return self.inputDim
 
     @classmethod
-    def new(cls, ksize, strides=(1, 1), padding='VALID', activation=None, loggerFactory=None):
-        return lambda input_, inputDim_: cls(input_, inputDim_,
-                                             ksize, strides, padding, activation, loggerFactory)
+    def new(cls, ksize, strides=(1, 1), padding='VALID', activation=None):
+        return lambda input_, inputDim_, loggerFactory=None: \
+            cls(input_, inputDim_,
+                ksize, strides, padding, activation, loggerFactory)
 
 if __name__ == '__main__':
     inputShape = [1, 3, 2, 1]

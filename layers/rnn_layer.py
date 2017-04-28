@@ -58,15 +58,15 @@ class RNNLayer(AbstractLayer):
 
     @classmethod
     def new(cls, numLSTMUnits_, outputKeepProbs_=1., numStepsToOutput_=1,
-            activation=None, loggerFactory=None):
+            activation=None):
 
-        return lambda input_, inputDim_: \
+        return lambda input_, inputDim_, loggerFactory=None: \
             cls(input_, inputDim_, numLSTMUnits_, outputKeepProbs_, numStepsToOutput_, activation, loggerFactory)
 
 
 
 if __name__ == '__main__':
-    dr = DataReader('../data/peopleData/2_samples', 'bucketing', 10)
+    dr = DataReader('../data/peopleData/2_samples', 'bucketing', 10, 50)
     maker = RNNLayer.new([32, 16], [0.5, 1.], 3)
     layer = maker(dr.input, [10, -1])
 

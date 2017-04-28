@@ -21,11 +21,11 @@ class ConvMaxpoolLayer(AbstractLayer):
     def make_graph(self):
         self.convLayer = ConvLayer(self.input,
                                    self.inputDim,
-                                   **self.convParams)
+                                   **self.convParams, loggerFactory=self.loggerFactory)
 
         self.maxPoolLayer = MaxpoolLayer(self.convLayer.output,
                                          self.convLayer.output_shape,
-                                         **self.maxPoolParams)
+                                         **self.maxPoolParams, loggerFactory=self.loggerFactory)
 
         self.output = self.maxPoolLayer.output
 
@@ -34,9 +34,10 @@ class ConvMaxpoolLayer(AbstractLayer):
         return self.maxPoolLayer.output_shape
 
     @classmethod
-    def new(cls, convParams_, maxPoolParams_, activation=None, loggerFactory=None):
-        return lambda input_, inputDim_: cls(input_, inputDim_,
-                                             convParams_, maxPoolParams_, activation, loggerFactory)
+    def new(cls, convParams_, maxPoolParams_, activation=None):
+        return lambda input_, inputDim_, loggerFactory=None: \
+            cls(input_, inputDim_,
+                convParams_, maxPoolParams_, activation, loggerFactory)
 
 
 class Model(AbstractModel):
@@ -87,13 +88,15 @@ class Model2(AbstractModel):
 
         layer2b = ConvMaxpoolLayer(layer1.output, layer1.output_shape,
                                    convParams_={'filterShape': (2, 2), 'numFeaturesPerFilter': 16, 'activation': 'relu'},
-                                   maxPoolParams_={'ksize': (numRnnOutputSteps, 1), 'padding': 'SAME'})
+                                   maxPoolParams_={'ksize': (numRnnOutputSteps, 1), 'padding': 'SAME'},
+                                   loggerFactory=self.loggerFactory)
         layer2b_output, layer2b_output_numcols = convert_to_2d(layer2b.output, layer2b.output_shape)
 
 
         layer2c = ConvMaxpoolLayer(layer1.output, layer1.output_shape,
                                    convParams_={'filterShape': (4, 4), 'numFeaturesPerFilter': 16, 'activation': 'relu'},
-                                   maxPoolParams_={'ksize': (numRnnOutputSteps, 1), 'padding': 'SAME'})
+                                   maxPoolParams_={'ksize': (numRnnOutputSteps, 1), 'padding': 'SAME'},
+                                   loggerFactory=self.loggerFactory)
         layer2c_output, layer2c_output_numcols = convert_to_2d(layer2c.output, layer2c.output_shape)
 
         layer2_output = tf.concat([layer2a_output, layer2b_output, layer2c_output], axis=1)

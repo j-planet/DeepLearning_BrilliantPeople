@@ -30,8 +30,8 @@ class LocalNormLayer(AbstractLayer):
         return self.inputDim
 
     @classmethod
-    def new(cls, depth_radius=None, bias=None, activation=None, loggerFactory_=None):
-        return lambda i, iDim: cls(i, iDim, depth_radius, bias, activation, loggerFactory_)
+    def new(cls, depth_radius=None, bias=None, activation=None):
+        return lambda i, iDim, loggerFactory=None: cls(i, iDim, depth_radius, bias, activation, loggerFactory)
 
 
 if __name__ == '__main__':

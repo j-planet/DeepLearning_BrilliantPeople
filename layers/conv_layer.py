@@ -58,10 +58,12 @@ class ConvLayer(AbstractLayer):
 
     @classmethod
     def new(cls, filterShape, numFeaturesPerFilter, strides=(1, 1), padding='VALID', activation=None,
-            keepProb=1, loggerFactory=None):
-        return lambda input_, inputDim_: cls(input_, inputDim_,
-                                             filterShape, numFeaturesPerFilter, strides, padding, activation,
-                                             keepProb, loggerFactory)
+            keepProb=1):
+
+        return lambda input_, inputDim_, loggerFactory=None: \
+            cls(input_, inputDim_,
+                filterShape, numFeaturesPerFilter, strides, padding, activation,
+                keepProb, loggerFactory)
 
 
 if __name__ == '__main__':
