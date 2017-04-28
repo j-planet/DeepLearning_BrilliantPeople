@@ -6,7 +6,7 @@ import tensorflow as tf
 
 from data_reader import DataReader
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
-from models.model import Model
+from models.model import Model2, Model
 
 
 
@@ -59,14 +59,14 @@ def log_progress(step, numDataPoints, lr, c=None, acc=None, logFunc=None):
     return res
 
 
-def evaluate_stored_model(dataDir, modelScale, savePath, batchSize):
-
-    dataReader = DataReader(dataDir, 'bucketing', batchSize)
-    model = Model(modelScale, dataReader.input, dataReader.numClasses, 0)
-
-    tf.train.Saver().restore(sess, savePath)
-
-    evaluate_in_batches(dataReader.get_test_data_in_batches(), dataReader.classLabels, model.evaluate)
+# def evaluate_stored_model(dataDir, modelScale, savePath, batchSize):
+#
+#     dataReader = DataReader(dataDir, 'bucketing', batchSize)
+#     model = Model(modelScale, dataReader.input, dataReader.numClasses, 0)
+#
+#     tf.train.Saver().restore(sess, savePath)
+#
+#     evaluate_in_batches(dataReader.get_test_data_in_batches(), dataReader.classLabels, model.evaluate)
 
 
 def learn(dataDir, modelKlass, runScale, logDir=create_time_dir('./logs/main')):
@@ -203,7 +203,10 @@ if __name__ == '__main__':
 
     # ============= CHANGE BELOW THIS LINE ==============
     useCPU = True
-    paramsToUse = [{'dataDir': DATA_DIRs['tiny_fake_2'], 'runScale': 'basic', 'modelKlass': Model}]
+    # paramsToUse = [{'dataDir': DATA_DIRs['tiny_fake_2'], 'runScale': 'basic', 'modelKlass': Model2}]
+    paramsToUse = [{'dataDir': DATA_DIRs['small_2occupations'], 'runScale': 'tiny', 'modelKlass': Model2}]
+    # paramsToUse = [{'dataDir': DATA_DIRs['full'], 'runScale': 'small', 'modelKlass': Model2}]
+
     # ============= CHANGE ABOVE THIS LINE ==============
 
 

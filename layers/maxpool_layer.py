@@ -31,9 +31,11 @@ class MaxpoolLayer(AbstractLayer):
     @property
     def output_shape(self):
 
-        return (self.inputDim[0],
-                *[filter_output_size(self.inputDim[i], self.ksize[i], self.strides[i], self.padding) for i in [1,2]],
-                self.inputDim[3])
+        # return (self.inputDim[0],
+        #         *[filter_output_size(self.inputDim[i], self.ksize[i], self.strides[i], self.padding) for i in [1,2]],
+        #         self.inputDim[3])
+
+        return self.inputDim
 
     @classmethod
     def new(cls, ksize, strides=(1, 1), padding='VALID', activation=None, loggerFactory=None):
@@ -41,9 +43,9 @@ class MaxpoolLayer(AbstractLayer):
                                              ksize, strides, padding, activation, loggerFactory)
 
 if __name__ == '__main__':
-    inputShape = [1, 30, 30, 2]
-    ksize = (2, 7)
-    stride = (3, 4)
+    inputShape = [1, 3, 2, 1]
+    ksize = (100, 100)
+    stride = (1, 1)
     v = tf.Variable(tf.random_normal(inputShape))
 
     maker1 = MaxpoolLayer.new(ksize, stride, padding='SAME')
@@ -58,7 +60,7 @@ if __name__ == '__main__':
     output2 = sess.run(l2.output)
 
     print('-------- INPUT --------')
-    print(sess.run(v)[0,:,:,:])
+    print(sess.run(v)[0,:,:,0])
     print('-------- INPUT SHAPE --------')
     print(inputShape)
 

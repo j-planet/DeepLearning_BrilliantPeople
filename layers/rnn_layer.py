@@ -35,11 +35,11 @@ class RNNLayer(AbstractLayer):
 
     def make_graph(self):
 
-        forwardCells = self.make_stacked_cells()
-        backwardCells = self.make_stacked_cells()
+        self.forwardCells = self.make_stacked_cells()
+        self.backwardCells = self.make_stacked_cells()
 
         self.outputs = tf.concat(
-            tf.nn.bidirectional_dynamic_rnn(forwardCells, backwardCells,
+            tf.nn.bidirectional_dynamic_rnn(self.forwardCells, self.backwardCells,
                                             time_major=False, inputs=self.x, dtype=tf.float32,
                                             sequence_length=self.numSeqs,
                                             swap_memory=True)[0], 2)
@@ -48,8 +48,10 @@ class RNNLayer(AbstractLayer):
 
     def make_stacked_cells(self):
 
-        return MultiRNNCell([DropoutWrapper(BasicLSTMCell(f), output_keep_prob=k)
-                             for f, k in zip(self.numLSTMUnits, self.outputKeepProbs)])
+        # return MultiRNNCell([DropoutWrapper(BasicLSTMCell(f), output_keep_prob=k)
+        #                      for f, k in zip(self.numLSTMUnits, self.outputKeepProbs)])
+        return MultiRNNCell([BasicLSTMCell(f) for f in self.numLSTMUnits])
+
     @property
     def output_shape(self):
         return self.inputDim[0], self.numStepsToOutput, 2*self.numLSTMUnits[-1]

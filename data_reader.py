@@ -27,7 +27,7 @@ def patch_arrays(arrays, numrows=None):
     assert numrows is None or numrows >= padLen, 'numrows is fewer than the max number of rows: %d vs %d.' % (numrows, padLen)
     padLen = numrows or padLen
 
-    res = np.empty( (len(lengths), padLen, arrays[0].shape[1]) )
+    res = np.zeros( (len(lengths), padLen, arrays[0].shape[1]) )
 
     for i, arr in enumerate(arrays):
         res[i][:arr.shape[0], :] = arr
@@ -79,6 +79,7 @@ class DataReader(object):
         assert bucketingOrRandom=='bucketing' or bucketingOrRandom=='random'
         assert sum(train_valid_test_split_)==1. and np.all([v > 0 for v in train_valid_test_split_]), 'Invalid train-validation-test split values.'
 
+        self.vectorFilesDir = vectorFilesDir
         self.trainBatchIndex = 0
         self._logFunc = loggerFactory.getLogger('DataReader').info if loggerFactory else print
         self._batchSize = batchSize_

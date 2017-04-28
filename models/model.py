@@ -69,37 +69,40 @@ def convert_to_2d(t, d):
 class Model2(AbstractModel):
 
     def __init__(self, input_, loggerFactory_=None):
-        self.l2RegLambda = 0
+        self.l2RegLambda = 1e-4
         self.initialLearningRate = 1e-3
 
         super().__init__(input_, loggerFactory_)
 
     def make_graph(self):
 
-        numRnnOutputSteps = 5
+        numRnnOutputSteps = 36
 
         layer1 = self.add_layer(RNNLayer.new(
-            [16], numStepsToOutput_ = numRnnOutputSteps), self.input, (-1, -1, self.vecDim))
+            [64, 64, 32], numStepsToOutput_ = numRnnOutputSteps), self.input, (-1, -1, self.vecDim))
 
         # just last row of the rnn output
         layer2a_output = layer1.output[:,-1,:]
         layer2a_outputshape = (layer1.output_shape[0], layer1.output_shape[2])
 
         layer2b = ConvMaxpoolLayer(layer1.output, layer1.output_shape,
-                                   convParams_={'filterShape': (1, 2), 'numFeaturesPerFilter': 16, 'activation': 'relu'},
-                                   maxPoolParams_={'ksize': (numRnnOutputSteps, 1)})
+                                   convParams_={'filterShape': (2, 2), 'numFeaturesPerFilter': 16, 'activation': 'relu'},
+                                   maxPoolParams_={'ksize': (numRnnOutputSteps, 1), 'padding': 'SAME'})
         layer2b_output, layer2b_output_numcols = convert_to_2d(layer2b.output, layer2b.output_shape)
 
 
         layer2c = ConvMaxpoolLayer(layer1.output, layer1.output_shape,
-                                   convParams_={'filterShape': (2, 1), 'numFeaturesPerFilter': 16, 'activation': 'relu'},
-                                   maxPoolParams_={'ksize': (1, 1)})
+                                   convParams_={'filterShape': (4, 4), 'numFeaturesPerFilter': 16, 'activation': 'relu'},
+                                   maxPoolParams_={'ksize': (numRnnOutputSteps, 1), 'padding': 'SAME'})
         layer2c_output, layer2c_output_numcols = convert_to_2d(layer2c.output, layer2c.output_shape)
 
         layer2_output = tf.concat([layer2a_output, layer2b_output, layer2c_output], axis=1)
         layer2_output_numcols = layer2a_outputshape[1] + layer2b_output_numcols + layer2c_output_numcols
 
+        self.layers.append([layer2b, layer2c])
+
         self.outputs.append({'output': layer2_output, 'output_shape': (layer2a_outputshape[0], layer2_output_numcols)})
+
 
         self.add_layer(FullyConnectedLayer.new(self.numClasses))
 
