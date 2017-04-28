@@ -44,7 +44,7 @@ class RNNLayer(AbstractLayer):
                                             sequence_length=self.numSeqs,
                                             swap_memory=True)[0], 2)
 
-        self.output = self.activationFunc(last_relevant(self.outputs, self.numSeqs, self.numStepsToOutput))
+        self.output = last_relevant(self.outputs, self.numSeqs, self.numStepsToOutput)
 
     def make_stacked_cells(self):
 
@@ -55,8 +55,8 @@ class RNNLayer(AbstractLayer):
         return self.inputDim[0], self.numStepsToOutput, 2*self.numLSTMUnits[-1]
 
     @classmethod
-    def maker(cls, numLSTMUnits_, outputKeepProbs_=1., numStepsToOutput_=1,
-              activation=None, loggerFactory=None):
+    def new(cls, numLSTMUnits_, outputKeepProbs_=1., numStepsToOutput_=1,
+            activation=None, loggerFactory=None):
 
         return lambda input_, inputDim_: \
             cls(input_, inputDim_, numLSTMUnits_, outputKeepProbs_, numStepsToOutput_, activation, loggerFactory)
@@ -65,7 +65,7 @@ class RNNLayer(AbstractLayer):
 
 if __name__ == '__main__':
     dr = DataReader('../data/peopleData/2_samples', 'bucketing', 10)
-    maker = RNNLayer.maker([32, 16], [0.5, 1.], 3)
+    maker = RNNLayer.new([32, 16], [0.5, 1.], 3)
     layer = maker(dr.input, [10, -1])
 
     sess = tf.InteractiveSession()

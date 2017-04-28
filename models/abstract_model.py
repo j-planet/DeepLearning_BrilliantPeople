@@ -67,6 +67,15 @@ class AbstractModel(metaclass=ABCMeta):
     def evaluate(self, sess_, feedDict_):
         return sess_.run([self.cost, self.accuracy, self.trueY, self.pred], feedDict_)
 
+    def add_layer(self, layerMaker_, input_=None, inputDim_=None):
+        input_ = input_ or self.prevOutput
+        inputDim_ = inputDim_ or self.prevOutputShape
+
+        layer = layerMaker_(input_, inputDim_)
+        self.layers.append(layer)
+
+        return layer
+
     @property
     def l2RegLambda(self):
         return self.__l2RegLambda
@@ -89,9 +98,13 @@ class AbstractModel(metaclass=ABCMeta):
     def output(self):
         return self.layers[-1].output
 
-    # @output.setter
-    # def output(self, val):
-    #     self.__output = val
+    @property
+    def prevOutput(self):
+        return self.layers[-1].output
+
+    @property
+    def prevOutputShape(self):
+        return self.layers[-1].output_shape
 
     @abstractmethod
     def make_graph(self):

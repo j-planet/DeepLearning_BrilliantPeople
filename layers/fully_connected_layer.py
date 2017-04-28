@@ -33,13 +33,13 @@ class FullyConnectedLayer(AbstractLayer):
         return tf.reshape(val, [-1, np.product(self.inputDim[1:])])
 
     @classmethod
-    def maker(cls, weightDim, activation=None, loggerFactory=None):
+    def new(cls, weightDim, activation=None, loggerFactory=None):
         return lambda input_, inputDim_: cls(input_, inputDim_, weightDim, activation, loggerFactory)
 
 if __name__ == '__main__':
     inputShape = [2, 5]
     v = tf.Variable(tf.random_normal(inputShape))
-    maker = FullyConnectedLayer.maker((5, 2), activation='relu')
+    maker = FullyConnectedLayer.new((5, 2), activation='relu')
     layer = maker(v, [2, 5])
 
     sess = tf.InteractiveSession()

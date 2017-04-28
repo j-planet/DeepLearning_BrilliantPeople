@@ -36,7 +36,7 @@ class MaxpoolLayer(AbstractLayer):
                 self.inputDim[3])
 
     @classmethod
-    def maker(cls, ksize, strides=(1,1), padding='VALID', activation=None, loggerFactory=None):
+    def new(cls, ksize, strides=(1, 1), padding='VALID', activation=None, loggerFactory=None):
         return lambda input_, inputDim_: cls(input_, inputDim_,
                                              ksize, strides, padding, activation, loggerFactory)
 
@@ -46,8 +46,8 @@ if __name__ == '__main__':
     stride = (3, 4)
     v = tf.Variable(tf.random_normal(inputShape))
 
-    maker1 = MaxpoolLayer.maker(ksize, stride, padding='SAME')
-    maker2 = MaxpoolLayer.maker(ksize, stride, padding='VALID')
+    maker1 = MaxpoolLayer.new(ksize, stride, padding='SAME')
+    maker2 = MaxpoolLayer.new(ksize, stride, padding='VALID')
     l1 = maker1(v, inputShape)
     l2 = maker1(v, inputShape)
 

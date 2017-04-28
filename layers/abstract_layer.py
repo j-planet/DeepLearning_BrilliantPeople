@@ -28,7 +28,7 @@ class AbstractLayer(metaclass=ABCMeta):
 
     @output.setter
     def output(self, val):
-        self.__output = val
+        self.__output = self.activationFunc(val)
 
     @abstractmethod
     def make_graph(self):
@@ -52,5 +52,5 @@ class AbstractLayer(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def maker(cls, **kwargs):
+    def new(cls, **kwargs):
         raise NotImplementedError('This (%s) is an abstract class.' % cls.__name__)

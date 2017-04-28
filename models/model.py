@@ -34,7 +34,7 @@ class ConvMaxpoolLayer(AbstractLayer):
         return self.maxPoolLayer.output_shape
 
     @classmethod
-    def maker(cls, convParams_, maxPoolParams_, activation=None, loggerFactory=None):
+    def new(cls, convParams_, maxPoolParams_, activation=None, loggerFactory=None):
         return lambda input_, inputDim_: cls(input_, inputDim_,
                                              convParams_, maxPoolParams_, activation, loggerFactory)
 
@@ -44,35 +44,18 @@ class Model(AbstractModel):
     def __init__(self, input_, loggerFactory_=None):
         self.l2RegLambda = 0
         self.initialLearningRate = 1e-3
+
         super().__init__(input_, loggerFactory_)
-
-    @property
-    def prevOutput(self):
-        return self.layers[-1].output
-
-    @property
-    def prevOutputShape(self):
-        return self.layers[-1].output_shape
-
-
-    def add_layer(self, layerMaker_, input_=None, inputDim_=None):
-        input_ = input_ or self.prevOutput
-        inputDim_ = inputDim_ or self.prevOutputShape
-
-        layer = layerMaker_(input_, inputDim_)
-        self.layers.append(layer)
-
-        return layer
 
     def make_graph(self):
 
-        self.add_layer(RNNLayer.maker([16], numStepsToOutput_ = 3), self.input, (-1, -1, self.vecDim))
+        self.add_layer(RNNLayer.new([16], numStepsToOutput_ = 3), self.input, (-1, -1, self.vecDim))
 
-        self.add_layer(ConvMaxpoolLayer.maker(
+        self.add_layer(ConvMaxpoolLayer.new(
             convParams_={'filterShape': (1,1), 'numFeaturesPerFilter': 8, 'activation': None},
             maxPoolParams_={'ksize': (1,1)}))
 
-        self.add_layer(FullyConnectedLayer.maker(
+        self.add_layer(FullyConnectedLayer.new(
             weightDim=(np.product(self.prevOutputShape[1:]), self.numClasses)))
 
 

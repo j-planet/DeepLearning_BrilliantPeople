@@ -43,9 +43,10 @@ class ConvLayer(AbstractLayer):
         filterBiases = tf.Variable(tf.constant(0.1, shape=[self.numFeaturesPerFilter]), name='b')
 
         self.conv = tf.nn.conv2d(self.input, filterMat, strides=[1, *self.strides, 1], padding=self.padding, name='conv')    # supports only 'VALID' for now
-        self.activated = self.activationFunc(tf.nn.bias_add(self.conv, filterBiases))
 
-        self.output = tf.nn.dropout(self.activated, self.keepProb)
+        self.output = tf.nn.dropout(
+            tf.nn.bias_add(self.conv, filterBiases),
+            self.keepProb)
 
     @property
     def output_shape(self):
@@ -56,8 +57,8 @@ class ConvLayer(AbstractLayer):
                self.numFeaturesPerFilter
 
     @classmethod
-    def maker(cls, filterShape, numFeaturesPerFilter, strides=(1,1), padding='VALID', activation=None,
-              keepProb=1, loggerFactory=None):
+    def new(cls, filterShape, numFeaturesPerFilter, strides=(1, 1), padding='VALID', activation=None,
+            keepProb=1, loggerFactory=None):
         return lambda input_, inputDim_: cls(input_, inputDim_,
                                              filterShape, numFeaturesPerFilter, strides, padding, activation,
                                              keepProb, loggerFactory)
@@ -67,7 +68,7 @@ if __name__ == '__main__':
 
     inputDim = [1, 3, 5]
     v = tf.Variable(tf.random_normal(inputDim))
-    maker = ConvLayer.maker((2, 1), 4, (2, 3), activation='relu')
+    maker = ConvLayer.new((2, 1), 4, (2, 3), activation='relu')
     layer = maker(v, inputDim)
 
     sess = tf.InteractiveSession()
