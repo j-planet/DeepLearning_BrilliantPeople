@@ -8,18 +8,22 @@ from layers.abstract_layer import AbstractLayer
 
 class FullyConnectedLayer(AbstractLayer):
 
-    def __init__(self, input_, inputDim_, weightDim, activation=None, loggerFactory=None):
+    def __init__(self, input_, inputDim_, outputLastDimLen, activation=None, loggerFactory=None):
         """
-        :type weightDim: tuple
+        :type outputLastDimLen: int
         """
 
-        self.weightDim = weightDim
+        self.outputLastDimLen = outputLastDimLen
 
         super().__init__(input_, inputDim_, activation, loggerFactory)
 
+    def _weight_first_dim(self):
+        return np.product(self.inputDim[1:])
 
     def make_graph(self):
+        self.weightDim = (self._weight_first_dim(), self.outputLastDimLen)
         self.weights = tf.Variable(tf.random_normal(self.weightDim), name='weights')
+
         self.biases = tf.Variable(tf.random_normal([self.weightDim[-1]]), name='biases')
 
         self.output = tf.matmul(self.input, self.weights) + self.biases
@@ -30,16 +34,16 @@ class FullyConnectedLayer(AbstractLayer):
 
     def input_modifier(self, val):
         self.print('Flatting the input into a 2D tensor.')
-        return tf.reshape(val, [-1, np.product(self.inputDim[1:])])
+        return tf.reshape(val, [-1, self._weight_first_dim()])
 
     @classmethod
-    def new(cls, weightDim, activation=None, loggerFactory=None):
-        return lambda input_, inputDim_: cls(input_, inputDim_, weightDim, activation, loggerFactory)
+    def new(cls, outputLastDimLen, activation=None, loggerFactory=None):
+        return lambda input_, inputDim_: cls(input_, inputDim_, outputLastDimLen, activation, loggerFactory)
 
 if __name__ == '__main__':
     inputShape = [2, 5]
     v = tf.Variable(tf.random_normal(inputShape))
-    maker = FullyConnectedLayer.new((5, 2), activation='relu')
+    maker = FullyConnectedLayer.new(2, activation='relu')
     layer = maker(v, [2, 5])
 
     sess = tf.InteractiveSession()
@@ -52,3 +56,4 @@ if __name__ == '__main__':
     print(output)
     print('\n-------- OUTPUT SHAPE --------')
     print(output.shape)
+    print(layer.output_shape)

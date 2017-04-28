@@ -1,5 +1,4 @@
 import tensorflow as tf
-import numpy as np
 
 from models.abstract_model import AbstractModel
 from data_reader import DataReader
@@ -49,14 +48,17 @@ class Model(AbstractModel):
 
     def make_graph(self):
 
-        self.add_layer(RNNLayer.new([16], numStepsToOutput_ = 3), self.input, (-1, -1, self.vecDim))
+        self.add_layer(
+            RNNLayer.new(
+                [16], numStepsToOutput_ = 3), self.input, (-1, -1, self.vecDim))
 
-        self.add_layer(ConvMaxpoolLayer.new(
-            convParams_={'filterShape': (1,1), 'numFeaturesPerFilter': 8, 'activation': None},
-            maxPoolParams_={'ksize': (1,1)}))
+        self.add_layer(
+            ConvMaxpoolLayer.new(
+                convParams_={'filterShape': (1,1), 'numFeaturesPerFilter': 8, 'activation': None},
+                maxPoolParams_={'ksize': (1,1)}))
 
-        self.add_layer(FullyConnectedLayer.new(
-            weightDim=(np.product(self.prevOutputShape[1:]), self.numClasses)))
+        self.add_layer(
+            FullyConnectedLayer.new(self.numClasses))
 
 
 if __name__ == '__main__':
