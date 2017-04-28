@@ -1,12 +1,12 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import tensorflow as tf
-from tensorflow import name_scope
 
-from utilities import str_2_activation_function, filter_output_size
+from utilities import filter_output_size
+from layers.abstract_layer import AbstractLayer
 
 
-class ConvLayer(object):
+class ConvLayer(AbstractLayer):
 
     def __init__(self, input_,
                  filterShape, numFeaturesPerFilter, strides=(1,1), padding='VALID', activation=None,
@@ -26,24 +26,21 @@ class ConvLayer(object):
         self.strides = strides
         self.keepProb = keepProb
         self.padding = padding
-        self.activationFunc = str_2_activation_function(activation)
 
-        self.print = print if loggerFactory is None else loggerFactory.getLogger('Model').info
-        self.print('Constructing: ' + self.__class__.__name__)
+        self.input = tf.expand_dims(input_, -1)  # expects 3-d input of shape batch size x num sequences x vec dim
 
-        input_ = tf.expand_dims(input_, -1)  # expects 3-d input of shape batch size x num sequences x vec dim
+        super().__init__(activation, loggerFactory)
 
-        with name_scope(self.__class__.__name__):
+    def make_graph(self):
+        filterMat = tf.Variable(tf.truncated_normal([*self.filterShape, 1, self.numFeaturesPerFilter], stddev=0.1), name='W')
+        filterBiases = tf.Variable(tf.constant(0.1, shape=[self.numFeaturesPerFilter]), name='b')
 
-            filterMat = tf.Variable(tf.truncated_normal([*filterShape, 1, self.numFeaturesPerFilter], stddev=0.1), name='W')
-            filterBiases = tf.Variable(tf.constant(0.1, shape=[self.numFeaturesPerFilter]), name='b')
+        self.conv = tf.nn.conv2d(self.input, filterMat, strides=[1, *self.strides, 1], padding=self.padding, name='conv')    # supports only 'VALID' for now
+        self.activated = self.activationFunc(tf.nn.bias_add(self.conv, filterBiases))
 
-            self.conv = tf.nn.conv2d(input_, filterMat, strides=[1, *self.strides, 1], padding=self.padding, name='conv')    # supports only 'VALID' for now
-            self.activated = self.activationFunc(tf.nn.bias_add(self.conv, filterBiases))
+        self.output = tf.nn.dropout(self.activated, self.keepProb)
 
-            self.output = tf.nn.dropout(self.activated, self.keepProb)
-
-    def output_size(self, inputDim):
+    def output_shape(self, inputDim):
         """
         :type inputDim: tuple 
         """

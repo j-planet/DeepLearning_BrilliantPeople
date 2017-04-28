@@ -1,15 +1,15 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import tensorflow as tf
-from tensorflow import name_scope
 
 from utilities import filter_output_size
+from layers.abstract_layer import AbstractLayer
 
 
 # ------ stack of LSTM - bi-directional RNN layer ------
-class MaxpoolLayer(object):
+class MaxpoolLayer(AbstractLayer):
 
-    def __init__(self, input_, ksize, strides=(1,1), padding='VALID', loggerFactory=None):
+    def __init__(self, input_, ksize, strides=(1,1), padding='VALID', activation=None, loggerFactory=None):
         """
         :type ksize: tuple
         :type strides: tuple
@@ -17,20 +17,19 @@ class MaxpoolLayer(object):
 
         assert len(ksize) == len(strides) == 2, 'We only maxpool in the 2nd and 3rd dimensions.'
 
+        self.input = input_
         self.ksize = [1, *ksize, 1]
         self.strides = [1, *strides, 1]
         self.padding = padding
-        self.print = print if loggerFactory is None else loggerFactory.getLogger('Layer').info
-        self.print('Constructing: ' + self.__class__.__name__)
 
-        with name_scope(self.__class__.__name__):
+        super().__init__(activation, loggerFactory)
 
-            self.output = tf.nn.max_pool( input_,
-                ksize=self.ksize, strides=self.strides,
-                padding=self.padding,
-                name='pool')
+    def make_graph(self):
+        self.output = tf.nn.max_pool(self.input,
+                                     ksize=self.ksize, strides=self.strides, padding=self.padding,
+                                     name='pool')
 
-    def output_size(self, inputDim):
+    def output_shape(self, inputDim):
         """
         :type inputDim: tuple 
         """

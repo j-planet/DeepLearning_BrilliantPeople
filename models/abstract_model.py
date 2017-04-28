@@ -1,9 +1,11 @@
 import tensorflow as tf
 from tensorflow import name_scope, summary
 
+from abc import ABCMeta, abstractmethod
 
 
-class AbstractModel(object):
+
+class AbstractModel(metaclass=ABCMeta):
 
     def __init__(self, input_, loggerFactory_=None):
         """
@@ -13,7 +15,6 @@ class AbstractModel(object):
         assert 'x' in input_ and 'y' in input_ and 'numSeqs' in input_
 
         self._lr = tf.Variable(self.initialLearningRate, name='learningRate')
-        # self.batchsize = batchsize_
         self.loggerFactory = loggerFactory_
         self.print = print if loggerFactory_ is None else loggerFactory_.getLogger('Model').info
 
@@ -24,6 +25,7 @@ class AbstractModel(object):
         self.vecDim = self.x.get_shape()[-1].value
         self.numClasses = self.y.get_shape()[-1].value
         self.outputs = []
+        self.layers = []
 
         self.make_graph()
 
@@ -49,8 +51,6 @@ class AbstractModel(object):
 
         self.merged_summaries = summary.merge_all()
 
-    def make_graph(self):
-        raise NotImplementedError('This (%s) is an abstract base class. Use one of its implementations instead.' % self.__class__.__name__)
 
     def lr(self, sess_):
         return sess_.run(self._lr)
@@ -65,3 +65,33 @@ class AbstractModel(object):
 
     def evaluate(self, sess_, feedDict_):
         return sess_.run([self.cost, self.accuracy, self.trueY, self.pred], feedDict_)
+
+    @property
+    def l2RegLambda(self):
+        return self.__l2RegLambda
+
+    @l2RegLambda.setter
+    def l2RegLambda(self, val):
+        assert val > 0
+        self.__l2RegLambda = val
+
+    @property
+    def initialLearningRate(self):
+        return self.__initialLearningRate
+
+    @initialLearningRate.setter
+    def initialLearningRate(self, val):
+        assert val > 0
+        self.__initialLearningRate = val
+
+    @property
+    def output(self):
+        return self.__output
+
+    @output.setter
+    def output(self, val):
+        self.__output = val
+
+    @abstractmethod
+    def make_graph(self):
+        raise NotImplementedError('This (%s) is an abstract base class. Use one of its implementations instead.' % self.__class__.__name__)
