@@ -73,6 +73,7 @@ class AbstractModel(metaclass=ABCMeta):
 
         layer = layerMaker_(input_, inputDim_)
         self.layers.append(layer)
+        self.outputs.append({'output': layer.output, 'output_shape': layer.output_shape})
 
         return layer
 
@@ -96,15 +97,19 @@ class AbstractModel(metaclass=ABCMeta):
 
     @property
     def output(self):
-        return self.layers[-1].output
+        # return self.layers[-1].output
+        return self.outputs[-1]['output']
 
     @property
     def prevOutput(self):
-        return self.layers[-1].output
+        # return self.layers[-1].output
+        return self.outputs[-1]['output']
 
     @property
     def prevOutputShape(self):
-        return self.layers[-1].output_shape
+        # return self.layers[-1].output_shape
+
+        return self.outputs[-1]['output_shape']
 
     @abstractmethod
     def make_graph(self):

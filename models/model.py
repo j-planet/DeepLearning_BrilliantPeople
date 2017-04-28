@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 from models.abstract_model import AbstractModel
 from data_reader import DataReader
@@ -61,14 +62,58 @@ class Model(AbstractModel):
             FullyConnectedLayer.new(self.numClasses))
 
 
+def convert_to_2d(t, d):
+    newSecondD = np.product(d[1:])
+    return tf.reshape(t, [-1, newSecondD]), newSecondD
+
+class Model2(AbstractModel):
+
+    def __init__(self, input_, loggerFactory_=None):
+        self.l2RegLambda = 0
+        self.initialLearningRate = 1e-3
+
+        super().__init__(input_, loggerFactory_)
+
+    def make_graph(self):
+
+        numRnnOutputSteps = 5
+
+        layer1 = self.add_layer(RNNLayer.new(
+            [16], numStepsToOutput_ = numRnnOutputSteps), self.input, (-1, -1, self.vecDim))
+
+        # just last row of the rnn output
+        layer2a_output = layer1.output[:,-1,:]
+        layer2a_outputshape = (layer1.output_shape[0], layer1.output_shape[2])
+
+        layer2b = ConvMaxpoolLayer(layer1.output, layer1.output_shape,
+                                   convParams_={'filterShape': (1, 2), 'numFeaturesPerFilter': 16, 'activation': 'relu'},
+                                   maxPoolParams_={'ksize': (numRnnOutputSteps, 1)})
+        layer2b_output, layer2b_output_numcols = convert_to_2d(layer2b.output, layer2b.output_shape)
+
+
+        layer2c = ConvMaxpoolLayer(layer1.output, layer1.output_shape,
+                                   convParams_={'filterShape': (2, 1), 'numFeaturesPerFilter': 16, 'activation': 'relu'},
+                                   maxPoolParams_={'ksize': (1, 1)})
+        layer2c_output, layer2c_output_numcols = convert_to_2d(layer2c.output, layer2c.output_shape)
+
+        layer2_output = tf.concat([layer2a_output, layer2b_output, layer2c_output], axis=1)
+        layer2_output_numcols = layer2a_outputshape[1] + layer2b_output_numcols + layer2c_output_numcols
+
+        self.outputs.append({'output': layer2_output, 'output_shape': (layer2a_outputshape[0], layer2_output_numcols)})
+
+        self.add_layer(FullyConnectedLayer.new(self.numClasses))
+
+
+
+
 if __name__ == '__main__':
 
-    datadir = '../data/peopleData/2_samples'
-    # datadir = '../data/peopleData/earlyLifesWordMats/politician_scientist'
+    # datadir = '../data/peopleData/2_samples'
+    datadir = '../data/peopleData/earlyLifesWordMats/politician_scientist'
 
     batchSize = 20
     dr = DataReader(datadir, 'bucketing', 20)
-    model = Model(dr.input)
+    model = Model2(dr.input)
 
     sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())
