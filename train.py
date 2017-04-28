@@ -69,7 +69,7 @@ def log_progress(step, numDataPoints, lr, c=None, acc=None, logFunc=None):
 #     evaluate_in_batches(dataReader.get_test_data_in_batches(), dataReader.classLabels, model.evaluate)
 
 
-def learn(dataDir, modelKlass, runScale, logDir=create_time_dir('./logs/main')):
+def learn(dataDir, modelMaker, runScale, logDir=create_time_dir('./logs/main')):
     """
     :type dataDir: str
     :param runScale: 
@@ -93,8 +93,8 @@ def learn(dataDir, modelKlass, runScale, logDir=create_time_dir('./logs/main')):
 
     loggerFactory = LoggerFactory(logDir)
     runConfig = RunConfig(runScale, loggerFactory)
-    dataReader = DataReader(dataDir, 'bucketing', runConfig.batchSize, 50, loggerFactory)
-    model = modelKlass(dataReader.input, loggerFactory)
+    dataReader = DataReader(dataDir, 'bucketing', runConfig.batchSize, 40, loggerFactory)
+    model = modelMaker(dataReader.input, loggerFactory)
     initialLr = model.initialLearningRate
 
     # =========== set up tensorboard ===========
@@ -203,9 +203,21 @@ if __name__ == '__main__':
 
     # ============= CHANGE BELOW THIS LINE ==============
     useCPU = True
-    # paramsToUse = [{'dataDir': DATA_DIRs['tiny_fake_2'], 'runScale': 'basic', 'modelKlass': Model2}]
-    paramsToUse = [{'dataDir': DATA_DIRs['small_2occupations'], 'runScale': 'tiny', 'modelKlass': Model2}]
-    # paramsToUse = [{'dataDir': DATA_DIRs['full'], 'runScale': 'small', 'modelKlass': Model2}]
+
+    # dd = DATA_DIRs['full']
+    # runScale = 'full'
+
+    dd = DATA_DIRs['tiny_fake_2']
+    runScale = 'tiny'
+
+    paramsToUse = []
+
+    for l2lambda in [1e-4, 5e-4, 1e-5]:
+        for numRnnOutSteps in [5, 10, 40]:
+            for rnnNumCellUnits in [[128, 64], [64, 64, 32], [128, 128, 64, 64]]:
+                modelMaker = lambda input_, logFac: Model2(input_, 1e-3, l2lambda, numRnnOutSteps, rnnNumCellUnits, logFac)
+
+                paramsToUse.append({'dataDir': dd, 'runScale': runScale, 'modelMaker': modelMaker})
 
     # ============= CHANGE ABOVE THIS LINE ==============
 

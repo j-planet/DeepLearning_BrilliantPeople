@@ -69,18 +69,26 @@ def convert_to_2d(t, d):
 
 class Model2(AbstractModel):
 
-    def __init__(self, input_, loggerFactory_=None):
-        self.l2RegLambda = 1e-4
-        self.initialLearningRate = 1e-3
+    def __init__(self, input_,
+                 initialLearningRate, l2RegLambda, numRnnOutputSteps, rnnNumCellUnits,
+                 loggerFactory_=None):
+
+        # self.initialLearningRate = 1e-3
+        # self.l2RegLambda = 1e-5
+        # self.numRnnOutputSteps = 36
+        # self.rnnNumCellUnits = [64, 64, 32]
+
+        self.initialLearningRate = initialLearningRate
+        self.l2RegLambda = l2RegLambda
+        self.numRnnOutputSteps = numRnnOutputSteps
+        self.rnnNumCellUnits = rnnNumCellUnits
 
         super().__init__(input_, loggerFactory_)
 
     def make_graph(self):
 
-        numRnnOutputSteps = 36
-
         layer1 = self.add_layer(RNNLayer.new(
-            [64, 64, 32], numStepsToOutput_ = numRnnOutputSteps), self.input, (-1, -1, self.vecDim))
+            self.rnnNumCellUnits, numStepsToOutput_ = self.numRnnOutputSteps), self.input, (-1, -1, self.vecDim))
 
         # just last row of the rnn output
         layer2a_output = layer1.output[:,-1,:]
@@ -88,14 +96,14 @@ class Model2(AbstractModel):
 
         layer2b = ConvMaxpoolLayer(layer1.output, layer1.output_shape,
                                    convParams_={'filterShape': (2, 2), 'numFeaturesPerFilter': 16, 'activation': 'relu'},
-                                   maxPoolParams_={'ksize': (numRnnOutputSteps, 1), 'padding': 'SAME'},
+                                   maxPoolParams_={'ksize': (self.numRnnOutputSteps, 1), 'padding': 'SAME'},
                                    loggerFactory=self.loggerFactory)
         layer2b_output, layer2b_output_numcols = convert_to_2d(layer2b.output, layer2b.output_shape)
 
 
         layer2c = ConvMaxpoolLayer(layer1.output, layer1.output_shape,
                                    convParams_={'filterShape': (4, 4), 'numFeaturesPerFilter': 16, 'activation': 'relu'},
-                                   maxPoolParams_={'ksize': (numRnnOutputSteps, 1), 'padding': 'SAME'},
+                                   maxPoolParams_={'ksize': (self.numRnnOutputSteps, 1), 'padding': 'SAME'},
                                    loggerFactory=self.loggerFactory)
         layer2c_output, layer2c_output_numcols = convert_to_2d(layer2c.output, layer2c.output_shape)
 
@@ -118,8 +126,8 @@ if __name__ == '__main__':
     datadir = '../data/peopleData/earlyLifesWordMats/politician_scientist'
 
     batchSize = 20
-    dr = DataReader(datadir, 'bucketing', 20)
-    model = Model2(dr.input)
+    dr = DataReader(datadir, 'bucketing', 20, 30)
+    model = Model2(dr.input, 1e-3, 1e-4, 16, [8])
 
     sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())
