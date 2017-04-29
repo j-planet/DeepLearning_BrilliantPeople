@@ -7,16 +7,20 @@ from abc import ABCMeta, abstractmethod
 
 class AbstractModel(metaclass=ABCMeta):
 
-    def __init__(self, input_, loggerFactory_=None):
+    def __init__(self, input_, initialLearningRate, loggerFactory_=None):
         """
         :type input_: dict
+        :type initialLearningRate: float 
         """
 
         assert 'x' in input_ and 'y' in input_ and 'numSeqs' in input_
+        assert initialLearningRate > 0
 
+        self.initialLearningRate = initialLearningRate
         self._lr = tf.Variable(self.initialLearningRate, name='learningRate')
         self.loggerFactory = loggerFactory_
         self.print = print if loggerFactory_ is None else loggerFactory_.getLogger('Model').info
+        self.print('initial learning rate: %0.7f' % initialLearningRate)
 
         self.input = input_
         self.x = input_['x']
@@ -88,20 +92,11 @@ class AbstractModel(metaclass=ABCMeta):
 
     @property
     def l2Loss(self):
-        return self.__l2loss
+        return self.__dict__.get('__l2loss', 0)
 
     @l2Loss.setter
     def l2Loss(self, val):
         self.__l2loss = val
-
-    @property
-    def initialLearningRate(self):
-        return self.__initialLearningRate
-
-    @initialLearningRate.setter
-    def initialLearningRate(self, val):
-        assert val > 0
-        self.__initialLearningRate = val
 
     @property
     def output(self):

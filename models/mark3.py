@@ -99,6 +99,8 @@ class Model2(AbstractModel):
         self.pooledKeepProb = pooledKeepProb
 
         super().__init__(input_, loggerFactory_)
+        self.print('l2 reg lambda: %0.7f' % l2RegLambda)
+        self.print('initial learning rate: %0.7f' % initialLearningRate)
 
     def make_graph(self):
 
@@ -137,19 +139,25 @@ class Model2(AbstractModel):
 
 
 
+
 if __name__ == '__main__':
 
-    # datadir = '../data/peopleData/2_samples'
-    datadir = '../data/peopleData/earlyLifesWordMats/politician_scientist'
+    datadir = '../data/peopleData/2_samples'
+    # datadir = '../data/peopleData/earlyLifesWordMats/politician_scientist'
 
-    batchSize = 20
-    dr = DataReader(datadir, 'bucketing', 20, 30)
-    model = Model2(dr.input, 1e-3, 1e-4, 6, [8], 0.9, 0.9)
+    lr = 1e-3
+    dr = DataReader(datadir, 'bucketing', 40, 30)
+    model = Model2(dr.input, lr, 0, 4, [8], 1, 1)
 
     sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())
 
-    for step in range(24):
+    for step in range(100):
+        if step % 10 == 0:
+            print('Lowering learning rate to', lr)
+            lr *= 0.9
+            model.assign_lr(sess, lr)
+
         fd = dr.get_next_training_batch()[0]
         _, c, acc = model.train_op(sess, fd, True)
         print('Step %d: (cost, accuracy): training (%0.3f, %0.3f)' % (step, c, acc))

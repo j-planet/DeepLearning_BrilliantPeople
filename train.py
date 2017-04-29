@@ -6,7 +6,7 @@ import tensorflow as tf
 
 from data_reader import DataReader
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
-from models.model import Model2, Model
+from models.mark2 import Model2, Model
 
 
 
