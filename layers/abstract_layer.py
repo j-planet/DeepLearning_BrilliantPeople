@@ -17,9 +17,10 @@ class AbstractLayer(metaclass=ABCMeta):
             self.print = print if loggerFactory is None else loggerFactory.getLogger(self.__class__.__name__).info
             self.inputDim = inputDim_
             self.input = input_     # does not work if called after self.inputDim is set
+            self.activationFunc = str_2_activation_function(activation)
 
             self.print('Constructing: ' + self.__class__.__name__)
-            self.activationFunc = str_2_activation_function(activation)
+            self.print('activation function: ' + 'self' if activation is None else str(activation))
 
             self.make_graph()
 

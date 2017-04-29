@@ -30,6 +30,12 @@ class ConvLayer(AbstractLayer):
 
         super().__init__(input_, inputDim_, activation, loggerFactory)
 
+        self.print('filter shape: ' + str(filterShape))
+        self.print('%d features per filter' % numFeaturesPerFilter)
+        self.print('strides: ' + str(strides))
+        self.print('padding: ' + padding)
+        self.print('dropout keep prob: %0.5f' % keepProb)
+
     def input_modifier(self, val):
 
         if len(self.inputDim) == 3:

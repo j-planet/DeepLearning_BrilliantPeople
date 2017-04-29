@@ -204,11 +204,11 @@ if __name__ == '__main__':
     # ============= CHANGE BELOW THIS LINE ==============
     useCPU = True
 
-    # dd = DATA_DIRs['full']
-    # runScale = 'full'
+    dd = DATA_DIRs['full']
+    runScale = 'full'
 
-    dd = DATA_DIRs['tiny_fake_2']
-    runScale = 'tiny'
+    # dd = DATA_DIRs['tiny_fake_2']
+    # runScale = 'tiny'
 
     paramsToUse = []
 

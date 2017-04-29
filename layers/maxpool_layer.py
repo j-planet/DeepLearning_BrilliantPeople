@@ -23,6 +23,10 @@ class MaxpoolLayer(AbstractLayer):
 
         super().__init__(input_, inputDim_, activation, loggerFactory)
 
+        self.print('ksize: ' + str(ksize))
+        self.print('strides: ' + str(strides))
+        self.print('padding: ' + padding)
+
     def make_graph(self):
         self.output = tf.nn.max_pool(self.input,
                                      ksize=self.ksize, strides=self.strides, padding=self.padding,

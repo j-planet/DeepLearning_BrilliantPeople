@@ -16,10 +16,11 @@ class LocalNormLayer(AbstractLayer):
 
         self.depth_radius = depth_radius
         self.bias = bias
-        # self.alpha = alpha
-        # self.beta = beta
 
         super().__init__(input_, inputDim_, activation, loggerFactory=loggerFactory_)
+
+        self.print('depth radius: ' + str(depth_radius))
+        self.print('bias: ' + str(bias))
 
 
     def make_graph(self):
