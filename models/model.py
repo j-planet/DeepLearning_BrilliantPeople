@@ -8,6 +8,7 @@ from layers.rnn_layer import RNNLayer
 from layers.conv_layer import ConvLayer
 from layers.maxpool_layer import MaxpoolLayer
 from layers.fully_connected_layer import FullyConnectedLayer
+from layers.dropout_layer import DropoutLayer
 
 
 class ConvMaxpoolLayer(AbstractLayer):
@@ -70,18 +71,32 @@ def convert_to_2d(t, d):
 class Model2(AbstractModel):
 
     def __init__(self, input_,
-                 initialLearningRate, l2RegLambda, numRnnOutputSteps, rnnNumCellUnits,
+                 initialLearningRate, l2RegLambda,
+                 numRnnOutputSteps, rnnNumCellUnits, rnnKeepProbs,
+                 pooledKeepProb,
                  loggerFactory_=None):
+        """        
+        :type initialLearningRate: float 
+        :type l2RegLambda: float
+        :type rnnNumCellUnits: list
+        :type numRnnOutputSteps: int 
+        :type rnnKeepProbs: Union[list, float]
+        :type pooledKeepProb: float 
+        """
 
-        # self.initialLearningRate = 1e-3
-        # self.l2RegLambda = 1e-5
-        # self.numRnnOutputSteps = 36
-        # self.rnnNumCellUnits = [64, 64, 32]
+        if type(rnnKeepProbs) == float:
+            assert 0 < rnnKeepProbs <= 1
+            rnnKeepProbs = [rnnKeepProbs] * len(rnnNumCellUnits)
+
+        assert len(rnnNumCellUnits) == len(rnnNumCellUnits)
+        assert 0.0 < pooledKeepProb <= 1
 
         self.initialLearningRate = initialLearningRate
         self.l2RegLambda = l2RegLambda
         self.numRnnOutputSteps = numRnnOutputSteps
         self.rnnNumCellUnits = rnnNumCellUnits
+        self.rnnKeepProbs = rnnKeepProbs
+        self.pooledKeepProb = pooledKeepProb
 
         super().__init__(input_, loggerFactory_)
 
@@ -111,12 +126,14 @@ class Model2(AbstractModel):
         layer2_output_numcols = layer2a_outputshape[1] + layer2b_output_numcols + layer2c_output_numcols
 
         self.layers.append([layer2b, layer2c])
+        self.outputs.append({'output': layer2_output,
+                             'output_shape': (layer2a_outputshape[0], layer2_output_numcols)})
 
-        self.outputs.append({'output': layer2_output, 'output_shape': (layer2a_outputshape[0], layer2_output_numcols)})
+        self.add_layer(DropoutLayer.new(self.pooledKeepProb))
 
+        lastLayer = self.add_layer(FullyConnectedLayer.new(self.numClasses))
 
-        self.add_layer(FullyConnectedLayer.new(self.numClasses))
-
+        self.l2Loss = self.l2RegLambda * (tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases))
 
 
 
@@ -127,7 +144,7 @@ if __name__ == '__main__':
 
     batchSize = 20
     dr = DataReader(datadir, 'bucketing', 20, 30)
-    model = Model2(dr.input, 1e-3, 1e-4, 16, [8])
+    model = Model2(dr.input, 1e-3, 1e-4, 6, [8], 0.9, 0.9)
 
     sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())

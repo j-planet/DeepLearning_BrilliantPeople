@@ -34,7 +34,7 @@ class AbstractModel(metaclass=ABCMeta):
             self.trueY = tf.argmax(self.y, 1)
 
         with name_scope('metrics'):
-            self.l2Loss = self.l2RegLambda * sum(tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables())
+            # self.l2Loss = self.l2RegLambda * sum(tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables())
             self.cost = tf.reduce_mean(
                 tf.nn.softmax_cross_entropy_with_logits(
                     logits=self.output,
@@ -85,6 +85,14 @@ class AbstractModel(metaclass=ABCMeta):
     def l2RegLambda(self, val):
         assert val >= 0
         self.__l2RegLambda = val
+
+    @property
+    def l2Loss(self):
+        return self.__l2loss
+
+    @l2Loss.setter
+    def l2Loss(self, val):
+        self.__l2loss = val
 
     @property
     def initialLearningRate(self):
