@@ -212,17 +212,24 @@ if __name__ == '__main__':
 
     paramsToUse = []
 
-    for l2lambda in [1e-4, 5e-4, 1e-5]:
+    for l2lambda in [1e-4, 1e-5]:
         for numRnnOutSteps in [5, 10, 40]:
-            for rnnNumCellUnits in [[128, 64], [64, 64, 32], [128, 128, 64, 64]]:
-                modelMaker = lambda input_, logFac: Model2(input_, 1e-3, l2lambda, numRnnOutSteps, rnnNumCellUnits, logFac)
+            for rnnNumCellUnits, rnnKeepProbs in [([128, 64], [0.5, 0.9]),
+                                                  ([64, 64, 32], [0.8, 0.8, 0.9]),
+                                                  ([128, 128, 64, 64], [0.5, 0.7, 0.8, 0.9])]:
+                for pooledKeepProb in [0.5, 0.9]:
+                    modelMaker = lambda input_, logFac: Model2(input_,
+                                                               1e-3, l2lambda,
+                                                               numRnnOutSteps, rnnNumCellUnits, rnnKeepProbs,
+                                                               pooledKeepProb,
+                                                               logFac)
 
-                paramsToUse.append({'dataDir': dd, 'runScale': runScale, 'modelMaker': modelMaker})
+                    paramsToUse.append({'dataDir': dd, 'runScale': runScale, 'modelMaker': modelMaker})
 
     # ============= CHANGE ABOVE THIS LINE ==============
 
 
-    for p in paramsToUse:
+    for p in paramsToUse[:2]:
 
         tf.reset_default_graph()
 

@@ -3,72 +3,17 @@ import numpy as np
 
 from models.abstract_model import AbstractModel
 from data_reader import DataReader
-from layers.abstract_layer import AbstractLayer
 from layers.rnn_layer import RNNLayer
-from layers.conv_layer import ConvLayer
-from layers.maxpool_layer import MaxpoolLayer
 from layers.fully_connected_layer import FullyConnectedLayer
 from layers.dropout_layer import DropoutLayer
-
-
-class ConvMaxpoolLayer(AbstractLayer):
-
-    def __init__(self, input_, inputDim_, convParams_, maxPoolParams_, activation=None, loggerFactory=None):
-        self.convParams = convParams_
-        self.maxPoolParams = maxPoolParams_
-
-        super().__init__(input_, inputDim_, activation, loggerFactory)
-
-    def make_graph(self):
-        self.convLayer = ConvLayer(self.input,
-                                   self.inputDim,
-                                   **self.convParams, loggerFactory=self.loggerFactory)
-
-        self.maxPoolLayer = MaxpoolLayer(self.convLayer.output,
-                                         self.convLayer.output_shape,
-                                         **self.maxPoolParams, loggerFactory=self.loggerFactory)
-
-        self.output = self.maxPoolLayer.output
-
-    @property
-    def output_shape(self):
-        return self.maxPoolLayer.output_shape
-
-    @classmethod
-    def new(cls, convParams_, maxPoolParams_, activation=None):
-        return lambda input_, inputDim_, loggerFactory=None: \
-            cls(input_, inputDim_,
-                convParams_, maxPoolParams_, activation, loggerFactory)
-
-
-class Model(AbstractModel):
-
-    def __init__(self, input_, loggerFactory_=None):
-        self.l2RegLambda = 0
-        self.initialLearningRate = 1e-3
-
-        super().__init__(input_, loggerFactory_)
-
-    def make_graph(self):
-
-        self.add_layer(
-            RNNLayer.new(
-                [16], numStepsToOutput_ = 3), self.input, (-1, -1, self.vecDim))
-
-        self.add_layer(
-            ConvMaxpoolLayer.new(
-                convParams_={'filterShape': (1,1), 'numFeaturesPerFilter': 8, 'activation': None},
-                maxPoolParams_={'ksize': (1,1)}))
-
-        self.add_layer(
-            FullyConnectedLayer.new(self.numClasses))
+from layers.conv_maxpool_layer import ConvMaxpoolLayer
 
 
 def convert_to_2d(t, d):
     newSecondD = np.product(d[1:])
     return tf.reshape(t, [-1, newSecondD]), newSecondD
 
-class Model2(AbstractModel):
+class Model3(AbstractModel):
 
     def __init__(self, input_,
                  initialLearningRate, l2RegLambda,
@@ -91,16 +36,14 @@ class Model2(AbstractModel):
         assert len(rnnNumCellUnits) == len(rnnNumCellUnits)
         assert 0.0 < pooledKeepProb <= 1
 
-        self.initialLearningRate = initialLearningRate
         self.l2RegLambda = l2RegLambda
         self.numRnnOutputSteps = numRnnOutputSteps
         self.rnnNumCellUnits = rnnNumCellUnits
         self.rnnKeepProbs = rnnKeepProbs
         self.pooledKeepProb = pooledKeepProb
 
-        super().__init__(input_, loggerFactory_)
+        super().__init__(input_, initialLearningRate, loggerFactory_)
         self.print('l2 reg lambda: %0.7f' % l2RegLambda)
-        self.print('initial learning rate: %0.7f' % initialLearningRate)
 
     def make_graph(self):
 
