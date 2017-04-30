@@ -307,6 +307,7 @@ class DataReader_Text(AbstractDataReader):
 
         self.vocabProcessor = preprocessing.VocabularyProcessor(self.maxXLen)
         XData = list(self.vocabProcessor.fit_transform(XData))
+        self.vocabSize = len(self.vocabProcessor.vocabulary_)
 
         return np.array(XData), np.array(YData), np.array(xLengths), np.array(names)
 
@@ -333,8 +334,8 @@ class DataReader_Text(AbstractDataReader):
 if __name__ == '__main__':
     # dataReader = DataReader_Embeddings('./data/peopleData/2_samples', 'bucketing', 5, 1)
 
-    # dataReader = DataReader_Text('./data/peopleData/earlyLifeTokensFile.json', 'bucketing', 5, 1)
-    dataReader = DataReader_Text('./data/peopleData/earlyLifeTokensFile_polsci.json', 'bucketing', 2, 1)
+    # dataReader = DataReader_Text('./data/peopleData/tokensfiles/all.json', 'bucketing', 5, 1)
+    dataReader = DataReader_Text('./data/peopleData/tokensfiles/pol_sci.json', 'bucketing', 2, 1)
 
     for _ in range(10):
         d, names = dataReader.get_next_training_batch()
