@@ -1,8 +1,10 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import tensorflow as tf
+from tensorflow.contrib.learn import preprocessing
 
 from layers.abstract_layer import AbstractLayer
+from data_readers import DataReader_Text
 
 
 class EmbeddingLayer(AbstractLayer):
@@ -18,16 +20,14 @@ class EmbeddingLayer(AbstractLayer):
         assert vocabSize_ > 0
         assert embeddingDim >0
 
+        self.vocabSize = vocabSize_
+        self.embeddingDim = embeddingDim
+
         super().__init__(input_, inputDim_, activation, loggerFactory)
 
-        self.print('dropout keep prob: %0.3f' % keepProb)
-
     def make_graph(self):
-        self.W = tf.Variable(
-            tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
-            name="W")
-        self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x)
-        self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
+        self.W = tf.Variable(tf.random_uniform([self.vocabSize, self.embeddingDim], -1.0, 1.0), name="W")
+        self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input)
 
     @property
     def output_shape(self):
@@ -38,6 +38,12 @@ class EmbeddingLayer(AbstractLayer):
         return lambda input_, inputDim_, loggerFactory=None: cls(input_, inputDim_, keepProb, activation, loggerFactory)
 
 if __name__ == '__main__':
+    dr = DataReader_Text('../data/peopleData/earlyLifeTokensFile_polsci.json', 'bucketing', 5, 1)
+
+    vocabProcessor = preprocessing.VocabularyProcessor(dr.maxXLen)
+    x = vocabProcessor.fit_transform()
+
+
     inputShape = [2, 5]
     v = tf.Variable(tf.random_normal(inputShape))
     maker = EmbeddingLayer.new(0.5)

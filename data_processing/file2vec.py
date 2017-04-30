@@ -125,6 +125,42 @@ def create_custom_embeddings_file(inputEmbeddingFilename, tokensFilename, output
             outputFile.write(k + ' ' + ' '.join([str(n) for n in v]) + '\n')
 
 
+def filename2name(filename_):
+    return os.path.splitext(os.path.basename(filename_))[0]
+
+class OccupationReader(object):
+
+    def __init__(self, processedNamesDir_ = os.path.join(PPL_DATA_DIR, 'processed_names')):
+        self.processedNamesDir = processedNamesDir_
+
+        self.data = {}
+
+        for filename in glob.glob(os.path.join(processedNamesDir_, '*.json')):
+            with open(filename, encoding='utf8') as ifile:
+                self.data.update(json.load(ifile))
+
+    def get_occupation(self, name):
+
+        if name in self.data:
+            res = self.data[name]['occupation']
+
+        else:
+            # hack for the issue of matching utf8 names
+            fuzzyMatches = difflib.get_close_matches(name, self.data.keys(), 1)
+
+            if fuzzyMatches:
+                fuzzyMatchedName = fuzzyMatches[0]
+                print('FUZZY MATCH: %s -> %s' % (name, fuzzyMatchedName))
+
+                res = self.data[fuzzyMatchedName]['occupation']
+            else:
+                print('ERROR: %s does not exist in names json files. Not even a fuzzy match.' % name)
+
+                res = None
+
+        return res
+
+
 def file2vec_mass(embeddings_filekey_, outputDir_, occReader_):
     """
     convert all text files in a directory to matrices using a given embedding
@@ -186,12 +222,17 @@ def file2vec_mass(embeddings_filekey_, outputDir_, occReader_):
 
 
 
-def file2tokens_mass(outputFname_, occupationReader_):
+def file2tokens_mass(outputFname_, occupationReader_, selectedOccupations=None):
     """
     For each file in a directory, create a JSON object {'content': cleaned text, 'occupation'}.
     Dump everything into the same file.
     :type occupationReader_: OccupationReader
     """
+
+    def isOccRelevant(occ):
+        if selectedOccupations is None: return True
+
+        return (occ[-1] if type(occ)==list else occ) in selectedOccupations
 
     inputFilenames = glob.glob(os.path.join(PPL_DATA_DIR, 'earlyLifesTexts/*.txt'))
     processed = 0
@@ -202,7 +243,8 @@ def file2tokens_mass(outputFname_, occupationReader_):
         name = filename2name(filename)
         occupation = occupationReader_.get_occupation(name)
 
-        if occupation is None: continue
+        if occupation is None or not isOccRelevant(occupation):
+            continue
 
         # clean text
         with open(filename, encoding='utf8') as ifile:
@@ -223,41 +265,7 @@ def file2tokens_mass(outputFname_, occupationReader_):
     print('Processed %d out of %d files.' % (processed, len(inputFilenames)))
 
 
-def filename2name(filename_):
-    return os.path.splitext(os.path.basename(filename_))[0]
-
-class OccupationReader(object):
-
-    def __init__(self, processedNamesDir_ = os.path.join(PPL_DATA_DIR, 'processed_names')):
-        self.processedNamesDir = processedNamesDir_
-
-        self.data = {}
-
-        for filename in glob.glob(os.path.join(processedNamesDir_, '*.json')):
-            with open(filename, encoding='utf8') as ifile:
-                self.data.update(json.load(ifile))
-
-    def get_occupation(self, name):
-
-        if name in self.data:
-            res = self.data[name]['occupation']
-
-        else:
-            # hack for the issue of matching utf8 names
-            fuzzyMatches = difflib.get_close_matches(name, self.data.keys(), 1)
-
-            if fuzzyMatches:
-                fuzzyMatchedName = fuzzyMatches[0]
-                print('FUZZY MATCH: %s -> %s' % (name, fuzzyMatchedName))
-
-                res = self.data[fuzzyMatchedName]['occupation']
-            else:
-                print('ERROR: %s does not exist in names json files. Not even a fuzzy match.' % name)
-
-                res = None
-
-        return res
-
-
 if __name__ == '__main__':
-    file2tokens_mass(os.path.join(PPL_DATA_DIR, 'earlyLifeTokensFile.json'), OccupationReader())
+    file2tokens_mass(os.path.join(PPL_DATA_DIR, 'earlyLifeTokensFile_polsci.json'),
+                     OccupationReader(),
+                     ['politician', 'scientist'])

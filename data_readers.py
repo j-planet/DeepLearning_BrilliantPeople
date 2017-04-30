@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow.contrib.learn import preprocessing
 import json, os, glob
 from pprint import pformat
 import numpy as np
@@ -15,7 +16,7 @@ def one_hot(ind, vecLen):
 
     return np.array(res)
 
-def patch_arrays(arrays, numrows=None):
+def patch_arrays(arrays, lengths, numrows=None):
     """
     patch all arrays to have the same number of rows
     :param numrows: if None, patch to the max number of rows in the arrays
@@ -23,18 +24,19 @@ def patch_arrays(arrays, numrows=None):
     :return:  
     """
 
-    lengths = np.array([arr.shape[0] for arr in arrays])
-    padLen = lengths.max()
+    assert len(arrays) == len(lengths)
 
+    # pad to the largest array
+    padLen = lengths.max()
     assert numrows is None or numrows >= padLen, 'numrows is fewer than the max number of rows: %d vs %d.' % (numrows, padLen)
     padLen = numrows or padLen
 
-    res = np.zeros( (len(lengths), padLen, arrays[0].shape[1]) )
+    res = np.zeros( (len(arrays), padLen, arrays[0].shape[1]) )
 
     for i, arr in enumerate(arrays):
         res[i][:arr.shape[0], :] = arr
 
-    return res, lengths
+    return res
 
 def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=True, logFunc_=None):
     """
@@ -90,10 +92,9 @@ class AbstractDataReader(metaclass=ABCMeta):
         self.x, self.y, self.numSeqs = self.setup_placeholders()
 
 
-
     def _read_data_from_files(self):
 
-        XData, YData_raw_labels, names = self._read_raw_data()
+        XData, YData_raw_labels, xLengths, names = self._read_raw_data()
 
         # transform Y data into a one-hot matrix
         self.yEncoder = LabelEncoder()
@@ -103,43 +104,41 @@ class AbstractDataReader(metaclass=ABCMeta):
         YData = np.array([one_hot(v, len(self.classLabels)) for v in YData])
 
         # train-validation-test split
-        train_indices, valid_indices, test_indices = \
-            train_valid_test_split(YData_raw_labels, *self._train_valid_test_split, logFunc_=self.print)
+        indices = dict(zip(['train', 'valid', 'test'],
+                           train_valid_test_split(YData_raw_labels, *self._train_valid_test_split, logFunc_=self.print)))
 
         # bucket or sort training data
         if self._bucketingOrRandom == 'bucketing':
-            orders = np.argsort([len(d) for d in XData[train_indices]])  # increasing order of number of tokens
+            orders = np.argsort([len(d) for d in XData[indices['train']]])  # increasing order of number of tokens
         elif self._bucketingOrRandom == 'random':
-            orders = list(range(len(train_indices)))
+            orders = list(range(len(indices['train'])))
             np.random.shuffle(orders)
         else:
             raise Exception('Invalid bucketingOrRandom option:', self._bucketingOrRandom)
 
-        train_indices = train_indices[orders]
+        indices['train'] = indices['train'][orders]
 
         # put data into batches
-        self.trainData = self._put_data_into_batches(XData[train_indices], YData[train_indices], names[train_indices])
-        self.validData = self._put_data_into_batches(XData[valid_indices], YData[valid_indices], names[valid_indices])
-        self.testData = self._put_data_into_batches(XData[test_indices], YData[test_indices], names[test_indices])
+        self.data = {i: self._put_data_into_batches(XData[ind], YData[ind], xLengths[ind], names[ind])
+                     for i, ind in indices.items()}
 
-        self.numTrainBatches = len(self.trainData)
-        self.numValidBatches = len(self.validData)
-        self.numTestBatches = len(self.testData)
-        self.trainSize = len(train_indices)
+        self.numBatches = {i: len(d) for i, d in self.data.items()}
+        self.trainSize = len(indices['train'])
 
-        if self._batchSize > len(train_indices): self.print('NOTE: actual training batch size (%d) is smaller than assigned (%d)' % (len(train_indices), self._batchSize))
-        if self._batchSize > len(valid_indices): self.print('NOTE: actual validation batch size (%d) is smaller than assigned (%d)' % (len(valid_indices), self._batchSize))
-        if self._batchSize > len(test_indices): self.print('NOTE: actual test batch size (%d) is smaller than assigned (%d)' % (len(test_indices), self._batchSize))
-        self.print('%d train batches, %d validation batches, %d test batches.' % (self.numTrainBatches, self.numValidBatches, self.numTestBatches))
+        for i, ind in indices.items():
+            if self._batchSize > len(ind):
+                self.print('NOTE: actual %s batch size (%d) is smaller than assigned (%d)' % (i, len(ind), self._batchSize))
 
-        del XData, YData, names, train_indices, valid_indices, test_indices
+        self.print('%d train batches, %d validation batches, %d test batches.' % (self.numBatches['train'], self.numBatches['valid'], self.numBatches['test']))
+
+        del XData, YData, xLengths, names, indices  # I hope this is unnecessary. But not a lot of faith in Python's garbage-collection speed.
 
     @abstractmethod
     def _read_raw_data(self):
         raise NotImplementedError('This (%s) is an abstract class.' % self.__class__.__name__)
 
     @abstractmethod
-    def _put_data_into_batches(self, xData_, yData_, names_):
+    def _put_data_into_batches(self, xData_, yData_, xLengths_, names_):
         raise NotImplementedError('This (%s) is an abstract class.' % self.__class__.__name__)
 
     @abstractmethod
@@ -158,7 +157,7 @@ class AbstractDataReader(metaclass=ABCMeta):
         :return: feedict, names
         """
 
-        x, y, xlengths, names = self.trainData[self.trainBatchIndex]
+        x, y, xlengths, names = self.data['train'][self.trainBatchIndex]
 
         if shuffle:
             orders = np.random.permutation(len(x))
@@ -167,16 +166,16 @@ class AbstractDataReader(metaclass=ABCMeta):
             np.take(xlengths, orders, out=xlengths)
             np.take(names, orders, out=names)
 
-        self.trainBatchIndex = (self.trainBatchIndex + 1) % self.numTrainBatches
+        self.trainBatchIndex = (self.trainBatchIndex + 1) % self.numBatches['train']
 
         return {self.x: x, self.y: y, self.numSeqs: xlengths}, names
 
     def get_validation_data_in_batches(self):
-        for x, y, xlengths, names in self.validData:
+        for x, y, xlengths, names in self.data['valid']:
             yield {self.x: x, self.y: y, self.numSeqs: xlengths}, names
 
     def get_test_data_in_batches(self):
-        for x, y, xlengths, names in self.testData:
+        for x, y, xlengths, names in self.data['test']:
             yield {self.x: x, self.y: y, self.numSeqs: xlengths}, names
 
     @property
@@ -201,6 +200,7 @@ class DataReader_Embeddings(AbstractDataReader):
 
     def _read_raw_data(self):
         XData = []
+        xLengths = []
         YData = []
         names = []
 
@@ -223,6 +223,7 @@ class DataReader_Embeddings(AbstractDataReader):
 
             XData.append(mat)
             occ = d['occupation']
+            xLengths.append(mat.shape[0])
             YData.append(occ if type(occ) == str else occ[-1])
             names.append(os.path.basename(inputFilename).split('.json')[0])
 
@@ -231,15 +232,15 @@ class DataReader_Embeddings(AbstractDataReader):
 
         self.print('%d out of %d skipped' % (numSkipped, numSkipped + len(XData)))
 
-        return np.array(XData), np.array(YData), np.array(names)
+        return np.array(XData), np.array(YData), np.array(xLengths), np.array(names)
 
-    def _put_data_into_batches(self, xData_, yData_, names_):
+    def _put_data_into_batches(self, xData_, yData_, xLengths_, names_):
         """
         :param xData_: 3D array of shape (number of arrays, sequences, vecDim)
         :return: a list of tuples [({x, y, xlengths, names}]
         """
 
-        assert len(xData_) == len(yData_) == len(names_)
+        assert len(xData_) == len(xLengths_) == len(yData_) == len(names_)
 
         res = []
         total = len(xData_)
@@ -248,8 +249,8 @@ class DataReader_Embeddings(AbstractDataReader):
         stopInds = startInds[1:] + [total]
 
         for start, stop in zip(startInds, stopInds):
-            x, lengths = patch_arrays(xData_[start:stop])
-            res.append((x, yData_[start:stop], lengths, names_[start:stop]))
+            x = patch_arrays(xData_[start:stop], xLengths_[start:stop])
+            res.append((x, yData_[start:stop], xLengths_[start:stop], names_[start:stop]))
 
         return res
 
@@ -267,7 +268,7 @@ class DataReader_Text(AbstractDataReader):
     def setup_placeholders(self):
 
         # in the order of: x, y, numSeqs
-        return tf.placeholder(tf.float32, [None, None]), \
+        return tf.placeholder(tf.int32, [None, self.maxXLen]), \
                tf.placeholder(tf.float32, [None, self.numClasses]), \
                tf.placeholder(tf.int32)
 
@@ -304,15 +305,18 @@ class DataReader_Text(AbstractDataReader):
         self.print('%d out of %d skipped' % (numSkipped, numSkipped + len(XData)))
         self.maxXLen = max(xLengths)
 
-        return np.array(XData), np.array(YData), np.array(names)
+        self.vocabProcessor = preprocessing.VocabularyProcessor(self.maxXLen)
+        XData = list(self.vocabProcessor.fit_transform(XData))
 
-    def _put_data_into_batches(self, xData_, yData_, names_):
+        return np.array(XData), np.array(YData), np.array(xLengths), np.array(names)
+
+    def _put_data_into_batches(self, xData_, yData_, xLengths_, names_):
         """
         :param xData_: 3D array of shape (number of arrays, sequences, vecDim)
         :return: a list of tuples [({x, y, xlengths, names}]
         """
 
-        assert len(xData_) == len(yData_) == len(names_)
+        assert len(xData_) == len(xLengths_) == len(yData_) == len(names_)
 
         total = len(xData_)
 
@@ -321,14 +325,16 @@ class DataReader_Text(AbstractDataReader):
 
         return [(xData_[start:stop],
                  yData_[start:stop],
-                 np.array([len(x) for x in xData_[start:stop]]),
+                 xLengths_[start:stop],
                  names_[start:stop])
                 for start, stop in zip(startInds, stopInds)]
 
 
 if __name__ == '__main__':
     # dataReader = DataReader_Embeddings('./data/peopleData/2_samples', 'bucketing', 5, 1)
-    dataReader = DataReader_Text('./data/peopleData/earlyLifeTokensFile.json', 'bucketing', 5, 1)
+
+    # dataReader = DataReader_Text('./data/peopleData/earlyLifeTokensFile.json', 'bucketing', 5, 1)
+    dataReader = DataReader_Text('./data/peopleData/earlyLifeTokensFile_polsci.json', 'bucketing', 2, 1)
 
     for _ in range(10):
         d, names = dataReader.get_next_training_batch()
