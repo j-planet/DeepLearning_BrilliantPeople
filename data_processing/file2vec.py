@@ -202,6 +202,8 @@ def file2tokens_mass(outputFname_, occupationReader_):
         name = filename2name(filename)
         occupation = occupationReader_.get_occupation(name)
 
+        if occupation is None: continue
+
         # clean text
         with open(filename, encoding='utf8') as ifile:
             text = ' '.join(line.strip() for line in ifile.readlines())     # new lines are ignored.
@@ -211,7 +213,7 @@ def file2tokens_mass(outputFname_, occupationReader_):
             print('ERROR: no content read for %s. Skipping...' % name)
             continue
 
-        res.append({'content': content, 'occupation': occupation})
+        res.append({'content': content, 'occupation': occupation, 'name': name})
 
         processed += 1
 

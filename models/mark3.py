@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 from models.abstract_model import AbstractModel
-from data_reader import DataReader
+from data_readers import DataReader_Embeddings
 from layers.rnn_layer import RNNLayer
 from layers.fully_connected_layer import FullyConnectedLayer
 from layers.dropout_layer import DropoutLayer
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     # datadir = '../data/peopleData/earlyLifesWordMats/politician_scientist'
 
     lr = 1e-3
-    dr = DataReader(datadir, 'bucketing', 40, 30)
+    dr = DataReader_Embeddings(datadir, 'bucketing', 40, 30)
     model = Model2(dr.input, lr, 0, 4, [8], 1, 1)
 
     sess = tf.InteractiveSession()

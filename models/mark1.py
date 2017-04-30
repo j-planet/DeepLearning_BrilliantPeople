@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from models.abstract_model import AbstractModel
-from data_reader import DataReader
+from data_readers import DataReader_Embeddings
 from layers.rnn_layer import RNNLayer
 from layers.fully_connected_layer import FullyConnectedLayer
 
@@ -43,7 +43,7 @@ if __name__ == '__main__':
     # datadir = '../data/peopleData/earlyLifesWordMats/politician_scientist'
 
     lr = 1e-3
-    dr = DataReader(datadir, 'bucketing', 40, 30)
+    dr = DataReader_Embeddings(datadir, 'bucketing', 40, 30)
     model = Mark1(dr.input, lr, [16, 8], [.5, .5])
 
     sess = tf.InteractiveSession()
