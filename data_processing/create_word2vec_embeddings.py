@@ -9,7 +9,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import placeholder, Variable, reduce_mean, reduce_sum, matmul, summary
 
-from contexts import read_occupations
 
 data_index = 0
 
