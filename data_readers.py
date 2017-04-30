@@ -306,32 +306,6 @@ class DataReader_Text(AbstractDataReader):
 
         return np.array(XData), np.array(YData), np.array(names)
 
-
-    def start_batch_from_beginning(self):
-        self.trainBatchIndex = 0
-
-    def wherechu_at(self):
-        return self.trainBatchIndex
-
-    def get_next_training_batch(self, shuffle=False):
-        """
-        :type shuffle: bool 
-        :return: feedict, names
-        """
-
-        x, y, xlengths, names = self.trainData[self.trainBatchIndex]
-
-        if shuffle:
-            orders = np.random.permutation(len(x))
-            np.take(x, orders, axis=0, out=x)
-            np.take(y, orders, axis=0, out=y)
-            np.take(xlengths, orders, out=xlengths)
-            np.take(names, orders, out=names)
-
-        self.trainBatchIndex = (self.trainBatchIndex + 1) % self.numTrainBatches
-
-        return {self.x: x, self.y: y, self.numSeqs: xlengths}, names
-
     def _put_data_into_batches(self, xData_, yData_, names_):
         """
         :param xData_: 3D array of shape (number of arrays, sequences, vecDim)
