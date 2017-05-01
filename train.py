@@ -179,8 +179,8 @@ class RunConfig(object):
 
         elif scale == 'full':
             self.numSteps = 1000
-            self.batchSize = 150
-            self.logValidationEvery = 15
+            self.batchSize = 200
+            self.logValidationEvery = 12
             self.failToImproveTolerance = 4
 
         self.scale = scale
@@ -212,7 +212,7 @@ if __name__ == '__main__':
 
     paramsToUse = []
 
-    for l2lambda in [1e-4, 1e-5]:
+    for l2lambda in [1e-5, 1e-6, 0]:
         for numRnnOutSteps in [5, 10, 40]:
             for rnnNumCellUnits, rnnKeepProbs in [([128, 64], [0.5, 0.9]),
                                                   ([64, 64, 32], [0.8, 0.8, 0.9]),
