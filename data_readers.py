@@ -8,6 +8,7 @@ from sklearn.preprocessing import LabelEncoder
 from collections import Counter
 from abc import ABCMeta, abstractmethod
 
+from data_processing.file2vec import filename2name
 
 
 def one_hot(ind, vecLen):
@@ -216,8 +217,6 @@ class DataReader_Embeddings(AbstractDataReader):
             mat = np.array(d['mat'])
 
             if len(mat) < self.minimumWords:
-                self.print('Skipping %s because it has %d (<%d) words.' % (
-                    os.path.basename(inputFilename), len(mat), self.minimumWords))
                 numSkipped += 1
                 continue
 
@@ -225,7 +224,7 @@ class DataReader_Embeddings(AbstractDataReader):
             occ = d['occupation']
             xLengths.append(mat.shape[0])
             YData.append(occ if type(occ) == str else occ[-1])
-            names.append(os.path.basename(inputFilename).split('.json')[0])
+            names.append(filename2name(inputFilename))
 
         self.vectorDimension = XData[0].shape[1]
         self.maxXLen = max([d.shape[0] for d in XData])
@@ -290,10 +289,8 @@ class DataReader_Text(AbstractDataReader):
                 occ = d['occupation']
                 content = d['content']
                 numTokens = len(content.split(' '))
-                name = d['name']
 
                 if numTokens < self.minimumWords:
-                    self.print('Skipping %s because it has %d (<%d) words.' % (name, numTokens, self.minimumWords))
                     numSkipped += 1
                     continue
 
@@ -332,10 +329,10 @@ class DataReader_Text(AbstractDataReader):
 
 
 if __name__ == '__main__':
-    # dataReader = DataReader_Embeddings('./data/peopleData/2_samples', 'bucketing', 5, 1)
+    dataReader = DataReader_Embeddings('./data/peopleData/2_samples', 'bucketing', 5, 1)
 
     # dataReader = DataReader_Text('./data/peopleData/tokensfiles/all.json', 'bucketing', 5, 1)
-    dataReader = DataReader_Text('./data/peopleData/tokensfiles/pol_sci.json', 'bucketing', 2, 1)
+    # dataReader = DataReader_Text('./data/peopleData/tokensfiles/pol_sci.json', 'bucketing', 2, 1)
 
     for _ in range(10):
         d, names = dataReader.get_next_training_batch()
