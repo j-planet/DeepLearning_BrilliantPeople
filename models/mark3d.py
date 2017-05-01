@@ -135,8 +135,13 @@ class Mark3d(AbstractModel):
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0, 1e-4, 1e-5]),
                   ('vocabSize', [vocabSize]),
-                  ('embeddingDim', [64, 128, 256, 300]),
-                  ('filterSizes', [[1, 2, 4], [3, 4, 5], [3, 5, 10, 15]]),
+                  ('embeddingDim', [64, 128, 300]),
+                  ('convFilterSizesNKeepProbs', [([1, 2, 3], [0.6, 0.6, 0.6]),
+                                                 ([1, 2, 3], [0.7, 0.7, 0.9]),
+                                                 ([2, 3, 4], [0.6, 0.6, 0.6]),
+                                                 ([2, 3, 4], [0.7, 0.7, 0.9]),
+                                                 ([3, 5, 10, 15], [0.7]*4),
+                                                 ]),
                   ('numFeaturesPerFilter', [16, 32, 64]),
                   ('pooledKeepProb', [0.5, 0.7, 0.9, 1])]
 
