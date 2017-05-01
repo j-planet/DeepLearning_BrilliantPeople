@@ -14,7 +14,7 @@ from layers.dropout_layer import DropoutLayer
 from layers.conv_maxpool_layer import ConvMaxpoolLayer
 
 from train import train
-from utilities import run_with_processor
+from utilities import run_with_processor, make_params_dict
 
 PPL_DATA_DIR = '../data/peopleData/'
 
@@ -86,37 +86,40 @@ class Mark3(AbstractModel):
 
         self.l2Loss = self.l2RegLambda * (tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases))
 
-    @classmethod
-    def quick_run(cls, runScale='tiny', dataScale='tiny_fake_2', useCPU=True):
-
-        dataReaderMaker = TextDataReader.maker_from_premade_source(dataScale)
-
-        modelMaker = lambda input_, logFac: cls(input_, 1e-3, 0, 4, [8], 1, 1, logFac)
-
-        run_with_processor(lambda sess: train(sess, dataReaderMaker, modelMaker, runScale,
-                                              os.path.join('../logs/main/', cls.__name__)),
-                           useCPU=useCPU)
 
     @classmethod
-    def full_run(cls, runScale='full', dataScale='full', useCPU=True):
+    def quick_run(cls, runScale ='tiny', dataScale='tiny_fake_2', useCPU = True):
 
-        dataReaderMaker = TextDataReader.maker_from_premade_source(dataScale)
+        # ok this is silly. But at least it's fast.
+        vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
+            bucketingOrRandom = 'bucketing', batchSize_ = 50, minimumWords = 0).vocabSize
 
-        for l2lambda in [1e-4, 1e-5]:
-            for numRnnOutSteps in [5, 10, 40]:
-                for rnnNumCellUnits, rnnKeepProbs in [([128, 64], [0.5, 0.9]),
-                                                      ([64, 64, 32], [0.8, 0.8, 0.9]),
-                                                      ([128, 128, 64, 64], [0.5, 0.7, 0.8, 0.9])]:
-                    for pooledKeepProb in [0.5, 0.9]:
-                        modelMaker = lambda input_, logFac: cls(input_,
-                                                                1e-3, l2lambda,
-                                                                numRnnOutSteps, rnnNumCellUnits, rnnKeepProbs,
-                                                                pooledKeepProb,
-                                                                logFac)
+        params = [('initialLearningRate', [1e-3]),
+                  ('l2RegLambda', [0]),
+                  ('vocabSize', [vocabSize]),
+                  ('embeddingDim', [32]),
+                  ('filterSizes', [[2, 4], [1,3,5]]),
+                  ('numFeaturesPerFilter', [8]),
+                  ('pooledKeepProb', [1])]
 
-                        run_with_processor(lambda sess: train(sess, dataReaderMaker, modelMaker, runScale,
-                                                              os.path.join('../logs/main/', cls.__name__)),
-                                           useCPU=useCPU)
+        cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+
+
+    @classmethod
+    def full_run(cls, runScale='tiny', dataScale='tiny_fake_2', useCPU=True):
+        # ok this is silly. But at least it's fast.
+        vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
+            bucketingOrRandom='bucketing', batchSize_=50, minimumWords=0).vocabSize
+
+        params = [('initialLearningRate', [1e-3]),
+                  ('l2RegLambda', [0, 1e-4, 1e-5]),
+                  ('vocabSize', [vocabSize]),
+                  ('embeddingDim', [64, 128, 256, 300]),
+                  ('filterSizes', [[1, 2, 4], [3, 4, 5], [3, 5, 10, 15]]),
+                  ('numFeaturesPerFilter', [16, 32, 64]),
+                  ('pooledKeepProb', [0.5, 0.7, 0.9, 1])]
+
+        cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
     Mark3.quick_run()

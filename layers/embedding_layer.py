@@ -4,7 +4,7 @@ import tensorflow as tf
 import numpy as np
 
 from layers.abstract_layer import AbstractLayer
-from data_readers import DataReader_Text
+from data_readers.text_data_reader import TextDataReader
 
 
 class EmbeddingLayer(AbstractLayer):
@@ -26,6 +26,10 @@ class EmbeddingLayer(AbstractLayer):
 
         super().__init__(input_, inputDim_, activation, loggerFactory)
 
+        self.print('vocab size: %d' % vocabSize_)
+        self.print('embedding dim: %d' % embeddingDim)
+        self.print('input dim: ' + str(inputDim_))
+
     def make_graph(self):
         self.W = tf.Variable(tf.random_uniform([self.vocabSize, self.embeddingDim], -1.0, 1.0), name="W")
         self.output = tf.nn.embedding_lookup(self.W, self.input)
@@ -40,7 +44,7 @@ class EmbeddingLayer(AbstractLayer):
             cls(input_, inputDim_, vocabSize_, embeddingDim, activation, loggerFactory)
 
 if __name__ == '__main__':
-    dr = DataReader_Text('../data/peopleData/tokensfiles/pol_sci.json', 'bucketing', 5, 1)
+    dr = TextDataReader('../data/peopleData/tokensfiles/pol_sci.json', 'bucketing', 5, 1)
     fd = dr.get_next_training_batch()[0]
     # inputVal = np.array([[4, 5, 1, 0, 0], [2, 0, 0, 0, 0]])
     # inputShape = inputVal.shape
