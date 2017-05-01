@@ -5,6 +5,7 @@ import numpy as np
 import difflib
 
 
+PPL_DATA_DIR = '../data/peopleData'
 ZERO_WIDTH_UNICODES = [u'\u200d', u'\u200c', u'\u200b']
 MULTI_PERIODS = ['......', '.....', '....', '...', '…']
 ALL_PUNCTUATIONS_EXCEPT_SINGLE_PERIOD = MULTI_PERIODS \
@@ -97,7 +98,7 @@ def extract_embedding(embeddingsFilename_, relevantTokens_, includeUnk_ = True,
     return res, notFoundTokens
 
 
-def file2vec(filename, embeddings_, outputFilename = None):
+def file2vec(filename, embeddings_, occupation_, outputFilename = None):
     with open(filename, encoding='utf8') as ifile:
         text = ' '.join(line.strip() for line in ifile.readlines())
 
@@ -105,7 +106,7 @@ def file2vec(filename, embeddings_, outputFilename = None):
 
     if outputFilename:
         with open(outputFilename, 'w', encoding='utf8') as ofile:
-            json.dump({'occupation': occupation, 'mat': [list(l) for l in list(mat)]}, ofile)
+            json.dump({'occupation': occupation_, 'mat': [list(l) for l in list(mat)]}, ofile)
 
     return mat
 
@@ -124,13 +125,49 @@ def create_custom_embeddings_file(inputEmbeddingFilename, tokensFilename, output
             outputFile.write(k + ' ' + ' '.join([str(n) for n in v]) + '\n')
 
 
+def filename2name(filename_):
+    return os.path.splitext(os.path.basename(filename_))[0]
+
+class OccupationReader(object):
+
+    def __init__(self, processedNamesDir_ = os.path.join(PPL_DATA_DIR, 'processed_names')):
+        self.processedNamesDir = processedNamesDir_
+
+        self.data = {}
+
+        for filename in glob.glob(os.path.join(processedNamesDir_, '*.json')):
+            with open(filename, encoding='utf8') as ifile:
+                self.data.update(json.load(ifile))
+
+    def get_occupation(self, name):
+
+        if name in self.data:
+            res = self.data[name]['occupation']
+
+        else:
+            # hack for the issue of matching utf8 names
+            fuzzyMatches = difflib.get_close_matches(name, self.data.keys(), 1)
+
+            if fuzzyMatches:
+                fuzzyMatchedName = fuzzyMatches[0]
+                print('FUZZY MATCH: %s -> %s' % (name, fuzzyMatchedName))
+
+                res = self.data[fuzzyMatchedName]['occupation']
+            else:
+                print('ERROR: %s does not exist in names json files. Not even a fuzzy match.' % name)
+
+                res = None
+
+        return res
 
 
-if __name__ == '__main__':
+def file2vec_mass(embeddings_filekey_, outputDir_, occReader_):
+    """
+    convert all text files in a directory to matrices using a given embedding
+    :type occReader_: OccupationReader
+    """
 
-    PPL_DATA_DIR = '../data/peopleData'
-
-    EMBEDDINGS_NAME_FILE = \
+    embeddings_filename_ = \
         {'6B50d': '../data/glove/glove.6B/glove.6B.50d.txt',
          '6B300d': '../data/glove/glove.6B/glove.6B.300d.txt',
          '42B300d': '../data/glove/glove.42B.300d.txt',
@@ -141,49 +178,36 @@ if __name__ == '__main__':
          'earlylife200d_80pc': '../data/peopleData/embeddings/earlyLifeEmbeddings.200d_80pc.txt'
          }
 
-    embeddingName = '42B300d'
-
     embeddings, _ = extract_embedding(
-        embeddingsFilename_=EMBEDDINGS_NAME_FILE[embeddingName],
+        embeddingsFilename_=embeddings_filename_[embeddings_filekey_],
         relevantTokens_=None,
         includeUnk_=True
     )
     print('DONE reading embeddings.')
 
     # read { name: occupation }
-    peopleData = {}
-    for filename in glob.glob(os.path.join(PPL_DATA_DIR, 'processed_names/*.json')):
-        with open(filename, encoding='utf8') as ifile:
-            peopleData.update(json.load(ifile))
+    # peopleData = {}
+    # for filename in glob.glob(os.path.join(PPL_DATA_DIR, 'processed_names/*.json')):
+    #     with open(filename, encoding='utf8') as ifile:
+    #         peopleData.update(json.load(ifile))
 
 
     processed = 0
-    outputDir = os.path.join(PPL_DATA_DIR, 'earlyLifesWordMats_' + embeddingName)
-    if not os.path.exists(outputDir): os.mkdir(outputDir)
+    # outputDir = os.path.join(PPL_DATA_DIR, 'earlyLifesWordMats_' + embeddings_filekey_)
+    if not os.path.exists(outputDir_): os.mkdir(outputDir_)
+    inputFiles = glob.glob(os.path.join(PPL_DATA_DIR, 'earlyLifesTexts/*.txt'))
 
-    for filename in glob.glob(os.path.join(PPL_DATA_DIR, 'earlyLifesTexts/*.txt')):
+    for filename in inputFiles:
 
-        name = filename.split('/')[-1].split('.txt')[0]
-        outputFname = os.path.join(outputDir, name + '.json')
+        name = filename2name(filename)
+        outputFname = os.path.join(outputDir_, name + '.json')
 
         if os.path.exists(outputFname):
             print(outputFname, 'already exists. Skipping...')
             continue
 
-        if name in peopleData:
-            occupation = peopleData[name]['occupation']
-        else:
-            fuzzyMatches = difflib.get_close_matches(name, peopleData.keys(), 1)   # hack for the issue of matching utf8 names
-
-            if fuzzyMatches:
-                fuzzyMatchedName = fuzzyMatches[0]
-                occupation = peopleData[fuzzyMatchedName]['occupation']
-                print('FUZZY MATCH: %s -> %s' % (name, fuzzyMatchedName))
-            else:
-                print('ERROR: %s does not exist in names json files. Not even a fuzzy match.' % name)
-                continue
-
-        mat = file2vec(filename, embeddings)
+        occupation = occReader_.get_occupation(name)
+        mat = file2vec(filename, embeddings, occupation)
 
         if len(mat)==0:
             print('ERROR: no content read for %s. Skipping...' % name)
@@ -194,4 +218,54 @@ if __name__ == '__main__':
 
         processed += 1
 
-    print('Processed %d out of %d in names json files.' % (processed, len(peopleData)))
+    print('Processed %d out of %d files.' % (processed, len(inputFiles)))
+
+
+
+def file2tokens_mass(outputFname_, occupationReader_, selectedOccupations=None):
+    """
+    For each file in a directory, create a JSON object {'content': cleaned text, 'occupation'}.
+    Dump everything into the same file.
+    :type occupationReader_: OccupationReader
+    """
+
+    def isOccRelevant(occ):
+        if selectedOccupations is None: return True
+
+        return (occ[-1] if type(occ)==list else occ) in selectedOccupations
+
+    inputFilenames = glob.glob(os.path.join(PPL_DATA_DIR, 'earlyLifesTexts/*.txt'))
+    processed = 0
+    res = []
+
+    for filename in inputFilenames:
+
+        name = filename2name(filename)
+        occupation = occupationReader_.get_occupation(name)
+
+        if occupation is None or not isOccRelevant(occupation):
+            continue
+
+        # clean text
+        with open(filename, encoding='utf8') as ifile:
+            text = ' '.join(line.strip() for line in ifile.readlines())     # new lines are ignored.
+        content = insert_spaces_into_corpus(text)
+
+        if len(content)==0:
+            print('ERROR: no content read for %s. Skipping...' % name)
+            continue
+
+        res.append({'content': content, 'occupation': occupation, 'name': name})
+
+        processed += 1
+
+    with open(outputFname_, 'w', encoding='utf8') as ofile:
+        json.dump(res, ofile)
+
+    print('Processed %d out of %d files.' % (processed, len(inputFilenames)))
+
+
+if __name__ == '__main__':
+    file2tokens_mass(os.path.join(PPL_DATA_DIR, 'tokensfiles/pol_sci.json'),
+                     OccupationReader(),
+                     ['politician', 'scientist'])

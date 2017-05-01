@@ -7,16 +7,20 @@ from abc import ABCMeta, abstractmethod
 
 class AbstractModel(metaclass=ABCMeta):
 
-    def __init__(self, input_, loggerFactory_=None):
+    def __init__(self, input_, initialLearningRate, loggerFactory_=None):
         """
         :type input_: dict
+        :type initialLearningRate: float 
         """
 
         assert 'x' in input_ and 'y' in input_ and 'numSeqs' in input_
+        assert initialLearningRate > 0
 
+        self.initialLearningRate = initialLearningRate
         self._lr = tf.Variable(self.initialLearningRate, name='learningRate')
         self.loggerFactory = loggerFactory_
         self.print = print if loggerFactory_ is None else loggerFactory_.getLogger('Model').info
+        self.print('initial learning rate: %0.7f' % initialLearningRate)
 
         self.input = input_
         self.x = input_['x']
@@ -67,13 +71,16 @@ class AbstractModel(metaclass=ABCMeta):
     def evaluate(self, sess_, feedDict_):
         return sess_.run([self.cost, self.accuracy, self.trueY, self.pred], feedDict_)
 
+    def add_output(self, output, outputShape):
+        self.outputs.append({'output': output, 'output_shape': outputShape})
+
     def add_layer(self, layerMaker_, input_=None, inputDim_=None):
-        input_ = input_ or self.prevOutput
+        if input_ is None: input_ = self.prevOutput
         inputDim_ = inputDim_ or self.prevOutputShape
 
         layer = layerMaker_(input_, inputDim_, self.loggerFactory)
         self.layers.append(layer)
-        self.outputs.append({'output': layer.output, 'output_shape': layer.output_shape})
+        self.add_output(layer.output, layer.output_shape)
 
         return layer
 
@@ -88,20 +95,11 @@ class AbstractModel(metaclass=ABCMeta):
 
     @property
     def l2Loss(self):
-        return self.__l2loss
+        return self.__dict__.get('__l2loss', 0)
 
     @l2Loss.setter
     def l2Loss(self, val):
         self.__l2loss = val
-
-    @property
-    def initialLearningRate(self):
-        return self.__initialLearningRate
-
-    @initialLearningRate.setter
-    def initialLearningRate(self, val):
-        assert val > 0
-        self.__initialLearningRate = val
 
     @property
     def output(self):

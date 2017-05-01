@@ -1,7 +1,9 @@
-import glob
+import glob, os
 import string
 
-from contexts import read_people_names, read_occupations
+from contexts import read_people_names
+
+DATA_DIR = '../data/peopleData'
 
 
 def remove_punctuations(s):
@@ -40,20 +42,20 @@ def create_early_life_corpus_by_occupation(occupation, outputFname, removePunctu
     for name in read_people_names(occupation=occupation):
 
         convertedName = '_'.join([t.capitalize() for t in name.split()])
-        filenames.append('./data/peopleData/earlyLifesTexts/' + convertedName + '.txt')
+        filenames.append(os.path.join(DATA_DIR, 'earlyLifesTexts', convertedName + '.txt'))
 
     return create_early_life_corpus(filenames, outputFname, removePunctuations)
 
 
 def create_early_life_corpus_for_all(outputFname, removePunctuations):
     return create_early_life_corpus(
-        glob.glob('./data/peopleData/earlyLifesTexts/*.txt'),
+        glob.glob(os.path.join(DATA_DIR, 'earlyLifesTexts/*.txt')),
         outputFname, removePunctuations
     )
 
 
 if __name__ == '__main__':
-    create_early_life_corpus_for_all('./data/peopleData/earlyLifeCorpus.txt', removePunctuations=False)
+    create_early_life_corpus_for_all(os.path.join(DATA_DIR, 'earlyLifeCorpus.txt'), removePunctuations=False)
 
     # for occupation in read_occupations():
     #     print('\n========', occupation)

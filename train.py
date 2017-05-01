@@ -4,9 +4,9 @@ from time import time
 os.environ['TF_CPP_MIN_LOG_LEVEL']='0'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import tensorflow as tf
 
-from data_reader import DataReader
+from data_readers import DataReader_Embeddings
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
-from models.model import Model2, Model
+from models.mark2 import Model2, Model
 
 
 
@@ -93,7 +93,7 @@ def learn(dataDir, modelMaker, runScale, logDir=create_time_dir('./logs/main')):
 
     loggerFactory = LoggerFactory(logDir)
     runConfig = RunConfig(runScale, loggerFactory)
-    dataReader = DataReader(dataDir, 'bucketing', runConfig.batchSize, 40, loggerFactory)
+    dataReader = DataReader_Embeddings(dataDir, 'bucketing', runConfig.batchSize, 40, loggerFactory)
     model = modelMaker(dataReader.input, loggerFactory)
     initialLr = model.initialLearningRate
 

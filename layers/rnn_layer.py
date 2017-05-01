@@ -4,7 +4,7 @@ import tensorflow as tf
 from tensorflow.contrib.rnn import BasicLSTMCell, MultiRNNCell, DropoutWrapper
 
 from utilities import last_relevant
-from data_reader import DataReader
+from data_readers import DataReader_Embeddings
 from layers.abstract_layer import AbstractLayer
 
 
@@ -33,7 +33,7 @@ class RNNLayer(AbstractLayer):
         super().__init__(input_, inputDim_, activation, loggerFactory)
 
         self.print('# LSTM cell units: ' + str(numLSTMUnits_))
-        self.print('dropout keep prob: %0.5f' % outputKeepProbs_)
+        self.print('dropout keep probs: ' + str(outputKeepProbs_))
         self.print('output %d steps' % numStepsToOutput_)
 
     def make_graph(self):
@@ -69,7 +69,7 @@ class RNNLayer(AbstractLayer):
 
 
 if __name__ == '__main__':
-    dr = DataReader('../data/peopleData/2_samples', 'bucketing', 10, 50)
+    dr = DataReader_Embeddings('../data/peopleData/2_samples', 'bucketing', 10, 50)
     maker = RNNLayer.new([32, 16], [0.5, 1.], 3)
     layer = maker(dr.input, [10, -1])
 
