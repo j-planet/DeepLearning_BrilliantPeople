@@ -20,6 +20,7 @@ class AbstractModel(metaclass=ABCMeta):
         self._lr = tf.Variable(self.initialLearningRate, name='learningRate')
         self.loggerFactory = loggerFactory_
         self.print = print if loggerFactory_ is None else loggerFactory_.getLogger('Model').info
+        self.print('Model name: ' + self.__class__.__name__)
         self.print('initial learning rate: %0.7f' % initialLearningRate)
 
         self.input = input_
