@@ -33,7 +33,7 @@ class RNNLayer(AbstractLayer):
         super().__init__(input_, inputDim_, activation, loggerFactory)
 
         self.print('# LSTM cell units: ' + str(numLSTMUnits_))
-        self.print('dropout keep prob: %0.5f' % outputKeepProbs_)
+        self.print('dropout keep probs: ' + str(outputKeepProbs_))
         self.print('output %d steps' % numStepsToOutput_)
 
     def make_graph(self):
