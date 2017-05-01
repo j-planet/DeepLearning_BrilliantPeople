@@ -3,6 +3,7 @@ import glob, os, logging
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+import itertools
 
 
 def dir_create_n_clear(*pathComponents):
@@ -67,7 +68,7 @@ def setup_logging(logFilename_, level_=logging.DEBUG):
 
 def create_time_dir(baseDir):
     res = os.path.join(baseDir, datetime.now().strftime('%m%d%Y %H:%M:%S'))
-    if not os.path.exists(res): os.mkdir(res)
+    if not os.path.exists(res): os.makedirs(res, exist_ok=True)
 
     return res
 
@@ -124,3 +125,32 @@ def filter_output_size(inputLen, filterWidth, stride, padding):
             return 1
 
         return int(np.ceil(inputLen / stride))
+
+def run_with_processor(funcToFunc, useCPU):
+    """
+    :param funcToFunc: lambda sess: func(sess)
+    """
+
+
+    tf.reset_default_graph()
+
+    if useCPU:
+        with tf.device('/cpu:0'):
+            sess = tf.InteractiveSession(config=tf.ConfigProto(allow_soft_placement=True))
+            return funcToFunc(sess)
+    else:
+        sess = tf.InteractiveSession(
+            config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.85),
+                                  allow_soft_placement=True))
+        return funcToFunc(sess)
+
+def make_params_dict(paramsKeyValuesList):
+    """
+    :param paramsKeyValuesList:  [(name, list of values), ...]
+    :return: a list of dictionaries of {name: value, ...}
+    """
+
+    keys = [v[0] for v in paramsKeyValuesList]
+    vals = [v[1] for v in paramsKeyValuesList]
+
+    return [dict(zip(keys, params)) for params in itertools.product(*vals)]

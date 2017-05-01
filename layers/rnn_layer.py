@@ -4,7 +4,7 @@ import tensorflow as tf
 from tensorflow.contrib.rnn import BasicLSTMCell, MultiRNNCell, DropoutWrapper
 
 from utilities import last_relevant
-from data_readers import DataReader_Embeddings
+from data_readers.embedding_data_reader import EmbeddingDataReader
 from layers.abstract_layer import AbstractLayer
 
 

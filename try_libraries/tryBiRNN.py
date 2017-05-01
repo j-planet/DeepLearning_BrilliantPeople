@@ -107,7 +107,7 @@ while step * batch_size < training_iters:
     step += 1
 
 # calculate test accuracy
-print('\n----- TEST SET RESULTS:', log_str(mnist.test.images.reshape(x_shape), mnist.test.labels))
+print('\n----- TEST SET RESULTS:', log_str(mnist.quick_run.images.reshape(x_shape), mnist.quick_run.labels))
 
 
 
