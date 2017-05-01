@@ -4,14 +4,11 @@ from time import time
 os.environ['TF_CPP_MIN_LOG_LEVEL']='0'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import tensorflow as tf
 
-from data_readers import DataReader_Embeddings
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
-from models.mark2 import Model2, Model
 
 
 
-
-def evaluate_in_batches(batchGenerator_, classLabels_, evaluationFunc_, logFunc_=None, verbose_=True):
+def evaluate_in_batches(sess, batchGenerator_, classLabels_, evaluationFunc_, logFunc_=None, verbose_=True):
     logFunc_ = logFunc_ or print
 
     # data = dataReader.get_data_in_batches(batchSize_, validateOrTest_)
@@ -69,14 +66,15 @@ def log_progress(step, numDataPoints, lr, c=None, acc=None, logFunc=None):
 #     evaluate_in_batches(dataReader.get_test_data_in_batches(), dataReader.classLabels, model.evaluate)
 
 
-def learn(dataDir, modelMaker, runScale, logDir=create_time_dir('./logs/main')):
+def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
+
     """
-    :type dataDir: str
-    :param runScale: 
-    :param logDir: 
-    :return: 
+    :param dataReaderMaker: lambda 'bucketing', runConfig.batchSize, 40, loggerFactory: dataReader
     """
+
     assert runScale in ['basic', 'tiny', 'small', 'full']
+
+    logDir = create_time_dir(baseLogDir)
 
     def _decrease_learning_rate(numDataPoints_, lowerBound_=1e-7):
         """
@@ -93,7 +91,8 @@ def learn(dataDir, modelMaker, runScale, logDir=create_time_dir('./logs/main')):
 
     loggerFactory = LoggerFactory(logDir)
     runConfig = RunConfig(runScale, loggerFactory)
-    dataReader = DataReader_Embeddings(dataDir, 'bucketing', runConfig.batchSize, 40, loggerFactory)
+    # dataReader = DataReader_Embeddings(dataDir, 'bucketing', runConfig.batchSize, 40, loggerFactory)
+    dataReader = dataReaderMaker(bucketingOrRandom='bucketing', batchSize_=runConfig.batchSize, minimumWords=40, loggerFactory=loggerFactory)
     model = modelMaker(dataReader.input, loggerFactory)
     initialLr = model.initialLearningRate
 
@@ -124,7 +123,7 @@ def learn(dataDir, modelMaker, runScale, logDir=create_time_dir('./logs/main')):
         log_progress(step, numDataPoints, lr, c, acc, trainLogFunc)
 
         if step % logValidationEvery == 0:
-            curValidC, curValidAcc = evaluate_in_batches(dataReader.get_validation_data_in_batches(), dataReader.classLabels, model.evaluate, validLogFunc, verbose_=False)
+            curValidC, curValidAcc = evaluate_in_batches(sess, dataReader.get_validation_data_in_batches(), dataReader.classLabels, model.evaluate, validLogFunc, verbose_=False)
             saver.save(sess, savePath, global_step=numDataPoints)
 
             if curValidC >= bestValidC and curValidAcc <= bestValidAcc:
@@ -142,7 +141,7 @@ def learn(dataDir, modelMaker, runScale, logDir=create_time_dir('./logs/main')):
 
 
     testLogFunc('Time elapsed: %0.3f ' % (time()-st) )
-    evaluate_in_batches(dataReader.get_test_data_in_batches(), dataReader.classLabels, model.evaluate, testLogFunc, verbose_=True)
+    evaluate_in_batches(sess, dataReader.get_test_data_in_batches(), dataReader.classLabels, model.evaluate, testLogFunc, verbose_=True)
 
     saver.save(sess, savePath)
     train_writer.close()
@@ -191,45 +190,16 @@ class RunConfig(object):
         self._logFunc('batch size %d, validation worse run tolerance %d' % (self.batchSize, self.failToImproveTolerance))
 
 
-if __name__ == '__main__':
+def run_thru_params(dataReaderMaker, modelMakers, runScale, baseLogDir, useCPU=True):
+    """
+    :type modelMakers: list 
+    :type runScale: str
+    :type baseLogDir: str
+    :type useCPU: bool
+    :return: 
+    """
 
-    DATA_DIRs = {'tiny_fake_2': './data/peopleData/2_samples',
-                 'tiny_fake_4': './data/peopleData/4_samples',
-                 'small_2occupations': './data/peopleData/earlyLifesWordMats/politician_scientist',
-                 'small': './data/peopleData/earlyLifesWordMats',
-                 'full_2occupations': './data/peopleData/earlyLifesWordMats_42B300d/politician_scientist',
-                 'full': './data/peopleData/earlyLifesWordMats_42B300d'}
-
-
-    # ============= CHANGE BELOW THIS LINE ==============
-    useCPU = True
-
-    dd = DATA_DIRs['full']
-    runScale = 'full'
-
-    # dd = DATA_DIRs['tiny_fake_2']
-    # runScale = 'tiny'
-
-    paramsToUse = []
-
-    for l2lambda in [1e-4, 1e-5]:
-        for numRnnOutSteps in [5, 10, 40]:
-            for rnnNumCellUnits, rnnKeepProbs in [([128, 64], [0.5, 0.9]),
-                                                  ([64, 64, 32], [0.8, 0.8, 0.9]),
-                                                  ([128, 128, 64, 64], [0.5, 0.7, 0.8, 0.9])]:
-                for pooledKeepProb in [0.5, 0.9]:
-                    modelMaker = lambda input_, logFac: Model2(input_,
-                                                               1e-3, l2lambda,
-                                                               numRnnOutSteps, rnnNumCellUnits, rnnKeepProbs,
-                                                               pooledKeepProb,
-                                                               logFac)
-
-                    paramsToUse.append({'dataDir': dd, 'runScale': runScale, 'modelMaker': modelMaker})
-
-    # ============= CHANGE ABOVE THIS LINE ==============
-
-
-    for p in paramsToUse[:2]:
+    for mk in modelMakers:
 
         tf.reset_default_graph()
 
@@ -237,8 +207,10 @@ if __name__ == '__main__':
             with tf.device('/cpu:0'):
                 sess = tf.InteractiveSession(config=tf.ConfigProto(allow_soft_placement=True))
 
-                learn(**p)
+                train(sess, dataReaderMaker, mk, runScale, baseLogDir)
         else:
-            sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.85),
-                                                               allow_soft_placement=True))
-            learn(**p)
+            sess = tf.InteractiveSession(
+                config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.85),
+                                      allow_soft_placement=True))
+
+            train(sess, dataReaderMaker, mk, runScale, baseLogDir)

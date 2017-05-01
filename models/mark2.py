@@ -2,37 +2,37 @@ import tensorflow as tf
 import numpy as np
 
 from models.abstract_model import AbstractModel
-from data_readers import DataReader_Embeddings
+from data_readers.embedding_data_reader import EmbeddingDataReader
 from layers.rnn_layer import RNNLayer
 from layers.fully_connected_layer import FullyConnectedLayer
 from layers.dropout_layer import DropoutLayer
 from layers.conv_maxpool_layer import ConvMaxpoolLayer
+
+from utilities import make_params_dict
+
 
 
 def convert_to_2d(t, d):
     newSecondD = np.product(d[1:])
     return tf.reshape(t, [-1, newSecondD]), newSecondD
 
-class Model2(AbstractModel):
+class Mark2(AbstractModel):
 
     def __init__(self, input_,
                  initialLearningRate, l2RegLambda,
-                 numRnnOutputSteps, rnnNumCellUnits, rnnKeepProbs,
+                 numRnnOutputSteps,
+                 rnnCellUnitsNProbs,
                  pooledKeepProb,
                  loggerFactory_=None):
         """        
         :type initialLearningRate: float 
         :type l2RegLambda: float
-        :type rnnNumCellUnits: list
+        :type rnnCellUnitsNProbs: tuple
         :type numRnnOutputSteps: int 
-        :type rnnKeepProbs: Union[list, float]
         :type pooledKeepProb: float 
         """
 
-        if type(rnnKeepProbs) == float:
-            assert 0 < rnnKeepProbs <= 1
-            rnnKeepProbs = [rnnKeepProbs] * len(rnnNumCellUnits)
-
+        rnnNumCellUnits, rnnKeepProbs = rnnCellUnitsNProbs
         assert len(rnnNumCellUnits) == len(rnnNumCellUnits)
         assert 0.0 < pooledKeepProb <= 1
 
@@ -81,26 +81,32 @@ class Model2(AbstractModel):
         self.l2Loss = self.l2RegLambda * (tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases))
 
 
+    @classmethod
+    def quick_run(cls, runScale ='tiny', dataScale='tiny_fake_2', useCPU = True):
 
+        params = [('initialLearningRate', [1e-3]),
+                  ('l2RegLambda', [0]),
+                  ('numRnnOutputSteps', [10]),
+                  ('rnnCellUnitsNProbs', [([3], [1]),
+                                          ([4, 8], [1, 1])]),
+                  ('pooledKeepProb', [1])]
+
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+
+    @classmethod
+    def full_run(cls, runScale='full', dataScale='full', useCPU = True):
+
+        params = [('initialLearningRate', [1e-3]),
+                  ('l2RegLambda', [1e-4, 1e-5]),
+                  ('numRnnOutputSteps', [5, 10, 40]),
+                  ('rnnCellUnitsNProbs', [([128, 64], [0.5, 0.9]),
+                                          ([64, 64, 32], [0.8, 0.8, 0.9]),
+                                          ([128, 128, 64, 64], [0.5, 0.7, 0.8, 0.9])]),
+                  ('pooledKeepProb', [0.5, 0.9])]
+
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-
-    datadir = '../data/peopleData/2_samples'
-    # datadir = '../data/peopleData/earlyLifesWordMats/politician_scientist'
-
-    lr = 1e-3
-    dr = DataReader_Embeddings(datadir, 'bucketing', 40, 30)
-    model = Model2(dr.input, lr, 0, 4, [8], 1, 1)
-
-    sess = tf.InteractiveSession()
-    sess.run(tf.global_variables_initializer())
-
-    for step in range(100):
-        if step % 10 == 0:
-            print('Lowering learning rate to', lr)
-            lr *= 0.9
-            model.assign_lr(sess, lr)
-
-        fd = dr.get_next_training_batch()[0]
-        _, c, acc = model.train_op(sess, fd, True)
-        print('Step %d: (cost, accuracy): training (%0.3f, %0.3f)' % (step, c, acc))
+    Mark2.quick_run()
+    # sanity_run()
+    # full_run()

@@ -1,13 +1,23 @@
+# Mark 3: Embeddings followed by CNN-maxpool
+# with conv done sequence-wise and maxpool done embedding dimension-wise
+# just as in http://www.wildml.com/2015/12/implementing-a-cnn-for-text-classification-in-tensorflow/
+
 import tensorflow as tf
 import numpy as np
+import os
 
 from models.abstract_model import AbstractModel
-from data_readers import DataReader_Text
+from data_readers.text_data_reader import TextDataReader
 from layers.embedding_layer import EmbeddingLayer
-from layers.rnn_layer import RNNLayer
 from layers.fully_connected_layer import FullyConnectedLayer
 from layers.dropout_layer import DropoutLayer
 from layers.conv_maxpool_layer import ConvMaxpoolLayer
+
+from train import train
+from utilities import run_with_processor
+
+PPL_DATA_DIR = '../data/peopleData/'
+
 
 
 def convert_to_2d(t, d):
@@ -76,29 +86,37 @@ class Mark3(AbstractModel):
 
         self.l2Loss = self.l2RegLambda * (tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases))
 
+    @classmethod
+    def quick_run(cls, runScale='tiny', dataScale='tiny_fake_2', useCPU=True):
 
+        dataReaderMaker = TextDataReader.maker_from_premade_source(dataScale)
+
+        modelMaker = lambda input_, logFac: cls(input_, 1e-3, 0, 4, [8], 1, 1, logFac)
+
+        run_with_processor(lambda sess: train(sess, dataReaderMaker, modelMaker, runScale,
+                                              os.path.join('../logs/main/', cls.__name__)),
+                           useCPU=useCPU)
+
+    @classmethod
+    def full_run(cls, runScale='full', dataScale='full', useCPU=True):
+
+        dataReaderMaker = TextDataReader.maker_from_premade_source(dataScale)
+
+        for l2lambda in [1e-4, 1e-5]:
+            for numRnnOutSteps in [5, 10, 40]:
+                for rnnNumCellUnits, rnnKeepProbs in [([128, 64], [0.5, 0.9]),
+                                                      ([64, 64, 32], [0.8, 0.8, 0.9]),
+                                                      ([128, 128, 64, 64], [0.5, 0.7, 0.8, 0.9])]:
+                    for pooledKeepProb in [0.5, 0.9]:
+                        modelMaker = lambda input_, logFac: cls(input_,
+                                                                1e-3, l2lambda,
+                                                                numRnnOutSteps, rnnNumCellUnits, rnnKeepProbs,
+                                                                pooledKeepProb,
+                                                                logFac)
+
+                        run_with_processor(lambda sess: train(sess, dataReaderMaker, modelMaker, runScale,
+                                                              os.path.join('../logs/main/', cls.__name__)),
+                                           useCPU=useCPU)
 
 if __name__ == '__main__':
-
-
-    lr = 1e-3
-    # dr = DataReader_Text('../data/peopleData/tokensfiles/pol_sci.json', 'bucketing', 40, 30)
-    dr = DataReader_Text('../data/peopleData/tokensfiles/fake2.json', 'bucketing', 40, 30)
-
-    model = Mark3(dr.input, lr, 0,
-                  dr.vocabSize, embeddingDim=16,
-                  filterSizes=[2,3,5], numFeaturesPerFilter=4,
-                  pooledKeepProb=1)
-
-    sess = tf.InteractiveSession()
-    sess.run(tf.global_variables_initializer())
-
-    for step in range(100):
-        if step % 10 == 0:
-            print('Lowering learning rate to', lr)
-            lr *= 0.9
-            model.assign_lr(sess, lr)
-
-        fd = dr.get_next_training_batch()[0]
-        _, c, acc = model.train_op(sess, fd, True)
-        print('Step %d: (cost, accuracy): training (%0.3f, %0.3f)' % (step, c, acc))
+    Mark3.quick_run()

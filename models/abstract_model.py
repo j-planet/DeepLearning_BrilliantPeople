@@ -1,7 +1,10 @@
 import tensorflow as tf
 from tensorflow import name_scope, summary
+import os
 
 from abc import ABCMeta, abstractmethod
+from utilities import run_with_processor
+from train import train
 
 
 
@@ -83,6 +86,24 @@ class AbstractModel(metaclass=ABCMeta):
         self.add_output(layer.output, layer.output_shape)
 
         return layer
+
+    @classmethod
+    def run_thru_data(cls, dataReaderKlass, dataScale, modelParams, runScale, useCPU=True):
+        """
+        :type dataScale: str
+        :type modelParams: list
+        :type runScale: str
+        """
+
+        dataReaderMaker = dataReaderKlass.maker_from_premade_source(dataScale)
+
+        for p in modelParams:
+
+            modelMaker = lambda input_, logFac: cls(input_=input_, **p, loggerFactory_=logFac)
+
+            run_with_processor(lambda sess: train(sess, dataReaderMaker, modelMaker, runScale,
+                                                  os.path.join('../logs/main/', cls.__name__)),
+                               useCPU=useCPU)
 
     @property
     def l2RegLambda(self):

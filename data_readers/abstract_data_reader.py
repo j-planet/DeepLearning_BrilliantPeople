@@ -1,14 +1,9 @@
-import tensorflow as tf
-from tensorflow.contrib.learn import preprocessing
-import json, os, glob
 from pprint import pformat
 import numpy as np
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.preprocessing import LabelEncoder
 from collections import Counter
 from abc import ABCMeta, abstractmethod
-
-from data_processing.file2vec import filename2name
 
 
 def one_hot(ind, vecLen):
@@ -17,27 +12,6 @@ def one_hot(ind, vecLen):
 
     return np.array(res)
 
-def patch_arrays(arrays, lengths, numrows=None):
-    """
-    patch all arrays to have the same number of rows
-    :param numrows: if None, patch to the max number of rows in the arrays
-    :param arrays: 
-    :return:  
-    """
-
-    assert len(arrays) == len(lengths)
-
-    # pad to the largest array
-    padLen = lengths.max()
-    assert numrows is None or numrows >= padLen, 'numrows is fewer than the max number of rows: %d vs %d.' % (numrows, padLen)
-    padLen = numrows or padLen
-
-    res = np.zeros( (len(arrays), padLen, arrays[0].shape[1]) )
-
-    for i, arr in enumerate(arrays):
-        res[i][:arr.shape[0], :] = arr
-
-    return res
 
 def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=True, logFunc_=None):
     """
@@ -70,6 +44,7 @@ def train_valid_test_split(YData_, trainSize_, validSize_, testSize_, verbose_=T
         logFunc_(pformat(Counter(YData_[test_indices])))
 
     return train_indices, valid_indices, test_indices
+
 
 
 class AbstractDataReader(metaclass=ABCMeta):
@@ -134,6 +109,19 @@ class AbstractDataReader(metaclass=ABCMeta):
 
         del XData, YData, xLengths, names, indices  # I hope this is unnecessary. But not a lot of faith in Python's garbage-collection speed.
 
+    @classmethod
+    def maker_from_premade_source(cls, sourceName):
+        """
+        :return: a function lambda **kwargs: DataReader(source, **kwargs)
+        """
+
+        return lambda **kwargs: cls(cls.premade_sources()[sourceName], **kwargs)
+
+    @classmethod
+    @abstractmethod
+    def premade_sources(cls):
+        raise NotImplementedError('This (%s) is an abstract class.' % cls.__name__)
+
     @abstractmethod
     def _read_raw_data(self):
         raise NotImplementedError('This (%s) is an abstract class.' % self.__class__.__name__)
@@ -182,160 +170,3 @@ class AbstractDataReader(metaclass=ABCMeta):
     @property
     def input(self):
         return {'x': self.x, 'y': self.y, 'numSeqs': self.numSeqs}
-
-
-class DataReader_Embeddings(AbstractDataReader):
-
-    def __init__(self, inputFilesDir, bucketingOrRandom, batchSize_, minimumWords,
-                 loggerFactory=None, train_valid_test_split_=(0.8, 0.1, 0.1)):
-
-        super().__init__(inputFilesDir, bucketingOrRandom, batchSize_, minimumWords,
-                         loggerFactory, train_valid_test_split_)
-
-    def setup_placeholders(self):
-
-        # in the order of: x, y, numSeqs
-        return tf.placeholder(tf.float32, [None, None, self.vectorDimension]), \
-               tf.placeholder(tf.float32, [None, self.numClasses]), \
-               tf.placeholder(tf.int32)
-
-    def _read_raw_data(self):
-        XData = []
-        xLengths = []
-        YData = []
-        names = []
-
-        self.print('======= Reading pre-made vector files... =======')
-        self.print('Data source: ' + self.inputSource)
-
-        numSkipped = 0
-        for inputFilename in glob.glob(os.path.join(self.inputSource, '*.json')):
-
-            with open(inputFilename, encoding='utf8') as ifile:
-                d = json.load(ifile)
-
-            mat = np.array(d['mat'])
-
-            if len(mat) < self.minimumWords:
-                numSkipped += 1
-                continue
-
-            XData.append(mat)
-            occ = d['occupation']
-            xLengths.append(mat.shape[0])
-            YData.append(occ if type(occ) == str else occ[-1])
-            names.append(filename2name(inputFilename))
-
-        self.vectorDimension = XData[0].shape[1]
-        self.maxXLen = max([d.shape[0] for d in XData])
-
-        self.print('%d out of %d skipped' % (numSkipped, numSkipped + len(XData)))
-
-        return np.array(XData), np.array(YData), np.array(xLengths), np.array(names)
-
-    def _put_data_into_batches(self, xData_, yData_, xLengths_, names_):
-        """
-        :param xData_: 3D array of shape (number of arrays, sequences, vecDim)
-        :return: a list of tuples [({x, y, xlengths, names}]
-        """
-
-        assert len(xData_) == len(xLengths_) == len(yData_) == len(names_)
-
-        res = []
-        total = len(xData_)
-
-        startInds = list(range(0, total, self._batchSize))
-        stopInds = startInds[1:] + [total]
-
-        for start, stop in zip(startInds, stopInds):
-            x = patch_arrays(xData_[start:stop], xLengths_[start:stop])
-            res.append((x, yData_[start:stop], xLengths_[start:stop], names_[start:stop]))
-
-        return res
-
-
-
-class DataReader_Text(AbstractDataReader):
-
-    def __init__(self, inputFilename, bucketingOrRandom, batchSize_, minimumWords,
-                 loggerFactory=None, train_valid_test_split_=(0.8, 0.1, 0.1)):
-
-        super().__init__(inputFilename, bucketingOrRandom, batchSize_, minimumWords,
-                         loggerFactory, train_valid_test_split_)
-
-
-    def setup_placeholders(self):
-
-        # in the order of: x, y, numSeqs
-        return tf.placeholder(tf.int32, [None, self.maxXLen]), \
-               tf.placeholder(tf.float32, [None, self.numClasses]), \
-               tf.placeholder(tf.int32)
-
-    def _read_raw_data(self):
-
-        XData = []
-        xLengths = []
-        YData = []
-        names = []
-
-        self.print('======= Reading pre-made vector files... =======')
-        self.print('Data source: ' + self.inputSource)
-
-        numSkipped = 0
-
-        with open(self.inputSource, encoding='utf8') as ifile:
-
-            for d in json.load(ifile):
-                occ = d['occupation']
-                content = d['content']
-                numTokens = len(content.split(' '))
-
-                if numTokens < self.minimumWords:
-                    numSkipped += 1
-                    continue
-
-                XData.append(content)
-                xLengths.append(numTokens)
-                YData.append(occ if type(occ) == str else occ[-1])
-                names.append(d['name'])
-
-        self.print('%d out of %d skipped' % (numSkipped, numSkipped + len(XData)))
-        self.maxXLen = max(xLengths)
-
-        self.vocabProcessor = preprocessing.VocabularyProcessor(self.maxXLen)
-        XData = list(self.vocabProcessor.fit_transform(XData))
-        self.vocabSize = len(self.vocabProcessor.vocabulary_)
-
-        return np.array(XData), np.array(YData), np.array(xLengths), np.array(names)
-
-    def _put_data_into_batches(self, xData_, yData_, xLengths_, names_):
-        """
-        :param xData_: 3D array of shape (number of arrays, sequences, vecDim)
-        :return: a list of tuples [({x, y, xlengths, names}]
-        """
-
-        assert len(xData_) == len(xLengths_) == len(yData_) == len(names_)
-
-        total = len(xData_)
-
-        startInds = list(range(0, total, self._batchSize))
-        stopInds = startInds[1:] + [total]
-
-        return [(xData_[start:stop],
-                 yData_[start:stop],
-                 xLengths_[start:stop],
-                 names_[start:stop])
-                for start, stop in zip(startInds, stopInds)]
-
-
-if __name__ == '__main__':
-    dataReader = DataReader_Embeddings('./data/peopleData/2_samples', 'bucketing', 5, 1)
-
-    # dataReader = DataReader_Text('./data/peopleData/tokensfiles/all.json', 'bucketing', 5, 1)
-    # dataReader = DataReader_Text('./data/peopleData/tokensfiles/pol_sci.json', 'bucketing', 2, 1)
-
-    for _ in range(10):
-        d, names = dataReader.get_next_training_batch()
-
-        print(d)
-        print(names)
