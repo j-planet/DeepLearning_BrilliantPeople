@@ -34,10 +34,14 @@ def patch_arrays(arrays, lengths, numrows=None):
 class EmbeddingDataReader(AbstractDataReader):
 
     def __init__(self, inputFilesDir, bucketingOrRandom, batchSize_, minimumWords,
-                 loggerFactory=None, train_valid_test_split_=(0.8, 0.1, 0.1)):
+                 loggerFactory=None, train_valid_test_split_=(0.8, 0.1, 0.1), padToFull=False):
+
+        self.padToFull = padToFull
 
         super().__init__(inputFilesDir, bucketingOrRandom, batchSize_, minimumWords,
                          loggerFactory, train_valid_test_split_)
+
+        self.print('padToFull: ' + str(padToFull))
 
     def setup_placeholders(self):
 
@@ -95,7 +99,7 @@ class EmbeddingDataReader(AbstractDataReader):
         stopInds = startInds[1:] + [total]
 
         for start, stop in zip(startInds, stopInds):
-            x = patch_arrays(xData_[start:stop], xLengths_[start:stop])
+            x = patch_arrays(xData_[start:stop], xLengths_[start:stop], self.maxXLen if self.padToFull else None)
             res.append((x, yData_[start:stop], xLengths_[start:stop], names_[start:stop]))
 
         return res
@@ -115,10 +119,10 @@ class EmbeddingDataReader(AbstractDataReader):
 
 
 if __name__ == '__main__':
-    dataReader = EmbeddingDataReader(os.path.join(PPL_DATA_DIR, '2_samples'), 'bucketing', 5, 1)
+    dr = EmbeddingDataReader(os.path.join(PPL_DATA_DIR, '2_samples'), 'bucketing', 5, 1, padToFull=False)
 
     for _ in range(10):
-        d, names = dataReader.get_next_training_batch()
+        d, names = dr.get_next_training_batch()
 
-        print(d)
+        print(d[dr.input['x']].shape)
         print(names)

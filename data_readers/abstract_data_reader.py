@@ -110,12 +110,12 @@ class AbstractDataReader(metaclass=ABCMeta):
         del XData, YData, xLengths, names, indices  # I hope this is unnecessary. But not a lot of faith in Python's garbage-collection speed.
 
     @classmethod
-    def maker_from_premade_source(cls, sourceName):
+    def maker_from_premade_source(cls, sourceName, **otherArgs):
         """
         :return: a function lambda **kwargs: DataReader(source, **kwargs)
         """
 
-        return lambda **kwargs: cls(cls.premade_sources()[sourceName], **kwargs)
+        return lambda **kwargs: cls(cls.premade_sources()[sourceName], **otherArgs, **kwargs)
 
     @classmethod
     @abstractmethod
