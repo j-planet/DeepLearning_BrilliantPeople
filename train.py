@@ -190,27 +190,3 @@ class RunConfig(object):
         self._logFunc('batch size %d, validation worse run tolerance %d' % (self.batchSize, self.failToImproveTolerance))
 
 
-def run_thru_params(dataReaderMaker, modelMakers, runScale, baseLogDir, useCPU=True):
-    """
-    :type modelMakers: list 
-    :type runScale: str
-    :type baseLogDir: str
-    :type useCPU: bool
-    :return: 
-    """
-
-    for mk in modelMakers:
-
-        tf.reset_default_graph()
-
-        if useCPU:
-            with tf.device('/cpu:0'):
-                sess = tf.InteractiveSession(config=tf.ConfigProto(allow_soft_placement=True))
-
-                train(sess, dataReaderMaker, mk, runScale, baseLogDir)
-        else:
-            sess = tf.InteractiveSession(
-                config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.85),
-                                      allow_soft_placement=True))
-
-            train(sess, dataReaderMaker, mk, runScale, baseLogDir)
