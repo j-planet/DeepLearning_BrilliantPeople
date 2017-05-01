@@ -71,13 +71,16 @@ class AbstractModel(metaclass=ABCMeta):
     def evaluate(self, sess_, feedDict_):
         return sess_.run([self.cost, self.accuracy, self.trueY, self.pred], feedDict_)
 
+    def add_output(self, output, outputShape):
+        self.outputs.append({'output': output, 'output_shape': outputShape})
+
     def add_layer(self, layerMaker_, input_=None, inputDim_=None):
-        input_ = input_ or self.prevOutput
+        if input_ is None: input_ = self.prevOutput
         inputDim_ = inputDim_ or self.prevOutputShape
 
         layer = layerMaker_(input_, inputDim_, self.loggerFactory)
         self.layers.append(layer)
-        self.outputs.append({'output': layer.output, 'output_shape': layer.output_shape})
+        self.add_output(layer.output, layer.output_shape)
 
         return layer
 

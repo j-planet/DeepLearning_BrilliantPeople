@@ -266,6 +266,6 @@ def file2tokens_mass(outputFname_, occupationReader_, selectedOccupations=None):
 
 
 if __name__ == '__main__':
-    file2tokens_mass(os.path.join(PPL_DATA_DIR, 'earlyLifeTokensFile_polsci.json'),
+    file2tokens_mass(os.path.join(PPL_DATA_DIR, 'tokensfiles/pol_sci.json'),
                      OccupationReader(),
                      ['politician', 'scientist'])
