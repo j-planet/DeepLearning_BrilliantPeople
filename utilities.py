@@ -154,3 +154,8 @@ def make_params_dict(paramsKeyValuesList):
     vals = [v[1] for v in paramsKeyValuesList]
 
     return [dict(zip(keys, params)) for params in itertools.product(*vals)]
+
+
+def convert_to_2d(t, d):
+    newSecondD = np.product(d[1:])
+    return tf.reshape(t, [-1, newSecondD]), newSecondD

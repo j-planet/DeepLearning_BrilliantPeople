@@ -89,14 +89,14 @@ class AbstractModel(metaclass=ABCMeta):
         return layer
 
     @classmethod
-    def run_thru_data(cls, dataReaderKlass, dataScale, modelParams, runScale, useCPU=True):
+    def run_thru_data(cls, dataReaderKlass, dataScale, modelParams, runScale, useCPU=True, **otherDataReaderKwargs):
         """
         :type dataScale: str
         :type modelParams: list
         :type runScale: str
         """
 
-        dataReaderMaker = dataReaderKlass.maker_from_premade_source(dataScale)
+        dataReaderMaker = dataReaderKlass.maker_from_premade_source(dataScale, **otherDataReaderKwargs)
 
         for p in modelParams:
 

@@ -101,11 +101,11 @@ class Mark3c(AbstractModel):
             bucketingOrRandom='bucketing', batchSize_=50, minimumWords=0).vocabSize
 
         params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [1e-5]),
+                  ('l2RegLambda', [1e-4]),
                   ('vocabSize', [vocabSize]),
-                  ('embeddingDim', [128]),
-                  ('filterSizes', [[1, 2, 4]]),
-                  ('numFeaturesPerFilter', [16])]
+                  ('embeddingDim', [256]),
+                  ('filterSizes', [[2, 3, 5]]),
+                  ('numFeaturesPerFilter', [32])]
 
         cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 

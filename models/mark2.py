@@ -8,13 +8,9 @@ from layers.fully_connected_layer import FullyConnectedLayer
 from layers.dropout_layer import DropoutLayer
 from layers.conv_maxpool_layer import ConvMaxpoolLayer
 
-from utilities import make_params_dict
+from utilities import make_params_dict, convert_to_2d
 
 
-
-def convert_to_2d(t, d):
-    newSecondD = np.product(d[1:])
-    return tf.reshape(t, [-1, newSecondD]), newSecondD
 
 class Mark2(AbstractModel):
 

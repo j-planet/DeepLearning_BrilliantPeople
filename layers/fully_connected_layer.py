@@ -33,7 +33,7 @@ class FullyConnectedLayer(AbstractLayer):
         return self.inputDim[0], self.weightDim[-1]
 
     def input_modifier(self, val):
-        self.print('Flatting the input into a 2D tensor.')
+        self.print('Flattening the input into a 2D tensor.')
         return tf.reshape(val, [-1, self._weight_first_dim()])
 
     @classmethod

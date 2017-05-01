@@ -112,6 +112,8 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
     bestValidC, bestValidAcc, numValidWorse = 100, 0, 0   # for early stopping if the model isn't getting anywhere :(
     lrDecayPerCycle = 0.9
 
+    train_accuracies = []
+
     for step in range(numSteps):
         numDataPoints = (step+1) * runConfig.batchSize
 
@@ -119,8 +121,8 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
         summaries, c, acc = model.train_op(sess, dataReader.get_next_training_batch()[0], computeMetrics_=True)
 
         train_writer.add_summary(summaries, step * batchSize)
-
         log_progress(step, numDataPoints, lr, c, acc, trainLogFunc)
+        train_accuracies.append(acc)
 
         if step % logValidationEvery == 0:
             curValidC, curValidAcc = evaluate_in_batches(sess, dataReader.get_validation_data_in_batches(), dataReader.classLabels, model.evaluate, validLogFunc, verbose_=False)
@@ -138,6 +140,11 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
                 bestValidC = min(bestValidC, curValidC)
                 bestValidAcc = max(bestValidAcc, curValidAcc)
                 numValidWorse = 0
+
+            # obviously overfitting
+            if step > 100 and sum(train_accuracies)/len(train_accuracies) - bestValidAcc > 0.2:
+                trainLogFunc('Overfitting. Quitting...')
+                break
 
 
     testLogFunc('Time elapsed: %0.3f ' % (time()-st) )

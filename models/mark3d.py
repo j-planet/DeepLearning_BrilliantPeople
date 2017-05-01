@@ -86,7 +86,7 @@ class Mark3d(AbstractModel):
         self.add_layer(DropoutLayer.new(self.pooledKeepProb))
 
         # layer4: fully connected
-        lastLayer = self.add_layer(FullyConnectedLayer.new(self.numClasses))
+        lastLayer = self.add_layer(FullyConnectedLayer.new(self.numClasses, activation='relu'))
 
         self.l2Loss = self.l2RegLambda * (tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases))
 
@@ -109,18 +109,18 @@ class Mark3d(AbstractModel):
         cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
     @classmethod
-    def quick_learn(cls, runScale ='small', dataScale='full_2occupations', useCPU = True):
+    def quick_learn(cls, runScale ='full', dataScale='full_2occupations', useCPU = True):
 
         # ok this is silly. But at least it's fast.
         vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
             bucketingOrRandom = 'bucketing', batchSize_ = 50, minimumWords = 0).vocabSize
 
-        params = [('initialLearningRate', [1e-3]),
+        params = [('initialLearningRate', [1e-4]),
                   ('l2RegLambda', [1e-4]),
                   ('vocabSize', [vocabSize]),
                   ('embeddingDim', [256]),
-                  ('convFilterSizesNKeepProbs', [([2, 3, 5], [0.75, 0.75, 0.75])]),
-                  ('numFeaturesPerFilter', [16]),
+                  ('convFilterSizesNKeepProbs', [([2, 3, 5], [0.6, 0.6, 0.6])]),
+                  ('numFeaturesPerFilter', [32]),
                   ('pooledKeepProb', [0.9])]
 
         cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
