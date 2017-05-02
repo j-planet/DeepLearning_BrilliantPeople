@@ -19,7 +19,7 @@ class Mark3b(AbstractModel):
 
     def __init__(self, input_,
                  initialLearningRate, l2RegLambda,
-                 numSeqs,
+                 maxNumSeqs,
                  filterSizes, numFeaturesPerFilter,
                  pooledKeepProb,
                  loggerFactory_=None):
@@ -32,7 +32,7 @@ class Mark3b(AbstractModel):
 
         self.l2RegLambda = l2RegLambda
         self.pooledKeepProb = pooledKeepProb
-        self.numSeqs = numSeqs
+        self.maxNumSeqs = maxNumSeqs
         self.filterSizes = filterSizes
         self.numFeaturesPerFilter = numFeaturesPerFilter
 
@@ -47,10 +47,10 @@ class Mark3b(AbstractModel):
 
         for filterSize in self.filterSizes:
 
-            l = ConvMaxpoolLayer(self.input['x'], (-1, self.numSeqs, self.vecDim),
+            l = ConvMaxpoolLayer(self.x, (-1, self.maxNumSeqs, self.vecDim),
                                  convParams_={'filterShape': (filterSize, self.vecDim),
                                               'numFeaturesPerFilter': self.numFeaturesPerFilter, 'activation': 'relu'},
-                                 maxPoolParams_={'ksize': (self.numSeqs - filterSize + 1, 1), 'padding': 'VALID'},
+                                 maxPoolParams_={'ksize': (self.maxNumSeqs - filterSize + 1, 1), 'padding': 'VALID'},
                                  loggerFactory=self.loggerFactory)
 
             o, col = convert_to_2d(l.output, l.output_shape)
@@ -80,9 +80,9 @@ class Mark3b(AbstractModel):
 
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0]),
-                  ('numSeqs', [numSeqs]),
-                  ('filterSizes', [[2, 4]]),
-                  ('numFeaturesPerFilter', [8]),
+                  ('maxNumSeqs', [numSeqs]),
+                  ('filterSizes', [[2]]),
+                  ('numFeaturesPerFilter', [3]),
                   ('pooledKeepProb', [1])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
