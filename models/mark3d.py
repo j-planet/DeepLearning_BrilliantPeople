@@ -109,14 +109,14 @@ class Mark3d(AbstractModel):
         cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
     @classmethod
-    def quick_learn(cls, runScale ='full', dataScale='full_2occupations', useCPU = True):
+    def quick_learn(cls, runScale ='small', dataScale='full_2occupations', useCPU = True):
 
         # ok this is silly. But at least it's fast.
         vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
             bucketingOrRandom = 'bucketing', batchSize_ = 50, minimumWords = 0).vocabSize
 
         params = [('initialLearningRate', [1e-4]),
-                  ('l2RegLambda', [1e-4]),
+                  ('l2RegLambda', [1e-5]),
                   ('vocabSize', [vocabSize]),
                   ('embeddingDim', [256]),
                   ('convFilterSizesNKeepProbs', [([2, 3, 5], [0.6, 0.6, 0.6])]),
@@ -148,4 +148,4 @@ class Mark3d(AbstractModel):
         cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    Mark3d.full_run()
+    Mark3d.quick_learn()

@@ -4,6 +4,7 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 import itertools
+from pprint import pformat
 
 
 def dir_create_n_clear(*pathComponents):
@@ -38,13 +39,29 @@ def reshape_x_for_non_dynamic(x_, numSeqs_, seqLen_):
         numSeqs_, 0)
 
 
-def label_comparison(trueYInds_, predYInds_, names_, yLabelTexts_, logFunc_):
+def label_comparison(trueYInds_, predYInds_, names_, yLabelTexts_, logFunc_, verbose_ = False):
     logFunc_ = logFunc_ or print
-    logFunc_('True label became... --> ?')
+
+    if verbose_:
+        logFunc_('True label became... --> ?')
+
+    wrongCount = {} # { (true, pred): count }
 
     for i, name in enumerate(names_):
-        logFunc_('%-20s %s --> %s %s' % (name, yLabelTexts_[trueYInds_[i]], yLabelTexts_[predYInds_[i]],
-                                         '(wrong)' if trueYInds_[i] != predYInds_[i] else ''))
+
+        trueLabel = yLabelTexts_[trueYInds_[i]]
+        predLabel = yLabelTexts_[predYInds_[i]]
+
+        correct = trueLabel == predLabel
+
+        if not correct:
+            wrongCount[(trueLabel, predLabel)] = wrongCount.get((trueLabel, predLabel), 0) + 1
+
+        if verbose_:
+            logFunc_('%-20s %s --> %s %s' % (name, trueLabel, predLabel, '' if correct else '(wrong)'))
+
+    logFunc_('Wrong prediction count for %d samples:' % len(names_))
+    logFunc_(pformat(wrongCount))
 
 
 def save_matrix_img(mats_, title, outputDir_, transpose_=False):
