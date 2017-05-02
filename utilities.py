@@ -77,6 +77,20 @@ def save_matrix_img(mats_, title, outputDir_, transpose_=False):
 
 
 def setup_logging(logFilename_, level_=logging.DEBUG):
+    print('setup_logging for', logFilename_)
+    logger = logging.getLogger()
+
+    if len(logger.handlers) > 1:
+        logger.handlers[0].stream.close()
+        logger.removeHandler(logger.handlers[0])
+
+        file_handler = logging.FileHandler(logFilename_)
+
+        file_handler.setLevel(level_)
+        formatter = logging.Formatter('%(asctime)s %(name)-15s %(message)s')
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
     logging.basicConfig(level=level_,
                         format='%(asctime)s %(name)-15s %(message)s',
                         datefmt='%H:%M:%S',
@@ -101,6 +115,10 @@ class LoggerFactory(object):
         self.loggers = {}
 
     def getLogger(self, n_):
+
+        if n_ in logging.Logger.manager.loggerDict:
+            del logging.Logger.manager.loggerDict[n_]
+
         self.loggers[n_] = logging.getLogger(n_)
         return self.loggers[n_]
 
