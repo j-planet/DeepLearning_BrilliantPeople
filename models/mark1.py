@@ -30,11 +30,11 @@ class Mark1(AbstractModel):
 
     def make_graph(self):
 
-        self.add_layer(RNNLayer.new(self.rnnNumCellUnits),
-                       self.input,
-                       (-1, -1, self.vecDim))
+        self.add_layers(RNNLayer.new(self.rnnNumCellUnits),
+                        self.input,
+                        (-1, -1, self.vecDim))
 
-        self.add_layer(FullyConnectedLayer.new(self.numClasses))
+        self.add_layers(FullyConnectedLayer.new(self.numClasses))
 
 
 if __name__ == '__main__':

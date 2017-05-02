@@ -43,7 +43,7 @@ class Mark2(AbstractModel):
 
     def make_graph(self):
 
-        layer1 = self.add_layer(RNNLayer.new(
+        layer1 = self.add_layers(RNNLayer.new(
             self.rnnNumCellUnits, numStepsToOutput_ = self.numRnnOutputSteps), self.input, (-1, -1, self.vecDim))
 
         # just last row of the rnn output
@@ -70,9 +70,9 @@ class Mark2(AbstractModel):
         self.outputs.append({'output': layer2_output,
                              'output_shape': (layer2a_outputshape[0], layer2_output_numcols)})
 
-        self.add_layer(DropoutLayer.new(self.pooledKeepProb))
+        self.add_layers(DropoutLayer.new(self.pooledKeepProb))
 
-        lastLayer = self.add_layer(FullyConnectedLayer.new(self.numClasses))
+        lastLayer = self.add_layers(FullyConnectedLayer.new(self.numClasses))
 
         self.l2Loss = self.l2RegLambda * (tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases))
 
@@ -102,6 +102,19 @@ class Mark2(AbstractModel):
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
+
+    @classmethod
+    def comparison_run(cls, runScale='medium', dataScale='full_2occupations', useCPU = True):
+
+        params = [('initialLearningRate', [1e-3]),
+                  ('l2RegLambda', [5e-4]),
+                  ('numRnnOutputSteps', [5, 10]),
+                  ('rnnCellUnitsNProbs', [([64, 64, 32], [0.8, 0.8, 0.9])]),
+                  ('pooledKeepProb', [0.5, 0.9])]
+
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+
+
     @classmethod
     def full_run(cls, runScale='full', dataScale='full', useCPU = True):
 
@@ -116,4 +129,4 @@ class Mark2(AbstractModel):
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    Mark2.quick_learn()
+    Mark2.comparison_run()

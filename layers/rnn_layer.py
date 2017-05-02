@@ -51,9 +51,8 @@ class RNNLayer(AbstractLayer):
 
     def make_stacked_cells(self):
 
-        # return MultiRNNCell([DropoutWrapper(BasicLSTMCell(f), output_keep_prob=k)
-        #                      for f, k in zip(self.numLSTMUnits, self.outputKeepProbs)])
-        return MultiRNNCell([BasicLSTMCell(f) for f in self.numLSTMUnits])
+        return MultiRNNCell([DropoutWrapper(BasicLSTMCell(f), output_keep_prob=k)
+                             for f, k in zip(self.numLSTMUnits, self.outputKeepProbs)])
 
     @property
     def output_shape(self):
