@@ -122,20 +122,36 @@ class Mark3(AbstractModel):
         cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
     @classmethod
-    def full_run(cls, runScale='tiny', dataScale='tiny_fake_2', useCPU=True):
+    def comparison_run(cls, runScale='small', dataScale='full_2occupations', useCPU=True):
         # ok this is silly. But at least it's fast.
         vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
             bucketingOrRandom='bucketing', batchSize_=50, minimumWords=0).vocabSize
 
         params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [0, 1e-4, 1e-5]),
+                  ('l2RegLambda', [0, 1e-5]),
                   ('vocabSize', [vocabSize]),
-                  ('embeddingDim', [64, 128, 256, 300]),
-                  ('filterSizes', [[1, 2, 4], [3, 4, 5], [3, 5, 10, 15]]),
+                  ('embeddingDim', [64, 128, 300]),
+                  ('filterSizes', [[1, 2, 4]]),
+                  ('numFeaturesPerFilter', [16, 32, 64]),
+                  ('pooledKeepProb', [0.5, 0.85, 1])]
+
+        cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+
+    @classmethod
+    def full_run(cls, runScale='full', dataScale='full', useCPU=True):
+        # ok this is silly. But at least it's fast.
+        vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
+            bucketingOrRandom='bucketing', batchSize_=50, minimumWords=0).vocabSize
+
+        params = [('initialLearningRate', [1e-3]),
+                  ('l2RegLambda', [0, 1e-5]),
+                  ('vocabSize', [vocabSize]),
+                  ('embeddingDim', [64, 128, 300]),
+                  ('filterSizes', [[1, 2, 4], [3, 5, 10, 15]]),
                   ('numFeaturesPerFilter', [16, 32, 64]),
                   ('pooledKeepProb', [0.5, 0.7, 0.9, 1])]
 
         cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    Mark3.quick_learn()
+    Mark3.comparison_run()

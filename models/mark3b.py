@@ -105,15 +105,29 @@ class Mark3b(AbstractModel):
 
 
     @classmethod
+    def comparison_run(cls, runScale='small', dataScale='full_2occupations', useCPU=True):
+        numSeqs = EmbeddingDataReader(EmbeddingDataReader.premade_sources()[dataScale], 'bucketing', 100, 40, padToFull=True).maxXLen
+
+        params = [('initialLearningRate', [1e-3]),
+                  ('l2RegLambda', [0, 1e-5]),
+                  ('maxNumSeqs', [numSeqs]),
+                  ('filterSizes', [[1, 2, 4]]),
+                  ('numFeaturesPerFilter', [16, 32, 64]),
+                  ('pooledKeepProb', [0.5, 0.85, 1])]
+
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
+
+    @classmethod
     def full_run(cls, runScale='full', dataScale='full', useCPU=True):
 
         params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [0, 1e-4, 1e-5]),
-                  ('filterSizes', [[1, 2, 4], [3, 4, 5], [3, 5, 10, 15]]),
+                  ('l2RegLambda', [0, 1e-5]),
+                  ('filterSizes', [[1, 2, 4], [3, 5, 10, 15]]),
                   ('numFeaturesPerFilter', [16, 32, 64]),
-                  ('pooledKeepProb', [0.5, 0.7, 0.9, 1])]
+                  ('pooledKeepProb', [0.5, 0.7, .9, 1])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
 
 if __name__ == '__main__':
-    Mark3b.quick_learn('tiny', 'tiny_fake_2')
+    # Mark3b.quick_learn('tiny', 'tiny_fake_2')
+    Mark3b.comparison_run()
