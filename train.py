@@ -142,7 +142,7 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
                 numValidWorse = 0
 
             # obviously overfitting
-            if step > 100 and sum(train_accuracies)/len(train_accuracies) - bestValidAcc > 0.2:
+            if step > 100 and sum(train_accuracies)/len(train_accuracies) - bestValidAcc > 0.15:
                 trainLogFunc('Overfitting. Quitting...')
                 break
 
