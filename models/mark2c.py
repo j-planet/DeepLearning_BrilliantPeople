@@ -97,13 +97,12 @@ class Mark2c(AbstractModel):
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
     @classmethod
-    def quick_learn(cls, runScale ='small', dataScale='small_2occupations', useCPU = True):
+    def quick_learn(cls, runScale ='small', dataScale='full_2occupations', useCPU = True):
 
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0]),
                   ('numRnnOutputSteps', [10]),
-                  ('rnnCellUnitsNProbs', [([32], [0.7]),
-                                          ([64, 16], [0.6, 0.9])]),
+                  ('rnnCellUnitsNProbs', [([32], [0.7])]),
                   ('convNumFeaturesPerFilter', [16]),
                   ('pooledKeepProb', [1])]
 
@@ -124,5 +123,5 @@ class Mark2c(AbstractModel):
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    Mark2c.quick_run()
-    # Mark2c.quick_learn()
+    # Mark2c.quick_run()
+    Mark2c.quick_learn()

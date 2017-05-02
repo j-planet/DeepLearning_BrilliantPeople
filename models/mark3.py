@@ -106,6 +106,22 @@ class Mark3(AbstractModel):
 
 
     @classmethod
+    def quick_learn(cls, runScale='small', dataScale='full_2occupations', useCPU=True):
+        # ok this is silly. But at least it's fast.
+        vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
+            bucketingOrRandom='bucketing', batchSize_=50, minimumWords=0).vocabSize
+
+        params = [('initialLearningRate', [1e-3]),
+                  ('l2RegLambda', [0]),
+                  ('vocabSize', [vocabSize]),
+                  ('embeddingDim', [300]),
+                  ('filterSizes', [[1, 3, 5]]),
+                  ('numFeaturesPerFilter', [8]),
+                  ('pooledKeepProb', [1])]
+
+        cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+
+    @classmethod
     def full_run(cls, runScale='tiny', dataScale='tiny_fake_2', useCPU=True):
         # ok this is silly. But at least it's fast.
         vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
@@ -122,4 +138,4 @@ class Mark3(AbstractModel):
         cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    Mark3.quick_run()
+    Mark3.quick_learn()
