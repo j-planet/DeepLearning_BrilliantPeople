@@ -3,6 +3,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out
 import tensorflow as tf
 
 from layers.abstract_layer import AbstractLayer
+from utilities import filter_output_size
 
 
 # ------ stack of LSTM - bi-directional RNN layer ------
@@ -34,11 +35,12 @@ class MaxpoolLayer(AbstractLayer):
     @property
     def output_shape(self):
 
-        # return (self.inputDim[0],
-        #         *[filter_output_size(self.inputDim[i], self.ksize[i], self.strides[i], self.padding) for i in [1,2]],
-        #         self.inputDim[3])
+        if self.padding == 'SAME':
+            return self.inputDim
 
-        return self.inputDim
+        return (self.inputDim[0],
+                *[filter_output_size(self.inputDim[i], self.ksize[i], self.strides[i], self.padding) for i in [1,2]],
+                self.inputDim[3])
 
     @classmethod
     def new(cls, ksize, strides=(1, 1), padding='VALID', activation=None):
@@ -47,15 +49,15 @@ class MaxpoolLayer(AbstractLayer):
                 ksize, strides, padding, activation, loggerFactory)
 
 if __name__ == '__main__':
-    inputShape = [1, 3, 2, 1]
-    ksize = (100, 100)
+    inputShape = [1, 5, 3, 1]
+    ksize = (5, 1)
     stride = (1, 1)
     v = tf.Variable(tf.random_normal(inputShape))
 
     maker1 = MaxpoolLayer.new(ksize, stride, padding='SAME')
     maker2 = MaxpoolLayer.new(ksize, stride, padding='VALID')
     l1 = maker1(v, inputShape)
-    l2 = maker1(v, inputShape)
+    l2 = maker2(v, inputShape)
 
     sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())
