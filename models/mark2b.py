@@ -118,6 +118,7 @@ class Mark2b(AbstractModel):
                   ('rnnCellUnitsNProbs', [([128, 64], [0.5, 0.9]),
                                           ([64, 64, 32], [0.8, 0.8, 0.9]),
                                           ([128, 128, 64, 64], [0.5, 0.7, 0.8, 0.9])]),
+                  ('convNumFeaturesPerFilter', [16, 32]),
                   ('pooledKeepProb', [0.5, 0.9])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)

@@ -88,10 +88,10 @@ class Mark2c(AbstractModel):
 
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0]),
-                  ('numRnnOutputSteps', [10]),
+                  ('numRnnOutputSteps', [5]),
                   ('rnnCellUnitsNProbs', [([3], [1]),
-                                          ([4, 8], [1, 1])]),
-                  ('convNumFeaturesPerFilter', [16]),
+                                          ([8], [1])]),
+                  ('convNumFeaturesPerFilter', [4]),
                   ('pooledKeepProb', [1])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
@@ -118,6 +118,7 @@ class Mark2c(AbstractModel):
                   ('rnnCellUnitsNProbs', [([128, 64], [0.5, 0.9]),
                                           ([64, 64, 32], [0.8, 0.8, 0.9]),
                                           ([128, 128, 64, 64], [0.5, 0.7, 0.8, 0.9])]),
+                  ('convNumFeaturesPerFilter', [16, 32]),
                   ('pooledKeepProb', [0.5, 0.9])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
