@@ -72,7 +72,7 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
     :param dataReaderMaker: lambda 'bucketing', runConfig.batchSize, 40, loggerFactory: dataReader
     """
 
-    assert runScale in ['basic', 'tiny', 'small', 'full']
+    assert runScale in RunConfig.available_scales()
 
     logDir = create_time_dir(baseLogDir)
 
@@ -196,4 +196,6 @@ class RunConfig(object):
     def print(self):
         self._logFunc('batch size %d, validation worse run tolerance %d' % (self.batchSize, self.failToImproveTolerance))
 
-
+    @classmethod
+    def available_scales(cls):
+        return 'basic', 'tiny', 'small', 'medium', 'full'

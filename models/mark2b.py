@@ -44,7 +44,7 @@ class Mark2b(AbstractModel):
     def make_graph(self):
 
         layer1 = self.add_layer(RNNLayer.new(
-            self.rnnNumCellUnits, numStepsToOutput_ = self.numRnnOutputSteps), self.input, (-1, -1, self.vecDim))
+            self.rnnNumCellUnits, self.rnnKeepProbs, numStepsToOutput_ = self.numRnnOutputSteps), self.input, (-1, -1, self.vecDim))
 
         # just last row of the rnn output
         numCols = layer1.output_shape[2]
@@ -89,7 +89,7 @@ class Mark2b(AbstractModel):
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0]),
                   ('numRnnOutputSteps', [10]),
-                  ('rnnCellUnitsNProbs', [([3], [1]),
+                  ('rnnCellUnitsNProbs', [([3], [0.9]),
                                           ([4, 8], [1, 1])]),
                   ('convNumFeaturesPerFilter', [16]),
                   ('pooledKeepProb', [1])]
@@ -115,8 +115,7 @@ class Mark2b(AbstractModel):
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [1e-4, 1e-5]),
                   ('numRnnOutputSteps', [5, 10, 40]),
-                  ('rnnCellUnitsNProbs', [([128, 64], [0.5, 0.9]),
-                                          ([64, 64, 32], [0.8, 0.8, 0.9]),
+                  ('rnnCellUnitsNProbs', [([64, 64, 32], [0.8, 0.8, 0.9]),
                                           ([128, 128, 64, 64], [0.5, 0.7, 0.8, 0.9])]),
                   ('convNumFeaturesPerFilter', [16, 32]),
                   ('pooledKeepProb', [0.5, 0.9])]
@@ -125,4 +124,5 @@ class Mark2b(AbstractModel):
 
 if __name__ == '__main__':
     # Mark2b.quick_run()
-    Mark2b.quick_learn()
+    # Mark2b.quick_learn()
+    Mark2b.full_run(runScale='medium', dataScale='full_2occupations')

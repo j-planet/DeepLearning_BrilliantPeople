@@ -69,7 +69,7 @@ class RNNLayer(AbstractLayer):
 
 
 if __name__ == '__main__':
-    dr = DataReader_Embeddings('../data/peopleData/2_samples', 'bucketing', 10, 50)
+    dr = EmbeddingDataReader('../data/peopleData/2_samples', 'bucketing', 10, 50)
     maker = RNNLayer.new([32, 16], [0.5, 1.], 3)
     layer = maker(dr.input, [10, -1])
 
