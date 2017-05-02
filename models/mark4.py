@@ -15,7 +15,7 @@ class Mark4(AbstractModel):
     def __init__(self, input_,
                  initialLearningRate, l2RegLambda,
                  maxNumSeqs,
-                 convFilterSizesNKeepProbs, convNumFeaturesPerFilter,
+                 convFilterShapesNKeepProbs, convNumFeaturesPerFilter,
                  rnnCellUnitsNProbs,
                  loggerFactory_=None):
         """        
@@ -24,16 +24,16 @@ class Mark4(AbstractModel):
         :type rnnCellUnitsNProbs: tuple
         """
 
-        convFilterSizes, convKeepProbs = convFilterSizesNKeepProbs
+        convFilterShapes, convKeepProbs = convFilterShapesNKeepProbs
         rnnNumCellUnits, rnnKeepProbs = rnnCellUnitsNProbs
 
-        assert len(convFilterSizes) == len(convKeepProbs)
+        assert len(convFilterShapes) == len(convKeepProbs)
         assert len(rnnNumCellUnits) == len(rnnNumCellUnits)
 
         self.l2RegLambda = l2RegLambda
         self.maxNumSeqs = maxNumSeqs
 
-        self.convFilterSizes = convFilterSizes
+        self.convFilterShapes = convFilterShapes
         self.convKeepProbs = convKeepProbs
 
         self.rnnNumCellUnits = rnnNumCellUnits
@@ -45,22 +45,27 @@ class Mark4(AbstractModel):
 
     def make_graph(self):
 
-        # layer 1's: CNN
-        self.add_layers(
-            [ConvLocalnormLayer.new(convParams_={'filterShape': (filterSize, self.vecDim),
-                                                 'numFeaturesPerFilter': self.convNumFeaturesPerFilter,
-                                                 'keepProb': keepProb,
-                                                 'activation': 'relu'})
-             for (filterSize, keepProb) in zip(self.convFilterSizes, self.convKeepProbs)],
-            self.x,
-            (-1, self.maxNumSeqs, self.vecDim)
-        )
+        outputs = []
+        outputShapes = []
 
-        # layer 2: RNN
-        newInput, newInputNumCols = convert_to_3d(self.prevOutput, self.prevOutputShape)
-        self.add_layers(RNNLayer.new(self.rnnNumCellUnits, self.rnnKeepProbs),
-                        input_={'x': newInput, 'numSeqs': self.numSeqs - self.convFilterSizes[0]+1},    # TODO: works only for 1 filter for now
-                        inputDim_=(-1, self.prevOutputShape[1], newInputNumCols))
+        for filterShape, keepProb in zip(self.convFilterShapes, self.convKeepProbs):
+
+            cnn = ConvLocalnormLayer(self.x, (-1, self.maxNumSeqs, self.vecDim),
+                                     convParams_={'filterShape': (filterShape[0], self.vecDim if filterShape[1]==-1 else filterShape[1]),
+                                                  'numFeaturesPerFilter': self.convNumFeaturesPerFilter,
+                                                  'keepProb': keepProb,
+                                                  'activation': 'relu'})
+
+            newInput, newInputNumCols = convert_to_3d(cnn.output, cnn.output_shape)
+
+            rnn = RNNLayer({'x': newInput, 'numSeqs': self.numSeqs - filterShape[0] + 1},
+                           (-1, cnn.output_shape[1], newInputNumCols),
+                           self.rnnNumCellUnits, self.rnnKeepProbs)
+
+            outputs.append(rnn.output)
+            outputShapes.append(rnn.output_shape)
+
+        self.add_outputs(outputs, outputShapes)
 
         # last layer: fully connected
         lastLayer = self.add_layers(FullyConnectedLayer.new(self.numClasses))
@@ -76,7 +81,7 @@ class Mark4(AbstractModel):
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0]),
                   ('maxNumSeqs', [numSeqs]),
-                  ('convFilterSizesNKeepProbs', [ ([2], [1]) ]),
+                  ('convFilterShapesNKeepProbs', [ ([(2, -1)],[1]) ]),
                   ('convNumFeaturesPerFilter', [6]),
                   ('rnnCellUnitsNProbs', [([3], [0.9])])]
 
@@ -90,13 +95,30 @@ class Mark4(AbstractModel):
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [1e-4]),
                   ('maxNumSeqs', [numSeqs]),
-                  ('convFilterSizesNKeepProbs', [ ([3], [1]) ]),
+                  ('convFilterShapesNKeepProbs', [ ([(3, -1)], [1]) ]),
                   ('convNumFeaturesPerFilter', [32]),
                   ('rnnCellUnitsNProbs', [([16], [0.9])])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
 
 
+    @classmethod
+    def comparison_run(cls, runScale ='small', dataScale='full_2occupations', useCPU = True):
+
+        numSeqs = EmbeddingDataReader(EmbeddingDataReader.premade_sources()[dataScale], 'bucketing', 100, 40, padToFull=True).maxXLen
+
+        params = [('initialLearningRate', [1e-3]),
+                  ('l2RegLambda', [1e-4]),
+                  ('maxNumSeqs', [numSeqs]),
+                  ('convFilterShapesNKeepProbs', [ ([(2, -1)],[0.8]),
+                                                   ([(4, -1)], [0.8]),
+                                                   ([(4, 4)], [0.8])]),
+                  ('convNumFeaturesPerFilter', [64]),
+                  ('rnnCellUnitsNProbs', [([32], [0.9])])]
+
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
+
 if __name__ == '__main__':
-    Mark4.quick_learn()
-    # Mark2d.quick_run()
+    # Mark4.quick_learn()
+    # Mark4.quick_run()
+    Mark4.comparison_run()
