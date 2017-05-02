@@ -108,6 +108,18 @@ class Mark2d(AbstractModel):
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
     @classmethod
+    def comparison_run(cls, runScale='medium', dataScale='full_2occupations', useCPU = True):
+
+        params = [('initialLearningRate', [1e-3]),
+                  ('l2RegLambda', [5e-4]),
+                  ('numRnnOutputSteps', [5, 10]),
+                  ('rnnCellUnitsNProbs', [([64, 64, 32], [0.8, 0.8, 0.9])]),
+                  ('convNumFeaturesPerFilter', [16]),
+                  ('pooledKeepProb', [0.5, 0.9])]
+
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+
+    @classmethod
     def full_run(cls, runScale='full', dataScale='full', useCPU = True):
 
         params = [('initialLearningRate', [1e-3]),
@@ -121,6 +133,5 @@ class Mark2d(AbstractModel):
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    # Mark2b.quick_run()
-    # Mark2b.quick_learn()
-    Mark2d.full_run(runScale='medium', dataScale='full_2occupations')
+    Mark2d.comparison_run()
+    # Mark2d.quick_run()

@@ -1,20 +1,20 @@
 import tensorflow as tf
 
-from models.abstract_model import AbstractModel
-from data_readers.embedding_data_reader import EmbeddingDataReader
-from layers.rnn_layer import RNNLayer
-from layers.fully_connected_layer import FullyConnectedLayer
-from layers.dropout_layer import DropoutLayer
+from data_readers.text_data_reader import TextDataReader
 from layers.conv_maxpool_layer import ConvMaxpoolLayer
-
+from layers.dropout_layer import DropoutLayer
+from layers.embedding_layer import EmbeddingLayer
+from layers.fully_connected_layer import FullyConnectedLayer
+from layers.rnn_layer import RNNLayer
+from models.abstract_model import AbstractModel
 from utilities import make_params_dict, convert_to_2d
 
 
-
-class Mark2b(AbstractModel):
+class Mark2e(AbstractModel):
 
     def __init__(self, input_,
                  initialLearningRate, l2RegLambda,
+                 vocabSize, embeddingDim,
                  numRnnOutputSteps, rnnCellUnitsNProbs,
                  convNumFeaturesPerFilter,
                  pooledKeepProb,
@@ -32,6 +32,8 @@ class Mark2b(AbstractModel):
         assert 0.0 < pooledKeepProb <= 1
 
         self.l2RegLambda = l2RegLambda
+        self.vocabSize = vocabSize
+        self.embeddingDim = embeddingDim
         self.numRnnOutputSteps = numRnnOutputSteps
         self.rnnNumCellUnits = rnnNumCellUnits
         self.rnnKeepProbs = rnnKeepProbs
@@ -43,8 +45,17 @@ class Mark2b(AbstractModel):
 
     def make_graph(self):
 
-        layer1 = self.add_layer(RNNLayer.new(
-            self.rnnNumCellUnits, self.rnnKeepProbs, numStepsToOutput_ = self.numRnnOutputSteps), self.input, (-1, -1, self.vecDim))
+        inputNumCols = self.x.get_shape()[1].value
+
+        # layer0: embedding
+        layer0 = self.add_layer(EmbeddingLayer.new(self.vocabSize, self.embeddingDim),
+                       self.x, (-1, inputNumCols))
+
+        layer1 = self.add_layer(RNNLayer.new(self.rnnNumCellUnits,
+                                             self.rnnKeepProbs,
+                                             numStepsToOutput_ = self.numRnnOutputSteps),
+                                input_={'x': layer0.output, 'numSeqs': self.numSeqs},
+                                inputDim_=(-1, self.vocabSize, self.embeddingDim))
 
         # just last row of the rnn output
         numCols = layer1.output_shape[2]
@@ -86,56 +97,57 @@ class Mark2b(AbstractModel):
     @classmethod
     def quick_run(cls, runScale ='basic', dataScale='tiny_fake_2', useCPU = True):
 
+        # ok this is silly. But at least it's fast.
+        vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
+            bucketingOrRandom = 'bucketing', batchSize_ = 50, minimumWords = 0).vocabSize
+
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0]),
+                  ('vocabSize', [vocabSize]),
+                  ('embeddingDim', [32]),
                   ('numRnnOutputSteps', [10]),
                   ('rnnCellUnitsNProbs', [([3], [0.9]),
                                           ([4, 8], [1, 1])]),
                   ('convNumFeaturesPerFilter', [16]),
                   ('pooledKeepProb', [1])]
 
-        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+        cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
     @classmethod
-    def quick_learn(cls, runScale ='small', dataScale='small_2occupations', useCPU = True):
+    def quick_learn(cls, runScale ='small', dataScale='full_2occupations', useCPU = True):
+
+        # ok this is silly. But at least it's fast.
+        vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
+            bucketingOrRandom = 'bucketing', batchSize_ = 50, minimumWords = 0).vocabSize
 
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0]),
+                  ('vocabSize', [vocabSize]),
+                  ('embeddingDim', [32]),
                   ('numRnnOutputSteps', [10]),
-                  ('rnnCellUnitsNProbs', [([32], [0.7]),
-                                          ([64, 16], [0.6, 0.9])]),
+                  ('rnnCellUnitsNProbs', [([8, 4], [0.5, 0.9])]),
                   ('convNumFeaturesPerFilter', [16]),
                   ('pooledKeepProb', [1])]
 
-        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
-
+        cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
     @classmethod
-    def comparison_run(cls, runScale='medium', dataScale='full_2occupations', useCPU = True):
+    def comparison_run(cls, runScale ='medium', dataScale='full_2occupations', useCPU = True):
+
+        # ok this is silly. But at least it's fast.
+        vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
+            bucketingOrRandom = 'bucketing', batchSize_ = 50, minimumWords = 0).vocabSize
 
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [5e-4]),
+                  ('vocabSize', [vocabSize]),
+                  ('embeddingDim', [128, 300]),
                   ('numRnnOutputSteps', [5, 10]),
                   ('rnnCellUnitsNProbs', [([64, 64, 32], [0.8, 0.8, 0.9])]),
                   ('convNumFeaturesPerFilter', [16]),
                   ('pooledKeepProb', [0.5, 0.9])]
 
-        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
-
-    @classmethod
-    def full_run(cls, runScale='full', dataScale='full', useCPU = True):
-
-        params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [1e-4, 1e-5]),
-                  ('numRnnOutputSteps', [5, 10, 40]),
-                  ('rnnCellUnitsNProbs', [([64, 64, 32], [0.8, 0.8, 0.9]),
-                                          ([128, 128, 64, 64], [0.5, 0.7, 0.8, 0.9])]),
-                  ('convNumFeaturesPerFilter', [16, 32]),
-                  ('pooledKeepProb', [0.5, 0.9])]
-
-        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+        cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    # Mark2b.quick_run()
-    # Mark2b.quick_learn()
-    Mark2b.comparison_run()
+    Mark2e.quick_learn()

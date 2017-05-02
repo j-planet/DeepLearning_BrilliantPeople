@@ -53,7 +53,7 @@ class Mark3(AbstractModel):
 
     def make_graph(self):
 
-        inputNumCols = self.input['x'].get_shape()[1].value
+        inputNumCols = self.x.get_shape()[1].value
 
         # layer1: embedding
         layer1 = self.add_layer(EmbeddingLayer.new(self.vocabSize, self.embeddingDim),
