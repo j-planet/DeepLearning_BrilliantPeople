@@ -84,29 +84,28 @@ class Mark3b(AbstractModel):
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0]),
                   ('maxNumSeqs', [numSeqs]),
-                  ('filterSizes', [[1]]),
+                  ('filterSizes', [[2, 4]]),
                   ('numFeaturesPerFilter', [3]),
                   ('pooledKeepProb', [1])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
 
     @classmethod
-    def quick_learn(cls, runScale='small', dataScale='full_2occupations', useCPU=True):
-
+    def quick_learn(cls, runScale ='small', dataScale='small_2occupations', useCPU = True):
         numSeqs = EmbeddingDataReader(EmbeddingDataReader.premade_sources()[dataScale], 'bucketing', 100, 40, padToFull=True).maxXLen
 
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0]),
                   ('maxNumSeqs', [numSeqs]),
-                  ('filterSizes', [[1]]),
-                  ('numFeaturesPerFilter', [8]),
+                  ('filterSizes', [[2, 4]]),
+                  ('numFeaturesPerFilter', [3]),
                   ('pooledKeepProb', [1])]
 
-        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
 
 
     @classmethod
-    def full_run(cls, runScale='tiny', dataScale='tiny_fake_2', useCPU=True):
+    def full_run(cls, runScale='full', dataScale='full', useCPU=True):
 
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0, 1e-4, 1e-5]),
@@ -114,7 +113,7 @@ class Mark3b(AbstractModel):
                   ('numFeaturesPerFilter', [16, 32, 64]),
                   ('pooledKeepProb', [0.5, 0.7, 0.9, 1])]
 
-        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
 
 if __name__ == '__main__':
-    Mark3b.quick_learn()
+    Mark3b.quick_learn('tiny', 'tiny_fake_2')
