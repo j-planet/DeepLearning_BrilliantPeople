@@ -48,14 +48,14 @@ class Mark2e(AbstractModel):
         inputNumCols = self.x.get_shape()[1].value
 
         # layer0: embedding
-        layer0 = self.add_layer(EmbeddingLayer.new(self.vocabSize, self.embeddingDim),
-                       self.x, (-1, inputNumCols))
+        layer0 = self.add_layers(EmbeddingLayer.new(self.vocabSize, self.embeddingDim),
+                                 self.x, (-1, inputNumCols))
 
-        layer1 = self.add_layer(RNNLayer.new(self.rnnNumCellUnits,
-                                             self.rnnKeepProbs,
-                                             numStepsToOutput_ = self.numRnnOutputSteps),
-                                input_={'x': layer0.output, 'numSeqs': self.numSeqs},
-                                inputDim_=(-1, self.vocabSize, self.embeddingDim))
+        layer1 = self.add_layers(RNNLayer.new(self.rnnNumCellUnits,
+                                              self.rnnKeepProbs,
+                                              numStepsToOutput_ = self.numRnnOutputSteps),
+                                 input_={'x': layer0.output, 'numSeqs': self.numSeqs},
+                                 inputDim_=(-1, self.vocabSize, self.embeddingDim))
 
         # just last row of the rnn output
         numCols = layer1.output_shape[2]
@@ -87,9 +87,9 @@ class Mark2e(AbstractModel):
         self.outputs.append({'output': layer2_output,
                              'output_shape': (layer2a_outputshape[0], layer2_output_numcols)})
 
-        self.add_layer(DropoutLayer.new(self.pooledKeepProb))
+        self.add_layers(DropoutLayer.new(self.pooledKeepProb))
 
-        lastLayer = self.add_layer(FullyConnectedLayer.new(self.numClasses))
+        lastLayer = self.add_layers(FullyConnectedLayer.new(self.numClasses))
 
         self.l2Loss = self.l2RegLambda * (tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases))
 
@@ -150,4 +150,4 @@ class Mark2e(AbstractModel):
         cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    Mark2e.quick_learn()
+    Mark2e.comparison_run()

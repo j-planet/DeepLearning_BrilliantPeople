@@ -11,15 +11,11 @@ from layers.embedding_layer import EmbeddingLayer
 from layers.fully_connected_layer import FullyConnectedLayer
 from layers.conv_maxpool_layer import ConvMaxpoolLayer
 
-from utilities import make_params_dict
+from utilities import make_params_dict, convert_to_2d
 
 PPL_DATA_DIR = '../data/peopleData/'
 
 
-
-def convert_to_2d(t, d):
-    newSecondD = np.product(d[1:])
-    return tf.reshape(t, [-1, newSecondD]), newSecondD
 
 class Mark3c(AbstractModel):
 
@@ -50,8 +46,8 @@ class Mark3c(AbstractModel):
         inputNumCols = self.input['x'].get_shape()[1].value
 
         # layer1: embedding
-        layer1 = self.add_layer(EmbeddingLayer.new(self.vocabSize, self.embeddingDim),
-                                self.input['x'], (-1, inputNumCols))
+        layer1 = self.add_layers(EmbeddingLayer.new(self.vocabSize, self.embeddingDim),
+                                 self.input['x'], (-1, inputNumCols))
 
         # layer2: a bunch of conv-maxpools
         layer2_outputs = []
@@ -73,7 +69,7 @@ class Mark3c(AbstractModel):
         self.add_output(layer2_output, layer2_outputShape)
 
         # layer3: fully connected
-        self.add_layer(FullyConnectedLayer.new(self.numClasses))
+        self.add_layers(FullyConnectedLayer.new(self.numClasses))
 
         self.l2Loss = self.l2RegLambda * sum([tf.nn.l2_loss(v) for v in tf.trainable_variables()])
 

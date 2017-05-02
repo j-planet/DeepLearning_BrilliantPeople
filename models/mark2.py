@@ -43,7 +43,7 @@ class Mark2(AbstractModel):
 
     def make_graph(self):
 
-        layer1 = self.add_layer(RNNLayer.new(
+        layer1 = self.add_layers(RNNLayer.new(
             self.rnnNumCellUnits, numStepsToOutput_ = self.numRnnOutputSteps), self.input, (-1, -1, self.vecDim))
 
         # just last row of the rnn output
@@ -70,9 +70,9 @@ class Mark2(AbstractModel):
         self.outputs.append({'output': layer2_output,
                              'output_shape': (layer2a_outputshape[0], layer2_output_numcols)})
 
-        self.add_layer(DropoutLayer.new(self.pooledKeepProb))
+        self.add_layers(DropoutLayer.new(self.pooledKeepProb))
 
-        lastLayer = self.add_layer(FullyConnectedLayer.new(self.numClasses))
+        lastLayer = self.add_layers(FullyConnectedLayer.new(self.numClasses))
 
         self.l2Loss = self.l2RegLambda * (tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases))
 

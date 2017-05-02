@@ -78,15 +78,50 @@ class AbstractModel(metaclass=ABCMeta):
     def add_output(self, output, outputShape):
         self.outputs.append({'output': output, 'output_shape': outputShape})
 
-    def add_layer(self, layerMaker_, input_=None, inputDim_=None):
+    def add_layers(self, layerMakers_, input_=None, inputDim_=None):
+        """
+        is capable of handling multiple layers. but their output_shapes have to have the same # of dimensions (e.g. all 3d or 4d, etc).
+        outputs are concated along the LAST axis
+        """
+
+        isSingleLayer = type(layerMakers_) is not list
+        if isSingleLayer:
+            layerMakers_ = [layerMakers_]
+
         if input_ is None: input_ = self.prevOutput
         inputDim_ = inputDim_ or self.prevOutputShape
 
-        layer = layerMaker_(input_, inputDim_, self.loggerFactory)
-        self.layers.append(layer)
-        self.add_output(layer.output, layer.output_shape)
+        layers = []
+        outputs = []
+        outputShapes = []
 
-        return layer
+        for layerMaker in layerMakers_:
+
+            layer = layerMaker(input_, inputDim_, self.loggerFactory)
+
+            layers.append(layer)
+            outputs.append(layer.output)
+            outputShapes.append(layer.output_shape)
+
+        output = tf.concat(outputs, -1)
+
+        # combine outputshapes. their dimensions except the last one should be the same.
+        for sh in outputShapes:
+            # check that all have the same dimensions
+            assert len(sh) == len(outputShapes[0])
+
+            # check that all except the last dim length are equal
+            for i, d in enumerate(sh[:-1]):
+                assert d == outputShapes[0][i]
+
+        outputShape = *outputShapes[0][:-1], sum(sh[-1] for sh in outputShapes)
+
+        self.add_output(output, outputShape)
+        self.layers.append(layers)
+
+        return layers[0] if isSingleLayer else layers
+
+
 
     @classmethod
     def run_thru_data(cls, dataReaderKlass, dataScale, modelParams, runScale, useCPU=True, **otherDataReaderKwargs):

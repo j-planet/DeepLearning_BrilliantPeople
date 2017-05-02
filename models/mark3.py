@@ -14,15 +14,10 @@ from layers.dropout_layer import DropoutLayer
 from layers.conv_maxpool_layer import ConvMaxpoolLayer
 
 from train import train
-from utilities import run_with_processor, make_params_dict
+from utilities import run_with_processor, make_params_dict, convert_to_2d
 
 PPL_DATA_DIR = '../data/peopleData/'
 
-
-
-def convert_to_2d(t, d):
-    newSecondD = np.product(d[1:])
-    return tf.reshape(t, [-1, newSecondD]), newSecondD
 
 class Mark3(AbstractModel):
 
@@ -56,8 +51,8 @@ class Mark3(AbstractModel):
         inputNumCols = self.x.get_shape()[1].value
 
         # layer1: embedding
-        layer1 = self.add_layer(EmbeddingLayer.new(self.vocabSize, self.embeddingDim),
-                                self.input['x'], (-1, inputNumCols))
+        layer1 = self.add_layers(EmbeddingLayer.new(self.vocabSize, self.embeddingDim),
+                                 self.input['x'], (-1, inputNumCols))
 
         # layer2: a bunch of conv-maxpools
         layer2_outputs = []
@@ -79,10 +74,10 @@ class Mark3(AbstractModel):
         self.add_output(layer2_output, layer2_outputShape)
 
         # layer3: dropout
-        self.add_layer(DropoutLayer.new(self.pooledKeepProb))
+        self.add_layers(DropoutLayer.new(self.pooledKeepProb))
 
         # layer4: fully connected
-        lastLayer = self.add_layer(FullyConnectedLayer.new(self.numClasses))
+        lastLayer = self.add_layers(FullyConnectedLayer.new(self.numClasses))
 
         self.l2Loss = self.l2RegLambda * (tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases))
 
@@ -138,4 +133,5 @@ class Mark3(AbstractModel):
         cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    Mark3.quick_learn()
+    Mark3.quick_run()
+    # Mark3.quick_learn()

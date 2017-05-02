@@ -192,5 +192,13 @@ def make_params_dict(paramsKeyValuesList):
 
 
 def convert_to_2d(t, d):
+    assert len(d) > 2
+
     newSecondD = np.product(d[1:])
     return tf.reshape(t, [-1, newSecondD]), newSecondD
+
+def convert_to_3d(t, d):
+    assert len(d) > 3
+
+    newThirdD = np.product(d[2:])
+    return tf.reshape(t, [-1, d[1], newThirdD]), newThirdD

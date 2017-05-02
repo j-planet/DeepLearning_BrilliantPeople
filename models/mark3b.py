@@ -68,10 +68,10 @@ class Mark3b(AbstractModel):
         self.add_output(layer1_output, (-1, layer1_numcols))
 
         # layer2: dropout
-        self.add_layer(DropoutLayer.new(self.pooledKeepProb))
+        self.add_layers(DropoutLayer.new(self.pooledKeepProb))
 
         # layer3: fully connected
-        lastLayer = self.add_layer(FullyConnectedLayer.new(self.numClasses))
+        lastLayer = self.add_layers(FullyConnectedLayer.new(self.numClasses))
 
         self.l2Loss = self.l2RegLambda * (tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases))
 
