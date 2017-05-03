@@ -112,7 +112,7 @@ class Mark3e(AbstractModel):
         numSeqs = EmbeddingDataReader(EmbeddingDataReader.premade_sources()[dataScale], 'bucketing', 100, 40, padToFull=True).maxXLen
 
         params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [1e-5]),
+                  ('l2RegLambda', [1e-6]),
                   ('maxNumSeqs', [numSeqs]),
                   ('filterSizesNKeepProbs', [([1, 2, 3, 4], [0.9, 0.9, 0.9, 0.9])]),
                   ('numFeaturesPerFilter', [128]),

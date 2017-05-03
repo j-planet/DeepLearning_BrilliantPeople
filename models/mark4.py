@@ -103,18 +103,16 @@ class Mark4(AbstractModel):
 
 
     @classmethod
-    def comparison_run(cls, runScale ='small', dataScale='full_2occupations', useCPU = True):
+    def comparison_run(cls, runScale ='medium', dataScale='full_2occupations', useCPU = True):
 
         numSeqs = EmbeddingDataReader(EmbeddingDataReader.premade_sources()[dataScale], 'bucketing', 100, 40, padToFull=True).maxXLen
 
-        params = [('initialLearningRate', [1e-3]),
+        params = [('initialLearningRate', [1e-4]),
                   ('l2RegLambda', [1e-4]),
                   ('maxNumSeqs', [numSeqs]),
-                  ('convFilterShapesNKeepProbs', [ ([(2, -1)],[0.8]),
-                                                   ([(4, -1)], [0.8]),
-                                                   ([(4, 4)], [0.8])]),
-                  ('convNumFeaturesPerFilter', [64]),
-                  ('rnnCellUnitsNProbs', [([32], [0.9])])]
+                  ('convFilterShapesNKeepProbs', [ ([(1, 50)], [0.9])]),
+                  ('convNumFeaturesPerFilter', [128]),
+                  ('rnnCellUnitsNProbs', [([128, 64, 32], [0.7, 0.9, 0.9])])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
 

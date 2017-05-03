@@ -11,31 +11,39 @@ from utilities import make_params_dict, convert_to_2d
 
 
 
-class Mark2d(AbstractModel):
+class Mark5(AbstractModel):
 
     def __init__(self, input_,
                  initialLearningRate, l2RegLambda,
-                 numRnnOutputSteps, rnnCellUnitsNProbs,
-                 convNumFeaturesPerFilter,
+                 maxNumSeqs,
+                 rnnCellUnitsNProbs,
+                 convFilterSizesNKeepProbs, convNumFeaturesPerFilter,
                  pooledKeepProb,
                  loggerFactory_=None):
         """        
         :type initialLearningRate: float 
         :type l2RegLambda: float
         :type rnnCellUnitsNProbs: tuple
-        :type numRnnOutputSteps: int 
         :type pooledKeepProb: float 
         """
 
         rnnNumCellUnits, rnnKeepProbs = rnnCellUnitsNProbs
+        convFilterSizes, convKeepProbs = convFilterSizesNKeepProbs
+
         assert len(rnnNumCellUnits) == len(rnnNumCellUnits)
+        assert len(convFilterSizes) == len(convKeepProbs)
         assert 0.0 < pooledKeepProb <= 1
 
         self.l2RegLambda = l2RegLambda
-        self.numRnnOutputSteps = numRnnOutputSteps
+        self.maxNumSeqs = maxNumSeqs
+
         self.rnnNumCellUnits = rnnNumCellUnits
         self.rnnKeepProbs = rnnKeepProbs
+
+        self.convFilterSizes = convFilterSizes
+        self.convKeepProbs = convKeepProbs
         self.convNumFeaturesPerFilter = convNumFeaturesPerFilter
+
         self.pooledKeepProb = pooledKeepProb
 
         super().__init__(input_, initialLearningRate, loggerFactory_)
@@ -43,39 +51,42 @@ class Mark2d(AbstractModel):
 
     def make_graph(self):
 
-        layer1 = self.add_layers(RNNLayer.new(
-            self.rnnNumCellUnits, self.rnnKeepProbs, numStepsToOutput_ = self.numRnnOutputSteps), self.input, (-1, -1, self.vecDim))
+        # -------------- RNN --------------
+        rnn = RNNLayer(self.input, (-1, -1, self.vecDim),
+                       self.rnnNumCellUnits, self.rnnKeepProbs,
+                       loggerFactory=self.loggerFactory)
 
-        # just last row of the rnn output
-        numCols = layer1.output_shape[2]
+        rnn_output, rnn_numcols = convert_to_2d(rnn.output, rnn.output_shape)
 
-        layer2a_output = layer1.output[:,-1,:]
-        layer2a_outputshape = (layer1.output_shape[0], numCols)
+        # -------------- CNN --------------
+        cnn_outputs = []
+        cnn_numcols = 0
+        cnn_layers = []
 
-        layer2b = ConvLocalnormLayer(layer1.output, layer1.output_shape,
-                                   convParams_={'filterShape': (2, numCols),
+        for filterSize, keepProb in zip(self.convFilterSizes, self.convKeepProbs):
+
+            l = ConvLocalnormLayer(self.x, (-1, self.maxNumSeqs, self.vecDim),
+                                   convParams_={'filterShape': (filterSize, self.vecDim),
                                                 'numFeaturesPerFilter': self.convNumFeaturesPerFilter,
+                                                'keepProb': keepProb,
                                                 'activation': 'relu'},
                                    loggerFactory=self.loggerFactory)
-        layer2b_output, layer2b_output_numcols = convert_to_2d(layer2b.output, layer2b.output_shape)
 
+            o, col = convert_to_2d(l.output, l.output_shape)
+            cnn_outputs.append(o)
+            cnn_numcols += col
+            cnn_layers.append(l)
 
-        layer2c = ConvLocalnormLayer(layer1.output, layer1.output_shape,
-                                   convParams_={'filterShape': (4, numCols),
-                                                'numFeaturesPerFilter': self.convNumFeaturesPerFilter,
-                                                'activation': 'relu'},
-                                   loggerFactory=self.loggerFactory)
-        layer2c_output, layer2c_output_numcols = convert_to_2d(layer2c.output, layer2c.output_shape)
+        cnn_output = tf.concat(cnn_outputs, axis=1)
 
-        layer2_output = tf.concat([layer2a_output, layer2b_output, layer2c_output], axis=1)
-        layer2_output_numcols = layer2a_outputshape[1] + layer2b_output_numcols + layer2c_output_numcols
+        # -------------- combine RNN & CNN --------------
+        self.layers.append([rnn, cnn_layers])
+        self.add_outputs([rnn_output, cnn_output], [(-1, rnn_numcols), (-1, cnn_numcols)])
 
-        self.layers.append([layer2b, layer2c])
-        self.outputs.append({'output': layer2_output,
-                             'output_shape': (layer2a_outputshape[0], layer2_output_numcols)})
-
+        # -------------- dropout --------------
         self.add_layers(DropoutLayer.new(self.pooledKeepProb))
 
+        # -------------- fully connected --------------
         lastLayer = self.add_layers(FullyConnectedLayer.new(self.numClasses))
 
         self.l2Loss = self.l2RegLambda * (tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases))
@@ -84,41 +95,42 @@ class Mark2d(AbstractModel):
     @classmethod
     def quick_run(cls, runScale ='basic', dataScale='tiny_fake_2', useCPU = True):
 
-        params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [0]),
-                  ('numRnnOutputSteps', [10]),
-                  ('rnnCellUnitsNProbs', [([3], [0.9]),
-                                          ([4, 8], [1, 1])]),
-                  ('convNumFeaturesPerFilter', [16]),
-                  ('pooledKeepProb', [1])]
-
-        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
-
-    @classmethod
-    def quick_learn(cls, runScale ='small', dataScale='small_2occupations', useCPU = True):
+        numSeqs = EmbeddingDataReader(EmbeddingDataReader.premade_sources()[dataScale], 'bucketing', 100, 40, padToFull=True).maxXLen
 
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0]),
-                  ('numRnnOutputSteps', [10]),
-                  ('rnnCellUnitsNProbs', [([32], [0.7]),
-                                          ([64, 16], [0.6, 0.9])]),
-                  ('convNumFeaturesPerFilter', [16]),
+                  ('maxNumSeqs', [numSeqs]),
+
+                  ('rnnCellUnitsNProbs', [([3], [0.9])
+                                          ]),
+
+                  ('convFilterSizesNKeepProbs', [([2], [1.])
+                                                 ]),
+                  ('convNumFeaturesPerFilter', [4]),
+
                   ('pooledKeepProb', [1])]
 
-        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
 
     @classmethod
     def comparison_run(cls, runScale='full', dataScale='full_2occupations', useCPU = True):
 
-        params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [1e-5]),
-                  ('numRnnOutputSteps', [10]),
-                  ('rnnCellUnitsNProbs', [([128, 64, 64], [0.7, 0.8, 0.9]),
-                                          ]),
-                  ('convNumFeaturesPerFilter', [16]),
-                  ('pooledKeepProb', [0.5, 0.9])]
+        numSeqs = EmbeddingDataReader(EmbeddingDataReader.premade_sources()[dataScale], 'bucketing', 100, 40, padToFull=True).maxXLen
 
-        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+        params = [('initialLearningRate', [1e-3]),
+                  ('l2RegLambda', [1e-6]),
+                  ('maxNumSeqs', [numSeqs]),
+
+                  ('rnnCellUnitsNProbs', [([128, 128, 64], [1, 1, 1]),
+                                          ([128, 128, 64], [0.8, 0.8, 0.9])]),
+
+                  ('convFilterSizesNKeepProbs', [([1, 2, 4], [1, 1, 1]),
+                                                 ([1, 2, 4], [0.8, 0.8, 0.9])]),
+                  ('convNumFeaturesPerFilter', [32]),
+
+                  ('pooledKeepProb', [0.8, 0.6])]
+
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
 
     @classmethod
     def full_run(cls, runScale='full', dataScale='full', useCPU = True):
@@ -134,5 +146,5 @@ class Mark2d(AbstractModel):
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    Mark2d.comparison_run()
-    # Mark2d.quick_run()
+    Mark5.comparison_run()
+    # Mark5.quick_run()
