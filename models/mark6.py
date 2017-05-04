@@ -54,7 +54,7 @@ class Mark6(AbstractModel):
     @classmethod
     def quick_learn(cls, runScale ='small', dataScale='full_2occupations', useCPU = True):
 
-        params = [('initialLearningRate', [1e-3]),
+        params = [('initialLearningRate', [1e-4]),
                   ('l2RegLambda', [1e-3]),
                   ('rnnCellUnitsNProbs', [[([32, 16], [1, 1]), ([8], [1])]]),
                   ('pooledKeepProb', [0.5])]
@@ -62,20 +62,32 @@ class Mark6(AbstractModel):
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
     @classmethod
-    def comparison_run(cls, runScale='full', dataScale='full_2occupations', useCPU = True):
-        params = [('initialLearningRate', [1e-3]),
+    def comparison_run(cls, runScale='medium', dataScale='full_2occupations', useCPU = True):
+        params = [('initialLearningRate', [5e-4]),
                   ('l2RegLambda', [1e-4]),
 
                   ('rnnCellUnitsNProbs', [
-                      [([128], [1]), ([32], [1]), ([16], [1])],
-                      [([128, 32, 16], [1, 1, 1]), ([64, 64], [1, 1])],
-                      [([128, 32, 16], [0.5, 0.8, 0.8]), ([64, 64], [0.5, 0.8])],
+                      [([128, 8], [0.8, 1]), ([32, 8], [0.8, 1]), ([16, 8], [0.8, 1])],
+                      [([128], [0.8]), ([32], [0.8]), ([16], [0.8])],
+                      [([128, 32, 16], [0.5, 0.8, 0.8]), ([64, 64], [0.5, 0.8]), ([32], [0.8])],
                                            ]),
 
-                  ('pooledKeepProb', [0.5])]
+                  ('pooledKeepProb', [1])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
+    @classmethod
+    def full_run(cls, runScale='full', dataScale='full', useCPU = True):
+        params = [('initialLearningRate', [5e-4]),
+                  ('l2RegLambda', [1e-4]),
+
+                  ('rnnCellUnitsNProbs', [
+                      [([128, 8], [0.8, 1]), ([32, 8], [0.8, 1]), ([16, 8], [0.8, 1])]
+                  ]),
+
+                  ('pooledKeepProb', [1])]
+
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
     Mark6.comparison_run()
