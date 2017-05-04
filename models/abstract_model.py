@@ -113,9 +113,9 @@ class AbstractModel(metaclass=ABCMeta):
         outputs = []
         outputShapes = []
 
-        for layerMaker in layerMakers_:
-
-            layer = layerMaker(input_, inputDim_, self.loggerFactory)
+        for i, layerMaker in enumerate(layerMakers_):
+            with tf.variable_scope(str(i)):
+                layer = layerMaker(input_, inputDim_, self.loggerFactory)
 
             layers.append(layer)
             outputs.append(layer.output)
