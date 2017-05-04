@@ -118,17 +118,15 @@ class Mark5(AbstractModel):
         numSeqs = EmbeddingDataReader(EmbeddingDataReader.premade_sources()[dataScale], 'bucketing', 100, 40, padToFull=True).maxXLen
 
         params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [1e-6]),
+                  ('l2RegLambda', [1e-4]),
                   ('maxNumSeqs', [numSeqs]),
 
-                  ('rnnCellUnitsNProbs', [([128, 128, 64], [1, 1, 1]),
-                                          ([128, 128, 64], [0.8, 0.8, 0.9])]),
+                  ('rnnCellUnitsNProbs', [([32, 32, 32], [.5]*3)]),
 
-                  ('convFilterSizesNKeepProbs', [([1, 2, 4], [1, 1, 1]),
-                                                 ([1, 2, 4], [0.8, 0.8, 0.9])]),
-                  ('convNumFeaturesPerFilter', [32]),
+                  ('convFilterSizesNKeepProbs', [([2, 3, 4], [.5]*3)]),
+                  ('convNumFeaturesPerFilter', [8]),
 
-                  ('pooledKeepProb', [0.8, 0.6])]
+                  ('pooledKeepProb', [0.5])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
 
