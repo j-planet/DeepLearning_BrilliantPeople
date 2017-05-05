@@ -128,11 +128,14 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
         if step % logValidationEvery == 0:
             curValidC, curValidAcc = evaluate_in_batches(sess, dataReader.get_validation_data_in_batches(), dataReader.classLabels, model.evaluate, validLogFunc, verbose_=False)
             saver.save(sess, savePath, global_step=numDataPoints)
+            avgTrainingAcc = sum(train_accuracies)/len(train_accuracies)
+            train_accuracies = []
+            trainLogFunc('Avg training accuracy = %0.3f' % avgTrainingAcc)
 
             if curValidC >= bestValidC and curValidAcc <= bestValidAcc:
                 lrDecayPerCycle *= 0.8
                 lr = _decrease_learning_rate(numDataPoints)
-                logValidationEvery = max(int(runConfig.logValidationEvery/3), int(0.8*logValidationEvery))
+                logValidationEvery = max(int(runConfig.logValidationEvery/4), int(0.8*logValidationEvery))
 
                 numValidWorse += 1
                 validLogFunc('Worse than best validation result so far %d time(s). Decreasing lrDecayPerCycle to %0.3f.' % (numValidWorse, lrDecayPerCycle))
@@ -146,7 +149,7 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
                 numValidWorse = 0
 
             # obviously overfitting
-            if step > 100 and sum(train_accuracies)/len(train_accuracies) - bestValidAcc > 0.15:
+            if step > 100 and avgTrainingAcc - bestValidAcc > 0.15:
                 trainLogFunc('Overfitting. Quitting...')
                 break
 
