@@ -34,7 +34,7 @@ class Mark6(AbstractModel):
         self.print('l2 reg lambda: %0.7f' % l2RegLambda)
 
     def make_graph(self):
-        makers = [RNNLayer.new(cellUnits, keepProbs) for cellUnits, keepProbs in self.rnnCellUnitsNProbs]
+        makers = [RNNLayer.new(cellUnits, keepProbs, activation='sigmoid') for cellUnits, keepProbs in self.rnnCellUnitsNProbs]
         self.add_layers(makers, self.input, (-1, -1, self.vecDim))
 
         self.add_layers(DropoutLayer.new(self.pooledKeepProb))
@@ -62,7 +62,7 @@ class Mark6(AbstractModel):
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
     @classmethod
-    def comparison_run(cls, runScale='medium', dataScale='full_2occupations', useCPU = True):
+    def comparison_run(cls, runScale='small', dataScale='full_2occupations', useCPU = True):
         params = [('initialLearningRate', [5e-4]),
                   ('l2RegLambda', [1e-4]),
 
@@ -70,19 +70,23 @@ class Mark6(AbstractModel):
                       [([128, 8], [0.8, 1]), ([32, 8], [0.8, 1]), ([16, 8], [0.8, 1])],
                       [([128], [0.8]), ([32], [0.8]), ([16], [0.8])],
                       [([128, 32, 16], [0.5, 0.8, 0.8]), ([64, 64], [0.5, 0.8]), ([32], [0.8])],
-                                           ]),
+                  ]),
 
                   ('pooledKeepProb', [1])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
     @classmethod
-    def full_run(cls, runScale='full', dataScale='full', useCPU = True):
-        params = [('initialLearningRate', [5e-4]),
-                  ('l2RegLambda', [1e-4]),
+    def full_run(cls, runScale='tiny', dataScale='full', useCPU = True):
+        params = [('initialLearningRate', [1e-3]),
+                  ('l2RegLambda', [0]),
 
                   ('rnnCellUnitsNProbs', [
-                      [([128, 8], [0.8, 1]), ([32, 8], [0.8, 1]), ([16, 8], [0.8, 1])]
+                      # [([128, 8], [0.8, 1]), ([32, 8], [0.8, 1]), ([16, 8], [0.8, 1])],
+                      # [([16, 128], [1, 0.8]), ([8, 32], [1, 0.8]), ([8, 16], [1, 0.8])],
+                      # [([128, 64, 16], [0.5, 0.5, 1]), ([16, 64, 128], [1, 0.5, 0.5]), ([32, 32, 32], [1]*3)],
+                      [([128, 64, 16], [1]*3), ([16, 64, 128], [1]*3), ([32, 32, 32], [1]*3)],
+                      [([64]*4, [0.5, 0.5, 0.5, 1]), ([32]*4, [0.5, 0.5, 0.5, 1]), ([16]*4,  [0.5, 0.5, 0.5, 1])],
                   ]),
 
                   ('pooledKeepProb', [1])]
@@ -90,6 +94,7 @@ class Mark6(AbstractModel):
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    Mark6.comparison_run()
+    Mark6.full_run()
+    # Mark6.comparison_run()
     # Mark6.quick_run()
     # Mark6.quick_learn()

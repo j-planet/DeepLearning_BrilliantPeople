@@ -1,7 +1,7 @@
 import os
 from time import time
 
-os.environ['TF_CPP_MIN_LOG_LEVEL']='0'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
+os.environ['TF_CPP_MIN_LOG_LEVEL']='1'  # Defaults to 0: all logs; 1: filter out INFO logs; 2: filter out WARNING; 3: filter out errors
 import tensorflow as tf
 
 from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, create_time_dir, dir_create_n_clear
@@ -113,11 +113,12 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
     lrDecayPerCycle = 0.9
 
     train_accuracies = []
+    lr = initialLr
 
     for step in range(numSteps):
         numDataPoints = (step+1) * runConfig.batchSize
 
-        lr = _decrease_learning_rate(numDataPoints)
+        # lr = _decrease_learning_rate(numDataPoints)
         summaries, c, acc = model.train_op(sess, dataReader.get_next_training_batch()[0], computeMetrics_=True)
 
         train_writer.add_summary(summaries, step * batchSize)
@@ -129,8 +130,11 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
             saver.save(sess, savePath, global_step=numDataPoints)
 
             if curValidC >= bestValidC and curValidAcc <= bestValidAcc:
+                lrDecayPerCycle *= 0.8
+                lr = _decrease_learning_rate(numDataPoints)
+                logValidationEvery = max(int(runConfig.logValidationEvery/3), int(0.8*logValidationEvery))
+
                 numValidWorse += 1
-                lrDecayPerCycle *= 0.95
                 validLogFunc('Worse than best validation result so far %d time(s). Decreasing lrDecayPerCycle to %0.3f.' % (numValidWorse, lrDecayPerCycle))
 
                 if numValidWorse >= runConfig.failToImproveTolerance:
@@ -166,16 +170,16 @@ class RunConfig(object):
             self.failToImproveTolerance = 1
 
         elif scale == 'tiny':
-            self.numSteps = 10
+            self.numSteps = 1000
             self.batchSize = 20
-            self.logValidationEvery = 3
-            self.failToImproveTolerance = 1
+            self.logValidationEvery = 30
+            self.failToImproveTolerance = 10
 
         elif scale == 'small':
             self.numSteps = 50
             self.batchSize = 50
             self.logValidationEvery = 5
-            self.failToImproveTolerance = 2
+            self.failToImproveTolerance = 3
 
         elif scale == 'medium':
             self.numSteps = 200

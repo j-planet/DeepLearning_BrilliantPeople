@@ -80,9 +80,10 @@ def setup_logging(logFilename_, level_=logging.DEBUG):
     print('setup_logging for', logFilename_)
     logger = logging.getLogger()
 
-    if len(logger.handlers) > 1:
-        logger.handlers[0].stream.close()
-        logger.removeHandler(logger.handlers[0])
+    if len(logger.handlers) > 0:
+        for hdl in logger.handlers:
+            hdl.stream.close()
+            logger.removeHandler(hdl)
 
         file_handler = logging.FileHandler(logFilename_)
 
