@@ -97,17 +97,55 @@ class Mark6(AbstractModel):
 
     @classmethod
     def full_run(cls, runScale='full', dataScale='full', useCPU = True):
+
+        def _p(start, count, pattern):
+            """
+            produce a list of dropout probs
+            """
+
+            assert pattern in ['inc', 'dec', 'constant']
+
+            if pattern=='constant':
+                return [start]*count
+
+            delta = 0.1 if pattern=='inc' else -0.1
+
+            res = [start]
+
+            for _ in range(count-1):
+                res.append( max(min(res[-1] + delta, 1), 0.1) )
+
+            return res
+
+        def _c(start, count, pattern):
+            """
+            produce a list of number of cell units, by halfing or doubling
+            """
+
+            assert pattern in ['inc', 'dec', 'constant']
+
+            if pattern == 'constant':
+                return [start] * count
+
+
+            delta = 2 if pattern == 'inc' else 0.5
+
+            res = [start]
+
+            for _ in range(count - 1):
+                res.append(max(min(res[-1]*delta, 2048), 8))
+
+            return res
+
         rnnConfigs = []
 
-        for pd in [0.5, 0.7, 1]:
+        for pd in [0.6, 0.7, 1]:
+            for pd_pattern in ['inc', 'dec', 'constant']:
+                for numLayers in [2,3,4,5]:
+                    for c in [1024, 256, 64, 32, 16]:
+                        for c_pattern in ['inc', 'dec', 'constant']:
 
-            rnnConfigs += [RNNConfig([n] * 5, pd) for n in [8, 16, 32, 64, 128]] \
-                          + [ RNNConfig([n] * 4, pd) for n in [16, 32, 64, 128] ] \
-                          + [ RNNConfig([n] * 3, pd) for n in [64, 128, 256, 512, 1024] ] \
-                          + [RNNConfig([n] * 2, pd) for n in [128, 256, 512, 1024]]
-
-        rnnConfigs += [RNNConfig([128, 256, 32], [0.5, 0.8, 1]),
-                       RNNConfig([128, 256, 32], [1, 0.8, 0.5])]
+                            rnnConfigs.append([RNNConfig(_c(c, numLayers, c_pattern), _p(pd, numLayers, pd_pattern))])
 
 
         params = [('initialLearningRate', [1e-3]),
