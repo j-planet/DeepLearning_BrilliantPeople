@@ -101,13 +101,13 @@ class Mark6(AbstractModel):
 
         for pd in [0.5, 0.7, 1]:
 
-            rnnConfigs += [RNNConfig([n] * 5, pd) for n in [8, 16, 32, 64, 128]] \
-                          + [ RNNConfig([n] * 4, pd) for n in [16, 32, 64, 128] ] \
-                          + [ RNNConfig([n] * 3, pd) for n in [64, 128, 256, 512, 1024] ] \
-                          + [RNNConfig([n] * 2, pd) for n in [128, 256, 512, 1024]]
+            rnnConfigs += [[RNNConfig([n] * 5, pd)] for n in [8, 16, 32, 64, 128]] \
+                          + [ [RNNConfig([n] * 4, pd)] for n in [16, 32, 64, 128] ] \
+                          + [ [RNNConfig([n] * 3, pd)] for n in [64, 128, 256, 512, 1024] ] \
+                          + [ [RNNConfig([n] * 2, pd)] for n in [128, 256, 512, 1024]]
 
-        rnnConfigs += [RNNConfig([128, 256, 32], [0.5, 0.8, 1]),
-                       RNNConfig([128, 256, 32], [1, 0.8, 0.5])]
+        rnnConfigs += [[RNNConfig([128, 256, 32], [0.5, 0.8, 1])],
+                       [RNNConfig([128, 256, 32], [1, 0.8, 0.5])]]
 
 
         params = [('initialLearningRate', [1e-3]),
