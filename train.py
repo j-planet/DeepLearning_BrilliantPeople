@@ -190,10 +190,10 @@ class RunConfig(object):
             self.failToImproveTolerance = 7
 
         elif scale == 'medium':
-            self.numSteps = 200
-            self.batchSize = 100
-            self.logValidationEvery = 7
-            self.failToImproveTolerance = 3
+            self.numSteps = 500
+            self.batchSize = 60
+            self.logValidationEvery = 15
+            self.failToImproveTolerance = 7
 
         elif scale == 'full':
             self.numSteps = 300

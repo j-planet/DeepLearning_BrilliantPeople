@@ -96,7 +96,7 @@ class Mark6(AbstractModel):
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
     @classmethod
-    def full_run(cls, runScale='full', dataScale='full', useCPU = True):
+    def full_run(cls, runScale='medium', dataScale='full', useCPU = True):
 
         def _p(start, count, pattern):
             """
@@ -127,13 +127,12 @@ class Mark6(AbstractModel):
             if pattern == 'constant':
                 return [start] * count
 
-
             delta = 2 if pattern == 'inc' else 0.5
 
             res = [start]
 
             for _ in range(count - 1):
-                res.append(max(min(res[-1]*delta, 2048), 8))
+                res.append(int(max(min(res[-1]*delta, 2048), 8)))
 
             return res
 
@@ -141,9 +140,11 @@ class Mark6(AbstractModel):
 
         for pd in [0.6, 0.7, 1]:
             for pd_pattern in ['inc', 'dec', 'constant']:
-                for numLayers in [2,3,4,5]:
+                for numLayers in [2, 3, 4, 5]:
                     for c in [1024, 256, 64, 32, 16]:
                         for c_pattern in ['inc', 'dec', 'constant']:
+
+                            if c == 1024 and (c_pattern=='inc' or numLayers > 3): continue
 
                             rnnConfigs.append([RNNConfig(_c(c, numLayers, c_pattern), _p(pd, numLayers, pd_pattern))])
 
