@@ -149,9 +149,4 @@ class Mark3(AbstractModel):
         cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-<<<<<<< HEAD
     Mark3.comparison_run()
-=======
-    Mark3.quick_run()
-    # Mark3.quick_learn()
->>>>>>> ef890976c380cea4c43bafeb3ddd6991c57503d8
