@@ -109,6 +109,7 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
     trainLogFunc('Saving to ' + savePath)
     dataReader.start_batch_from_beginning()     # technically unnecessary
     batchSize, numSteps, logValidationEvery = runConfig.batchSize, runConfig.numSteps, runConfig.logValidationEvery
+    skipOneValid = False
     bestValidC, bestValidAcc, numValidWorse = 100, 0, 0   # for early stopping if the model isn't getting anywhere :(
     lrDecayPerCycle = 0.9
 
@@ -126,32 +127,36 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
         train_accuracies.append(acc)
 
         if step % logValidationEvery == 0:
-            curValidC, curValidAcc = evaluate_in_batches(sess, dataReader.get_validation_data_in_batches(), dataReader.classLabels, model.evaluate, validLogFunc, verbose_=False)
-            saver.save(sess, savePath, global_step=numDataPoints)
-            avgTrainingAcc = sum(train_accuracies)/len(train_accuracies)
-            train_accuracies = []
-            trainLogFunc('Avg training accuracy = %0.3f' % avgTrainingAcc)
-
-            if curValidC >= bestValidC and curValidAcc <= bestValidAcc:
-                lrDecayPerCycle *= 0.8
-                lr = _decrease_learning_rate(numDataPoints)
-                logValidationEvery = max(int(runConfig.logValidationEvery/4), int(0.8*logValidationEvery))
-
-                numValidWorse += 1
-                validLogFunc('Worse than best validation result so far %d time(s). Decreasing lrDecayPerCycle to %0.3f.' % (numValidWorse, lrDecayPerCycle))
-
-                if numValidWorse >= runConfig.failToImproveTolerance:
-                    validLogFunc('Results have not improved in %d validations. Quitting.' % numValidWorse)
-                    break
+            if skipOneValid:
+                skipOneValid = False
             else:
-                bestValidC = min(bestValidC, curValidC)
-                bestValidAcc = max(bestValidAcc, curValidAcc)
-                numValidWorse = 0
+                curValidC, curValidAcc = evaluate_in_batches(sess, dataReader.get_validation_data_in_batches(), dataReader.classLabels, model.evaluate, validLogFunc, verbose_=False)
+                saver.save(sess, savePath, global_step=numDataPoints)
+                avgTrainingAcc = sum(train_accuracies)/len(train_accuracies)
+                train_accuracies = []
+                trainLogFunc('Avg training accuracy = %0.3f' % avgTrainingAcc)
 
-            # obviously overfitting
-            if step > 100 and avgTrainingAcc - bestValidAcc > 0.15:
-                trainLogFunc('Overfitting. Quitting...')
-                break
+                if curValidC >= bestValidC and curValidAcc <= bestValidAcc:
+                    # lrDecayPerCycle *= 0.8
+                    lr = _decrease_learning_rate(numDataPoints)
+                    logValidationEvery = max(int(runConfig.logValidationEvery/3), int(0.8*logValidationEvery))
+                    skipOneValid = True
+
+                    numValidWorse += 1
+                    validLogFunc('Worse than best validation result so far %d time(s). Decreasing lrDecayPerCycle to %0.3f.' % (numValidWorse, lrDecayPerCycle))
+
+                    if numValidWorse >= runConfig.failToImproveTolerance:
+                        validLogFunc('Results have not improved in %d validations. Quitting.' % numValidWorse)
+                        break
+                else:
+                    bestValidC = min(bestValidC, curValidC)
+                    bestValidAcc = max(bestValidAcc, curValidAcc)
+                    numValidWorse = 0
+
+                # obviously overfitting
+                if step > 100 and avgTrainingAcc - bestValidAcc > 0.15:
+                    trainLogFunc('Overfitting. Quitting...')
+                    break
 
 
     testLogFunc('Time elapsed: %0.3f ' % (time()-st) )
@@ -179,10 +184,10 @@ class RunConfig(object):
             self.failToImproveTolerance = 10
 
         elif scale == 'small':
-            self.numSteps = 50
-            self.batchSize = 50
-            self.logValidationEvery = 5
-            self.failToImproveTolerance = 3
+            self.numSteps = 500
+            self.batchSize = 40
+            self.logValidationEvery = 15
+            self.failToImproveTolerance = 7
 
         elif scale == 'medium':
             self.numSteps = 200
@@ -191,10 +196,10 @@ class RunConfig(object):
             self.failToImproveTolerance = 3
 
         elif scale == 'full':
-            self.numSteps = 1000
-            self.batchSize = 200
-            self.logValidationEvery = 12
-            self.failToImproveTolerance = 4
+            self.numSteps = 300
+            self.batchSize = 100
+            self.logValidationEvery = 8
+            self.failToImproveTolerance = 6
 
         self.scale = scale
         self._logFunc = print if loggerFactory is None else loggerFactory.getLogger('config.run').info

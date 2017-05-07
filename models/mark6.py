@@ -10,7 +10,13 @@ from utilities import make_params_dict
 
 
 class RNNConfig(object):
-    def __init__(self, numCellUnits, keepProbs, activation=None):
+    def __init__(self, numCellUnits, keepProbs=1, activation=None):
+        """
+        :type keepProbs: Union[int, float, list] 
+        """
+
+        if type(keepProbs) in [float, int]:
+            keepProbs = [keepProbs] * len(numCellUnits)
 
         assert len(numCellUnits)==len(keepProbs)
         assert min(keepProbs)>0 and max(keepProbs)<=1
@@ -24,25 +30,30 @@ class Mark6(AbstractModel):
 
     def __init__(self, input_,
                  initialLearningRate, l2RegLambda,
+                 l2Scheme,
                  rnnConfigs,
                  pooledKeepProb, pooledActivation,
                  loggerFactory_=None):
         """        
         :type initialLearningRate: float 
         :type l2RegLambda: float
+        :type l2Scheme: str
         :type rnnConfigs: list
         :type pooledKeepProb: float 
         """
 
         assert 0.0 < pooledKeepProb <= 1
+        assert l2Scheme in ['final_stage', 'overall']
 
         self.l2RegLambda = l2RegLambda
+        self.l2Scheme = l2Scheme
         self.pooledKeepProb = pooledKeepProb
         self.pooledActivation = pooledActivation
         self.rnnConfigs = rnnConfigs
 
         super().__init__(input_, initialLearningRate, loggerFactory_)
         self.print('l2 reg lambda: %0.7f' % l2RegLambda)
+        self.print('l2 scheme: ' + l2Scheme)
 
     def make_graph(self):
         makers = [RNNLayer.new(c.numCellUnits, c.keepProbs, activation=c.activation) for c in self.rnnConfigs]
@@ -50,7 +61,11 @@ class Mark6(AbstractModel):
 
         self.add_layers(DropoutLayer.new(self.pooledKeepProb, self.pooledActivation))
         lastLayer = self.add_layers(FullyConnectedLayer.new(self.numClasses))
-        self.l2Loss = self.l2RegLambda * (tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases))
+
+        self.l2Loss = self.l2RegLambda * (
+            tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases) if self.l2Scheme=='final_stage'
+            else sum([tf.nn.l2_loss(v) for v in tf.trainable_variables()])
+        )
 
     @classmethod
     def quick_run(cls, runScale ='basic', dataScale='tiny_fake_2', useCPU = True):
@@ -81,26 +96,35 @@ class Mark6(AbstractModel):
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
     @classmethod
-    def full_run(cls, runScale='tiny', dataScale='full', useCPU = True):
+    def full_run(cls, runScale='full', dataScale='full', useCPU = True):
+        rnnConfigs = []
+
+        for pd in [0.5, 0.7, 1]:
+
+            rnnConfigs += [RNNConfig([n] * 5, pd) for n in [8, 16, 32, 64, 128]] \
+                          + [ RNNConfig([n] * 4, pd) for n in [16, 32, 64, 128] ] \
+                          + [ RNNConfig([n] * 3, pd) for n in [64, 128, 256, 512, 1024] ] \
+                          + [RNNConfig([n] * 2, pd) for n in [128, 256, 512, 1024]]
+
+        rnnConfigs += [RNNConfig([128, 256, 32], [0.5, 0.8, 1]),
+                       RNNConfig([128, 256, 32], [1, 0.8, 0.5])]
+
+
         params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [0]),
+                  ('l2RegLambda', [1e-6]),
+                  ('l2Scheme', ['overall', 'final_stage']),
 
-                  ('rnnConfigs', [
-                      # [([128, 8], [0.8, 1]), ([32, 8], [0.8, 1]), ([16, 8], [0.8, 1])],
-                      # [([16, 128], [1, 0.8]), ([8, 32], [1, 0.8]), ([8, 16], [1, 0.8])],
-                      # [([128, 64, 16], [0.5, 0.5, 1]), ([16, 64, 128], [1, 0.5, 0.5]), ([32, 32, 32], [1]*3)],
-                      [RNNConfig([128, 64, 16], [0.5]*3), RNNConfig([16, 64, 128], [0.5]*3), RNNConfig([32, 32, 32], [0.5]*3)],
-                      [([64]*4, [0.5, 0.5, 0.5, 1]), ([32]*4, [0.5, 0.5, 0.5, 1]), ([16]*4,  [0.5, 0.5, 0.5, 1])],
-                  ]),
+                  ('rnnConfigs', rnnConfigs),
 
-                  ('pooledKeepProb', [1]),
-                  ('pooledActivation', ['relu'])
+                  ('pooledKeepProb', [0.5, 0.9, 1]),
+                  ('pooledActivation', [None, 'relu'])
                   ]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
     Mark6.full_run()
+    # Mark6.full_run('small')
     # Mark6.comparison_run()
     # Mark6.quick_run()
     # Mark6.quick_learn()
