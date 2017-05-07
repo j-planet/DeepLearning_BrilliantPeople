@@ -103,7 +103,7 @@ class Mark6(AbstractModel):
             produce a list of dropout probs
             """
 
-            assert params in ['inc', 'dec', 'constant']
+            assert pattern in ['inc', 'dec', 'constant']
 
             if pattern=='constant':
                 return [start]*count
@@ -122,7 +122,7 @@ class Mark6(AbstractModel):
             produce a list of number of cell units, by halfing or doubling
             """
 
-            assert params in ['inc', 'dec', 'constant']
+            assert pattern in ['inc', 'dec', 'constant']
 
             if pattern == 'constant':
                 return [start] * count
