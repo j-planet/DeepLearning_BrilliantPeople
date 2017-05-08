@@ -72,9 +72,11 @@ class Mark6(AbstractModel):
 
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [1e-3]),
+                  ('l2Scheme', ['overall']),
                   ('rnnConfigs', [ [RNNConfig([16, 13], [1,1], 'relu')] ]),
                   # ('rnnCellUnitsNProbs', [ [([16, 13], [1, 1]), ([16, 13], [1, 1])] ]),
-                  ('pooledKeepProb', [0.5]), ('pooledActivation', [None])]
+                  ('pooledKeepProb', [0.5]),
+                  ('pooledActivation', [None])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
