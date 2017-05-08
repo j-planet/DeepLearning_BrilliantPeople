@@ -1,152 +1,60 @@
-# Mark 3: Embeddings followed by CNN-maxpool
-# with conv done sequence-wise and maxpool done embedding dimension-wise
-# just as in http://www.wildml.com/2015/12/implementing-a-cnn-for-text-classification-in-tensorflow/
-
 import tensorflow as tf
-import numpy as np
-import os
 
 from models.abstract_model import AbstractModel
-from data_readers.text_data_reader import TextDataReader
-from layers.embedding_layer import EmbeddingLayer
+from data_readers.embedding_data_reader import EmbeddingDataReader
+from layers.rnn_layer import RNNLayer
 from layers.fully_connected_layer import FullyConnectedLayer
-from layers.dropout_layer import DropoutLayer
-from layers.conv_maxpool_layer import ConvMaxpoolLayer
-
-from train import train
-from utilities import run_with_processor, make_params_dict, convert_to_2d
-
-PPL_DATA_DIR = '../data/peopleData/'
 
 
 class Mark3(AbstractModel):
 
-    def __init__(self, input_,
-                 initialLearningRate, l2RegLambda,
-                 vocabSize, embeddingDim,
-                 filterSizes, numFeaturesPerFilter,
-                 pooledKeepProb,
+    def __init__(self, input_, initialLearningRate,
+                 rnnNumCellUnits, rnnKeepProbs=1,
                  loggerFactory_=None):
         """        
         :type initialLearningRate: float 
-        :type l2RegLambda: float
-        :type pooledKeepProb: float 
-        :type vocabSize: int
-        :type embeddingDim: int
+        :type rnnNumCellUnits: list
+        :type rnnKeepProbs: Union[list, float]
         """
 
+        if type(rnnKeepProbs) == float:
+            assert 0 < rnnKeepProbs <= 1
+            rnnKeepProbs = [rnnKeepProbs] * len(rnnNumCellUnits)
 
-        self.l2RegLambda = l2RegLambda
-        self.pooledKeepProb = pooledKeepProb
-        self.vocabSize = vocabSize
-        self.embeddingDim = embeddingDim
-        self.filterSizes = filterSizes
-        self.numFeaturesPerFilter = numFeaturesPerFilter
+        assert len(rnnNumCellUnits) == len(rnnNumCellUnits)
+
+        self.rnnNumCellUnits = rnnNumCellUnits
+        self.rnnKeepProbs = rnnKeepProbs
 
         super().__init__(input_, initialLearningRate, loggerFactory_)
-        self.print('l2 reg lambda: %0.7f' % l2RegLambda)
 
     def make_graph(self):
 
-        inputNumCols = self.x.get_shape()[1].value
+        self.add_layers(RNNLayer.new(self.rnnNumCellUnits),
+                        self.input,
+                        (-1, -1, self.vecDim))
 
-        # layer1: embedding
-        layer1 = self.add_layers(EmbeddingLayer.new(self.vocabSize, self.embeddingDim),
-                                 self.input['x'], (-1, inputNumCols))
+        self.add_layers(FullyConnectedLayer.new(self.numClasses))
 
-        # layer2: a bunch of conv-maxpools
-        layer2_outputs = []
-
-        for filterSize in self.filterSizes:
-
-            l = ConvMaxpoolLayer(layer1.output, layer1.output_shape,
-                                 convParams_={'filterShape': (filterSize, self.embeddingDim),
-                                              'numFeaturesPerFilter': self.numFeaturesPerFilter, 'activation': 'relu'},
-                                 maxPoolParams_={'ksize': (inputNumCols - filterSize + 1, 1), 'padding': 'VALID'},
-                                 loggerFactory=self.loggerFactory)
-
-            layer2_outputs.append(l.output)
-
-
-        layer2_outputShape = -1, self.numFeaturesPerFilter * len(self.filterSizes)
-        layer2_output = tf.reshape(tf.concat(layer2_outputs, 3), layer2_outputShape)
-
-        self.add_output(layer2_output, layer2_outputShape)
-
-        # layer3: dropout
-        self.add_layers(DropoutLayer.new(self.pooledKeepProb))
-
-        # layer4: fully connected
-        lastLayer = self.add_layers(FullyConnectedLayer.new(self.numClasses))
-
-        self.l2Loss = self.l2RegLambda * (tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases))
-
-
-    @classmethod
-    def quick_run(cls, runScale ='tiny', dataScale='tiny_fake_2', useCPU = True):
-
-        # ok this is silly. But at least it's fast.
-        vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
-            bucketingOrRandom = 'bucketing', batchSize_ = 50, minimumWords = 0).vocabSize
-
-        params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [0]),
-                  ('vocabSize', [vocabSize]),
-                  ('embeddingDim', [32]),
-                  ('filterSizes', [[2, 4], [1,3,5]]),
-                  ('numFeaturesPerFilter', [8]),
-                  ('pooledKeepProb', [1])]
-
-        cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
-
-
-    @classmethod
-    def quick_learn(cls, runScale='small', dataScale='full_2occupations', useCPU=True):
-        # ok this is silly. But at least it's fast.
-        vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
-            bucketingOrRandom='bucketing', batchSize_=50, minimumWords=0).vocabSize
-
-        params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [0]),
-                  ('vocabSize', [vocabSize]),
-                  ('embeddingDim', [300]),
-                  ('filterSizes', [[1, 3, 5]]),
-                  ('numFeaturesPerFilter', [8]),
-                  ('pooledKeepProb', [1])]
-
-        cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
-
-    @classmethod
-    def comparison_run(cls, runScale='small', dataScale='full_2occupations', useCPU=True):
-        # ok this is silly. But at least it's fast.
-        vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
-            bucketingOrRandom='bucketing', batchSize_=50, minimumWords=0).vocabSize
-
-        params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [0, 1e-5]),
-                  ('vocabSize', [vocabSize]),
-                  ('embeddingDim', [64, 128, 300]),
-                  ('filterSizes', [[1, 2, 4]]),
-                  ('numFeaturesPerFilter', [16, 32, 64]),
-                  ('pooledKeepProb', [0.5, 0.85, 1])]
-
-        cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
-
-    @classmethod
-    def full_run(cls, runScale='full', dataScale='full', useCPU=True):
-        # ok this is silly. But at least it's fast.
-        vocabSize = TextDataReader.maker_from_premade_source(dataScale)(
-            bucketingOrRandom='bucketing', batchSize_=50, minimumWords=0).vocabSize
-
-        params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [0, 1e-5]),
-                  ('vocabSize', [vocabSize]),
-                  ('embeddingDim', [64, 128, 300]),
-                  ('filterSizes', [[1, 2, 4], [3, 5, 10, 15]]),
-                  ('numFeaturesPerFilter', [16, 32, 64]),
-                  ('pooledKeepProb', [0.5, 0.7, 0.9, 1])]
-
-        cls.run_thru_data(TextDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    Mark3.comparison_run()
+
+    datadir = '../data/peopleData/2_samples'
+    # datadir = '../data/peopleData/earlyLifesWordMats/politician_scientist'
+
+    lr = 1e-3
+    dr = EmbeddingDataReader(datadir, 'bucketing', 40, 30)
+    model = Mark3(dr.input, lr, [16, 8], [.5, .5])
+
+    sess = tf.InteractiveSession()
+    sess.run(tf.global_variables_initializer())
+
+    for step in range(100):
+        if step % 10 == 0:
+            print('Lowering learning rate to', lr)
+            lr *= 0.9
+            model.assign_lr(sess, lr)
+
+        fd = dr.get_next_training_batch()[0]
+        _, c, acc = model.train_op(sess, fd, True)
+        print('Step %d: (cost, accuracy): training (%0.3f, %0.3f)' % (step, c, acc))

@@ -1,14 +1,12 @@
 import tensorflow as tf
-import numpy as np
 
 from models.abstract_model import AbstractModel
 from data_readers.embedding_data_reader import EmbeddingDataReader
 from layers.rnn_layer import RNNLayer
 from layers.fully_connected_layer import FullyConnectedLayer
-from layers.dropout_layer import DropoutLayer
-from layers.conv_maxpool_layer import ConvMaxpoolLayer
+from layers.conv_localnorm_layer import ConvLocalnormLayer
 
-from utilities import make_params_dict, convert_to_2d
+from utilities import make_params_dict, convert_to_3d
 
 
 
@@ -16,117 +14,107 @@ class Mark2(AbstractModel):
 
     def __init__(self, input_,
                  initialLearningRate, l2RegLambda,
-                 numRnnOutputSteps,
+                 maxNumSeqs,
+                 convFilterShapesNKeepProbs, convNumFeaturesPerFilter,
                  rnnCellUnitsNProbs,
-                 pooledKeepProb,
                  loggerFactory_=None):
         """        
         :type initialLearningRate: float 
         :type l2RegLambda: float
         :type rnnCellUnitsNProbs: tuple
-        :type numRnnOutputSteps: int 
-        :type pooledKeepProb: float 
         """
 
+        convFilterShapes, convKeepProbs = convFilterShapesNKeepProbs
         rnnNumCellUnits, rnnKeepProbs = rnnCellUnitsNProbs
+
+        assert len(convFilterShapes) == len(convKeepProbs)
         assert len(rnnNumCellUnits) == len(rnnNumCellUnits)
-        assert 0.0 < pooledKeepProb <= 1
 
         self.l2RegLambda = l2RegLambda
-        self.numRnnOutputSteps = numRnnOutputSteps
+        self.maxNumSeqs = maxNumSeqs
+
+        self.convFilterShapes = convFilterShapes
+        self.convKeepProbs = convKeepProbs
+
         self.rnnNumCellUnits = rnnNumCellUnits
         self.rnnKeepProbs = rnnKeepProbs
-        self.pooledKeepProb = pooledKeepProb
+        self.convNumFeaturesPerFilter = convNumFeaturesPerFilter
 
         super().__init__(input_, initialLearningRate, loggerFactory_)
         self.print('l2 reg lambda: %0.7f' % l2RegLambda)
 
     def make_graph(self):
 
-        layer1 = self.add_layers(RNNLayer.new(
-            self.rnnNumCellUnits, numStepsToOutput_ = self.numRnnOutputSteps), self.input, (-1, -1, self.vecDim))
+        outputs = []
+        outputShapes = []
 
-        # just last row of the rnn output
-        layer2a_output = layer1.output[:,-1,:]
-        layer2a_outputshape = (layer1.output_shape[0], layer1.output_shape[2])
+        for filterShape, keepProb in zip(self.convFilterShapes, self.convKeepProbs):
 
-        layer2b = ConvMaxpoolLayer(layer1.output, layer1.output_shape,
-                                   convParams_={'filterShape': (2, 2), 'numFeaturesPerFilter': 16, 'activation': 'relu'},
-                                   maxPoolParams_={'ksize': (self.numRnnOutputSteps, 1), 'padding': 'SAME'},
-                                   loggerFactory=self.loggerFactory)
-        layer2b_output, layer2b_output_numcols = convert_to_2d(layer2b.output, layer2b.output_shape)
+            cnn = ConvLocalnormLayer(self.x, (-1, self.maxNumSeqs, self.vecDim),
+                                     convParams_={'filterShape': (filterShape[0], self.vecDim if filterShape[1]==-1 else filterShape[1]),
+                                                  'numFeaturesPerFilter': self.convNumFeaturesPerFilter,
+                                                  'keepProb': keepProb,
+                                                  'activation': 'relu'})
 
+            newInput, newInputNumCols = convert_to_3d(cnn.output, cnn.output_shape)
 
-        layer2c = ConvMaxpoolLayer(layer1.output, layer1.output_shape,
-                                   convParams_={'filterShape': (4, 4), 'numFeaturesPerFilter': 16, 'activation': 'relu'},
-                                   maxPoolParams_={'ksize': (self.numRnnOutputSteps, 1), 'padding': 'SAME'},
-                                   loggerFactory=self.loggerFactory)
-        layer2c_output, layer2c_output_numcols = convert_to_2d(layer2c.output, layer2c.output_shape)
+            rnn = RNNLayer({'x': newInput, 'numSeqs': self.numSeqs - filterShape[0] + 1},
+                           (-1, cnn.output_shape[1], newInputNumCols),
+                           self.rnnNumCellUnits, self.rnnKeepProbs)
 
-        layer2_output = tf.concat([layer2a_output, layer2b_output, layer2c_output], axis=1)
-        layer2_output_numcols = layer2a_outputshape[1] + layer2b_output_numcols + layer2c_output_numcols
+            outputs.append(rnn.output)
+            outputShapes.append(rnn.output_shape)
 
-        self.layers.append([layer2b, layer2c])
-        self.outputs.append({'output': layer2_output,
-                             'output_shape': (layer2a_outputshape[0], layer2_output_numcols)})
+        self.add_outputs(outputs, outputShapes)
 
-        self.add_layers(DropoutLayer.new(self.pooledKeepProb))
-
+        # last layer: fully connected
         lastLayer = self.add_layers(FullyConnectedLayer.new(self.numClasses))
 
         self.l2Loss = self.l2RegLambda * (tf.nn.l2_loss(lastLayer.weights) + tf.nn.l2_loss(lastLayer.biases))
 
 
     @classmethod
-    def quick_run(cls, runScale ='tiny', dataScale='tiny_fake_2', useCPU = True):
+    def quick_run(cls, runScale ='basic', dataScale='tiny_fake_2', useCPU = True):
+
+        numSeqs = EmbeddingDataReader(EmbeddingDataReader.premade_sources()[dataScale], 'bucketing', 100, 40, padToFull=True).maxXLen
 
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0]),
-                  ('numRnnOutputSteps', [10]),
-                  ('rnnCellUnitsNProbs', [([3], [1]),
-                                          ([4, 8], [1, 1])]),
-                  ('pooledKeepProb', [1])]
+                  ('maxNumSeqs', [numSeqs]),
+                  ('convFilterShapesNKeepProbs', [ ([(2, -1)],[1]) ]),
+                  ('convNumFeaturesPerFilter', [6]),
+                  ('rnnCellUnitsNProbs', [([3], [0.9])])]
 
-        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
-
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
 
     @classmethod
     def quick_learn(cls, runScale ='small', dataScale='small_2occupations', useCPU = True):
 
-        params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [0]),
-                  ('numRnnOutputSteps', [10]),
-                  ('rnnCellUnitsNProbs', [([32], [0.7]),
-                                          ([64, 16], [0.6, 0.9])]),
-                  ('pooledKeepProb', [1])]
+        numSeqs = EmbeddingDataReader(EmbeddingDataReader.premade_sources()[dataScale], 'bucketing', 100, 40, padToFull=True).maxXLen
 
-        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+        params = [('initialLearningRate', [1e-3]),
+                  ('l2RegLambda', [1e-4]),
+                  ('maxNumSeqs', [numSeqs]),
+                  ('convFilterShapesNKeepProbs', [ ([(3, -1)], [1]) ]),
+                  ('convNumFeaturesPerFilter', [32]),
+                  ('rnnCellUnitsNProbs', [([16], [0.9])])]
+
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
 
 
     @classmethod
-    def comparison_run(cls, runScale='medium', dataScale='full_2occupations', useCPU = True):
+    def comparison_run(cls, runScale ='medium', dataScale='full_2occupations', useCPU = True):
 
-        params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [5e-4]),
-                  ('numRnnOutputSteps', [5, 10]),
-                  ('rnnCellUnitsNProbs', [([64, 64, 32], [0.8, 0.8, 0.9])]),
-                  ('pooledKeepProb', [0.5, 0.9])]
+        numSeqs = EmbeddingDataReader(EmbeddingDataReader.premade_sources()[dataScale], 'bucketing', 100, 40, padToFull=True).maxXLen
 
-        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+        params = [('initialLearningRate', [1e-4]),
+                  ('l2RegLambda', [1e-4]),
+                  ('maxNumSeqs', [numSeqs]),
+                  ('convFilterShapesNKeepProbs', [ ([(1, 50)], [0.9])]),
+                  ('convNumFeaturesPerFilter', [128]),
+                  ('rnnCellUnitsNProbs', [([128, 64, 32], [0.7, 0.9, 0.9])])]
 
-
-    @classmethod
-    def full_run(cls, runScale='full', dataScale='full', useCPU = True):
-
-        params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [1e-4, 1e-5]),
-                  ('numRnnOutputSteps', [5, 10, 40]),
-                  ('rnnCellUnitsNProbs', [([128, 64], [0.5, 0.9]),
-                                          ([64, 64, 32], [0.8, 0.8, 0.9]),
-                                          ([128, 128, 64, 64], [0.5, 0.7, 0.8, 0.9])]),
-                  ('pooledKeepProb', [0.5, 0.9])]
-
-        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU, padToFull=True)
 
 if __name__ == '__main__':
     Mark2.comparison_run()

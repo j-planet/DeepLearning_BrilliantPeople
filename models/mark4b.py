@@ -11,7 +11,7 @@ from utilities import make_params_dict, convert_to_2d
 
 
 
-class Mark2b(AbstractModel):
+class Mark4b(AbstractModel):
 
     def __init__(self, input_,
                  initialLearningRate, l2RegLambda,
@@ -136,6 +136,4 @@ class Mark2b(AbstractModel):
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    # Mark2b.quick_run()
-    # Mark2b.quick_learn()
-    Mark2b.comparison_run()
+    Mark4b.comparison_run()

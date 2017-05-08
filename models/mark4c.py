@@ -5,18 +5,18 @@ from data_readers.embedding_data_reader import EmbeddingDataReader
 from layers.rnn_layer import RNNLayer
 from layers.fully_connected_layer import FullyConnectedLayer
 from layers.dropout_layer import DropoutLayer
-from layers.conv_maxpool_layer import ConvMaxpoolLayer
+from layers.conv_layer import ConvLayer
 
 from utilities import make_params_dict, convert_to_2d
 
 
 
-class Mark4(AbstractModel):
+class Mark4c(AbstractModel):
 
     def __init__(self, input_,
                  initialLearningRate, l2RegLambda,
-                 numRnnOutputSteps,
-                 rnnCellUnitsNProbs,
+                 numRnnOutputSteps, rnnCellUnitsNProbs,
+                 convNumFeaturesPerFilter,
                  pooledKeepProb,
                  loggerFactory_=None):
         """        
@@ -35,6 +35,7 @@ class Mark4(AbstractModel):
         self.numRnnOutputSteps = numRnnOutputSteps
         self.rnnNumCellUnits = rnnNumCellUnits
         self.rnnKeepProbs = rnnKeepProbs
+        self.convNumFeaturesPerFilter = convNumFeaturesPerFilter
         self.pooledKeepProb = pooledKeepProb
 
         super().__init__(input_, initialLearningRate, loggerFactory_)
@@ -43,23 +44,28 @@ class Mark4(AbstractModel):
     def make_graph(self):
 
         layer1 = self.add_layers(RNNLayer.new(
-            self.rnnNumCellUnits, numStepsToOutput_ = self.numRnnOutputSteps), self.input, (-1, -1, self.vecDim))
+            self.rnnNumCellUnits, self.rnnKeepProbs, numStepsToOutput_ = self.numRnnOutputSteps), self.input, (-1, -1, self.vecDim))
 
         # just last row of the rnn output
-        layer2a_output = layer1.output[:,-1,:]
-        layer2a_outputshape = (layer1.output_shape[0], layer1.output_shape[2])
+        numCols = layer1.output_shape[2]
 
-        layer2b = ConvMaxpoolLayer(layer1.output, layer1.output_shape,
-                                   convParams_={'filterShape': (2, 2), 'numFeaturesPerFilter': 16, 'activation': 'relu'},
-                                   maxPoolParams_={'ksize': (self.numRnnOutputSteps, 1), 'padding': 'SAME'},
-                                   loggerFactory=self.loggerFactory)
+        layer2a_output = layer1.output[:,-1,:]
+        layer2a_outputshape = (layer1.output_shape[0], numCols)
+
+
+
+        layer2b = ConvLayer(layer1.output, layer1.output_shape,
+                            filterShape = (2, numCols),
+                            numFeaturesPerFilter= self.convNumFeaturesPerFilter,
+                            activation = 'relu',
+                            loggerFactory=self.loggerFactory)
         layer2b_output, layer2b_output_numcols = convert_to_2d(layer2b.output, layer2b.output_shape)
 
-
-        layer2c = ConvMaxpoolLayer(layer1.output, layer1.output_shape,
-                                   convParams_={'filterShape': (4, 4), 'numFeaturesPerFilter': 16, 'activation': 'relu'},
-                                   maxPoolParams_={'ksize': (self.numRnnOutputSteps, 1), 'padding': 'SAME'},
-                                   loggerFactory=self.loggerFactory)
+        layer2c = ConvLayer(layer1.output, layer1.output_shape,
+                            filterShape=(4, numCols),
+                            numFeaturesPerFilter=self.convNumFeaturesPerFilter,
+                            activation='relu',
+                            loggerFactory=self.loggerFactory)
         layer2c_output, layer2c_output_numcols = convert_to_2d(layer2c.output, layer2c.output_shape)
 
         layer2_output = tf.concat([layer2a_output, layer2b_output, layer2c_output], axis=1)
@@ -77,42 +83,29 @@ class Mark4(AbstractModel):
 
 
     @classmethod
-    def quick_run(cls, runScale ='tiny', dataScale='tiny_fake_2', useCPU = True):
+    def quick_run(cls, runScale ='basic', dataScale='tiny_fake_2', useCPU = True):
 
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0]),
-                  ('numRnnOutputSteps', [10]),
-                  ('rnnCellUnitsNProbs', [([3], [1]),
-                                          ([4, 8], [1, 1])]),
+                  ('numRnnOutputSteps', [5]),
+                  ('rnnCellUnitsNProbs', [([3], [0.9]),
+                                          ([8], [1])]),
+                  ('convNumFeaturesPerFilter', [4]),
                   ('pooledKeepProb', [1])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
-
     @classmethod
-    def quick_learn(cls, runScale ='small', dataScale='small_2occupations', useCPU = True):
+    def quick_learn(cls, runScale ='small', dataScale='full_2occupations', useCPU = True):
 
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [0]),
                   ('numRnnOutputSteps', [10]),
-                  ('rnnCellUnitsNProbs', [([32], [0.7]),
-                                          ([64, 16], [0.6, 0.9])]),
+                  ('rnnCellUnitsNProbs', [([32], [0.7])]),
+                  ('convNumFeaturesPerFilter', [16]),
                   ('pooledKeepProb', [1])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
-
-
-    @classmethod
-    def comparison_run(cls, runScale='medium', dataScale='full_2occupations', useCPU = True):
-
-        params = [('initialLearningRate', [1e-3]),
-                  ('l2RegLambda', [5e-4]),
-                  ('numRnnOutputSteps', [5, 10]),
-                  ('rnnCellUnitsNProbs', [([64, 64, 32], [0.8, 0.8, 0.9])]),
-                  ('pooledKeepProb', [0.5, 0.9])]
-
-        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
-
 
     @classmethod
     def full_run(cls, runScale='full', dataScale='full', useCPU = True):
@@ -120,12 +113,12 @@ class Mark4(AbstractModel):
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [1e-4, 1e-5]),
                   ('numRnnOutputSteps', [5, 10, 40]),
-                  ('rnnCellUnitsNProbs', [([128, 64], [0.5, 0.9]),
-                                          ([64, 64, 32], [0.8, 0.8, 0.9]),
+                  ('rnnCellUnitsNProbs', [([64, 64, 32], [0.8, 0.8, 0.9]),
                                           ([128, 128, 64, 64], [0.5, 0.7, 0.8, 0.9])]),
+                  ('convNumFeaturesPerFilter', [16, 32]),
                   ('pooledKeepProb', [0.5, 0.9])]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    Mark4.comparison_run()
+    Mark4c.full_run(runScale='medium', dataScale='full_2occupations')

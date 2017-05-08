@@ -1,4 +1,4 @@
-# Mark 3: Embeddings followed by CNN-maxpool
+# Mark 1: Embeddings followed by CNN-maxpool
 # with conv done sequence-wise and maxpool done embedding dimension-wise
 # just as in http://www.wildml.com/2015/12/implementing-a-cnn-for-text-classification-in-tensorflow/
 
@@ -15,7 +15,7 @@ from utilities import make_params_dict, convert_to_2d
 PPL_DATA_DIR = '../data/peopleData/'
 
 
-class Mark3b(AbstractModel):
+class Mark1b(AbstractModel):
 
     def __init__(self, input_,
                  initialLearningRate, l2RegLambda,
@@ -130,4 +130,4 @@ class Mark3b(AbstractModel):
 
 if __name__ == '__main__':
     # Mark3b.quick_learn('tiny', 'tiny_fake_2')
-    Mark3b.comparison_run()
+    Mark1b.comparison_run()
