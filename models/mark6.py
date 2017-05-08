@@ -140,8 +140,8 @@ class Mark6(AbstractModel):
 
         rnnConfigs = []
 
-        for pd in [0.6, 0.7, 1]:
-            for pd_pattern in ['inc', 'dec', 'constant']:
+        for pd in [0.6]:
+            for pd_pattern in ['constant']:
                 for numLayers in [2, 3, 4, 5]:
                     for c in [1024, 256, 64, 32, 16]:
                         for c_pattern in ['inc', 'dec', 'constant']:
@@ -165,7 +165,6 @@ class Mark6(AbstractModel):
 
 if __name__ == '__main__':
     Mark6.full_run()
-    # Mark6.full_run('small')
     # Mark6.comparison_run()
     # Mark6.quick_run()
     # Mark6.quick_learn()

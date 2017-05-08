@@ -154,9 +154,9 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
                     numValidWorse = 0
 
                 # obviously overfitting
-                if step > 100 and avgTrainingAcc - bestValidAcc > 0.15:
-                    trainLogFunc('Overfitting. Quitting...')
-                    break
+                # if step > 100 and avgTrainingAcc - bestValidAcc > 0.15:
+                #    trainLogFunc('Overfitting. Quitting...')
+                #    break
 
 
     testLogFunc('Time elapsed: %0.3f ' % (time()-st) )
