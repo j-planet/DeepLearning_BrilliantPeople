@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import itertools
 from pprint import pformat
+import multiprocessing
+
 
 
 def dir_create_n_clear(*pathComponents):
@@ -171,8 +173,14 @@ def run_with_processor(funcToFunc, useCPU):
     tf.reset_default_graph()
 
     if useCPU:
+
+        numCores = multiprocessing.cpu_count() - 1
+        config = tf.ConfigProto(allow_soft_placement=True,
+                                intra_op_parallelism_threads=numCores,
+                                inter_op_parallelism_threads=numCores)
+
         with tf.device('/cpu:0'):
-            sess = tf.InteractiveSession(config=tf.ConfigProto(allow_soft_placement=True))
+            sess = tf.InteractiveSession(config=config)
             return funcToFunc(sess)
     else:
         sess = tf.InteractiveSession(
