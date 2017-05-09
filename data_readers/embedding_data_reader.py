@@ -119,7 +119,7 @@ class EmbeddingDataReader(AbstractDataReader):
 
 
 if __name__ == '__main__':
-    dr = EmbeddingDataReader(os.path.join(PPL_DATA_DIR, '2_samples'), 'bucketing', 5, 1, padToFull=False)
+    dr = EmbeddingDataReader(os.path.join(PPL_DATA_DIR, 'earlyLifesWordMats_42B300d'), 'bucketing', 5, 1, padToFull=False)
 
     for _ in range(10):
         d, names = dr.get_next_training_batch()

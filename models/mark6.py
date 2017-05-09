@@ -141,10 +141,11 @@ class Mark6(AbstractModel):
         rnnConfigs = []
 
         for pd in [0.6]:
-            for pd_pattern in ['constant']:
+            for pd_pattern in ['inc']:
                 for numLayers in [2, 3, 4, 5]:
                     for c in [1024, 256, 64, 32, 16]:
-                        for c_pattern in ['inc', 'dec', 'constant']:
+                        # for c_pattern in ['inc', 'dec', 'constant']:  # finished inc and dec for 1024, 2
+                        for c_pattern in ['constant']:
 
                             if c == 1024 and (c_pattern=='inc' or numLayers > 3): continue
 
@@ -157,7 +158,8 @@ class Mark6(AbstractModel):
 
                   ('rnnConfigs', rnnConfigs),
 
-                  ('pooledKeepProb', [0.5, 0.9, 1]),
+                  # ('pooledKeepProb', [0.5, 0.9, 1]),
+                  ('pooledKeepProb', [0.9, 1]),
                   ('pooledActivation', [None, 'relu'])
                   ]
 
