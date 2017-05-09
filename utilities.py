@@ -164,9 +164,9 @@ def filter_output_size(inputLen, filterWidth, stride, padding):
 
         return int(np.ceil(inputLen / stride))
 
-def run_with_processor(funcToFunc, useCPU):
+def run_with_processor(trainFunc, useCPU):
     """
-    :param funcToFunc: lambda sess: func(sess)
+    :param trainFunc: lambda sess: train(sess, ...)
     """
 
 
@@ -181,12 +181,12 @@ def run_with_processor(funcToFunc, useCPU):
 
         with tf.device('/cpu:0'):
             sess = tf.InteractiveSession(config=config)
-            return funcToFunc(sess)
+            return trainFunc(sess)
     else:
         sess = tf.InteractiveSession(
             config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.85),
                                   allow_soft_placement=True))
-        return funcToFunc(sess)
+        return trainFunc(sess)
 
 def make_params_dict(paramsKeyValuesList):
     """

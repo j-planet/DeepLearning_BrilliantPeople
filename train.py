@@ -8,7 +8,8 @@ from utilities import tensorflowFilewriters, label_comparison, LoggerFactory, cr
 
 
 
-def evaluate_in_batches(sess, batchGenerator_, classLabels_, evaluationFunc_, logFunc_=None, verbose_=True):
+def evaluate_in_batches(sess, batchGenerator_, classLabels_, evaluationFunc_,
+                        logFunc_=None, verbose_=True):
     logFunc_ = logFunc_ or print
 
     # data = dataReader.get_data_in_batches(batchSize_, validateOrTest_)
@@ -21,7 +22,7 @@ def evaluate_in_batches(sess, batchGenerator_, classLabels_, evaluationFunc_, lo
 
     # d: x, y, xLengths, names
     for fd, names in batchGenerator_:
-        c, acc, trueYInds, predYInds = evaluationFunc_(sess, fd)
+        c, acc, trueYInds, predYInds = evaluationFunc_(sess, fd, full=False)
 
         actualCount = len(trueYInds)
         totalCost += c * actualCount
@@ -54,16 +55,6 @@ def log_progress(step, numDataPoints, lr, c=None, acc=None, logFunc=None):
     (logFunc or print)(res)
 
     return res
-
-
-# def evaluate_stored_model(dataDir, modelScale, savePath, batchSize):
-#
-#     dataReader = DataReader(dataDir, 'bucketing', batchSize)
-#     model = Model(modelScale, dataReader.input, dataReader.numClasses, 0)
-#
-#     tf.train.Saver().restore(sess, savePath)
-#
-#     evaluate_in_batches(dataReader.get_test_data_in_batches(), dataReader.classLabels, model.evaluate)
 
 
 def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
@@ -153,10 +144,10 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
                     bestValidAcc = max(bestValidAcc, curValidAcc)
                     numValidWorse = 0
 
-                # obviously overfitting
-                # if step > 100 and avgTrainingAcc - bestValidAcc > 0.15:
-                #    trainLogFunc('Overfitting. Quitting...')
-                #    break
+                    # obviously overfitting
+                    # if step > 100 and avgTrainingAcc - bestValidAcc > 0.15:
+                    #    trainLogFunc('Overfitting. Quitting...')
+                    #    break
 
 
     testLogFunc('Time elapsed: %0.3f ' % (time()-st) )

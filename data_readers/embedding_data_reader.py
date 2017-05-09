@@ -33,7 +33,7 @@ def patch_arrays(arrays, lengths, numrows=None):
 
 class EmbeddingDataReader(AbstractDataReader):
 
-    def __init__(self, inputFilesDir, bucketingOrRandom, batchSize_, minimumWords,
+    def __init__(self, inputFilesDir, bucketingOrRandom, batchSize_, minimumWords=40,
                  loggerFactory=None, train_valid_test_split_=(0.8, 0.1, 0.1), padToFull=False):
 
         self.padToFull = padToFull

@@ -72,8 +72,12 @@ class AbstractModel(metaclass=ABCMeta):
 
         return sess_.run(thingsToRun, feedDict_)[1:]
 
-    def evaluate(self, sess_, feedDict_):
-        return sess_.run([self.cost, self.accuracy, self.trueY, self.pred], feedDict_)
+    def evaluate(self, sess_, feedDict_, full=False):
+
+        return sess_.run([self.cost, self.accuracy, self.trueY, self.pred]
+                         + ([self.y, self.output] if full else []),
+                         feedDict_)
+
 
     def add_output(self, output, outputShape):
         self.outputs.append({'output': output, 'output_shape': outputShape})
