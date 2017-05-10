@@ -3,6 +3,8 @@ import os, glob
 import json
 import numpy as np
 import difflib
+from collections import Counter
+from random import shuffle
 
 
 PPL_DATA_DIR = '../data/peopleData'
@@ -193,16 +195,41 @@ def file2vec_mass(embeddings_filekey_='42B300d'):
     if not os.path.exists(outputDir_): os.mkdir(outputDir_)
     inputFiles = glob.glob(os.path.join(PPL_DATA_DIR, 'earlyLifesTexts/*.txt'))
 
-    for filename in inputFiles:
+    # === first pass: read occupations and use an even number of all occupations ===
+    firstPassNames = []    # list of (occupation, name, filename)
 
+    for filename in inputFiles:
         name = filename2name(filename)
+        occupation = occReader_.get_occupation(name)
+
+        firstPassNames.append((occupation, name, filename))
+
+    shuffle(firstPassNames)
+
+    # get the least common occupation
+    rare_occ, rare_count = Counter([v[0] for v in firstPassNames]).most_common()[-1]
+    print('least common occupation and count: ', rare_occ, rare_count)
+
+    # remove extras for every other occupation
+    count_by_occ = {}
+    secondPassNames = []    # list of (occupation, name, filename)
+    for occ, name, fname in firstPassNames:
+
+        curCount = count_by_occ.get(occ, 0)
+
+        if curCount < rare_count:
+            secondPassNames.append((occ, name, fname))
+            count_by_occ[occ] = curCount + 1
+
+    # === second pass: convert texts to matrices ===
+    for occupation, name, filename in secondPassNames:
+
         outputFname = os.path.join(outputDir_, name + '.json')
 
         if os.path.exists(outputFname):
             print(outputFname, 'already exists. Skipping...')
             continue
 
-        occupation = occReader_.get_occupation(name)
         mat = file2vec(filename, embeddings, occupation)
 
         if len(mat)==0:
@@ -262,6 +289,7 @@ def file2tokens_mass(outputFname_, occupationReader_, selectedOccupations=None):
 
 
 if __name__ == '__main__':
-    file2tokens_mass(os.path.join(PPL_DATA_DIR, 'tokensfiles/pol_sci.json'),
-                     OccupationReader(),
-                     ['politician', 'scientist'])
+    file2vec_mass()
+    # file2tokens_mass(os.path.join(PPL_DATA_DIR, 'tokensfiles/pol_sci.json'),
+    #                  OccupationReader(),
+    #                  ['politician', 'scientist'])
