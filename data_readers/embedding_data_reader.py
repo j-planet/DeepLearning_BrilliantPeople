@@ -65,6 +65,12 @@ class EmbeddingDataReader(AbstractDataReader):
             with open(inputFilename, encoding='utf8') as ifile:
                 d = json.load(ifile)
 
+            occ = d['occupation']
+            occ = occ if type(occ) == str else occ[-1]
+            if occ in self.OCCS_TO_SKIP:
+                numSkipped += 1
+                continue
+
             mat = np.array(d['mat'])
 
             if len(mat) < self.minimumWords:
@@ -72,9 +78,8 @@ class EmbeddingDataReader(AbstractDataReader):
                 continue
 
             XData.append(mat)
-            occ = d['occupation']
             xLengths.append(mat.shape[0])
-            YData.append(occ if type(occ) == str else occ[-1])
+            YData.append(occ)
             names.append(filename2name(inputFilename))
 
         self.vectorDimension = XData[0].shape[1]
