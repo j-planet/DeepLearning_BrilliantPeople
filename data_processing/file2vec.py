@@ -161,7 +161,7 @@ class OccupationReader(object):
         return res
 
 
-def file2vec_mass(embeddings_filekey_, outputDir_, occReader_):
+def file2vec_mass(embeddings_filekey_='42B300d'):
     """
     convert all text files in a directory to matrices using a given embedding
     :type occReader_: OccupationReader
@@ -185,15 +185,11 @@ def file2vec_mass(embeddings_filekey_, outputDir_, occReader_):
     )
     print('DONE reading embeddings.')
 
-    # read { name: occupation }
-    # peopleData = {}
-    # for filename in glob.glob(os.path.join(PPL_DATA_DIR, 'processed_names/*.json')):
-    #     with open(filename, encoding='utf8') as ifile:
-    #         peopleData.update(json.load(ifile))
-
-
     processed = 0
-    # outputDir = os.path.join(PPL_DATA_DIR, 'earlyLifesWordMats_' + embeddings_filekey_)
+
+    occReader_ = OccupationReader()
+    outputDir_ = os.path.join(PPL_DATA_DIR, 'earlyLifesWordMats_' + embeddings_filekey_)
+
     if not os.path.exists(outputDir_): os.mkdir(outputDir_)
     inputFiles = glob.glob(os.path.join(PPL_DATA_DIR, 'earlyLifesTexts/*.txt'))
 
