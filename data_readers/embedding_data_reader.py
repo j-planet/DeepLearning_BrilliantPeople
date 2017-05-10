@@ -67,9 +67,6 @@ class EmbeddingDataReader(AbstractDataReader):
 
             occ = d['occupation']
             occ = occ if type(occ) == str else occ[-1]
-            if occ in self.OCCS_TO_SKIP:
-                numSkipped += 1
-                continue
 
             mat = np.array(d['mat'])
 

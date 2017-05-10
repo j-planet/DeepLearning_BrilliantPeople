@@ -163,12 +163,50 @@ class OccupationReader(object):
         return res
 
 
-def file2vec_mass(embeddings_filekey_='42B300d'):
+def file2vec_mass(embeddings_filekey_='42B300d',
+                  occs_to_skip={'explorer', 'religion', 'royalty', 'social'}):
     """
     convert all text files in a directory to matrices using a given embedding
     :type occReader_: OccupationReader
     """
 
+    processed = 0
+
+    occReader_ = OccupationReader()
+    outputDir_ = os.path.join(PPL_DATA_DIR, 'earlyLifesWordMats_' + embeddings_filekey_)
+
+    if not os.path.exists(outputDir_): os.mkdir(outputDir_)
+    inputFiles = glob.glob(os.path.join(PPL_DATA_DIR, 'earlyLifesTexts/*.txt'))
+
+    # === first pass: read occupations and use an even number of all occupations ===
+    firstPassNames = []    # list of (occupation, name, filename)
+
+    for filename in inputFiles:
+        name = filename2name(filename)
+        occupation = occReader_.get_occupation(name)
+
+        if occupation[-1] in occs_to_skip: continue
+
+        firstPassNames.append((occupation, name, filename))
+
+    shuffle(firstPassNames)
+
+    # get the least common occupation
+    rare_occ, rare_count = Counter([v[0][-1] for v in firstPassNames]).most_common()[-1]
+    print('least common occupation and count: ', rare_occ, rare_count)
+
+    # remove extras for every other occupation
+    count_by_occ = {}
+    secondPassNames = []    # list of (occupation, name, filename)
+    for d in firstPassNames:
+
+        curCount = count_by_occ.get(d[0][-1], 0)
+
+        if curCount < rare_count:
+            secondPassNames.append(d)
+            count_by_occ[d[0][-1]] = curCount + 1
+
+    # === second pass: convert texts to matrices ===
     embeddings_filename_ = \
         {'6B50d': '../data/glove/glove.6B/glove.6B.50d.txt',
          '6B300d': '../data/glove/glove.6B/glove.6B.300d.txt',
@@ -187,41 +225,6 @@ def file2vec_mass(embeddings_filekey_='42B300d'):
     )
     print('DONE reading embeddings.')
 
-    processed = 0
-
-    occReader_ = OccupationReader()
-    outputDir_ = os.path.join(PPL_DATA_DIR, 'earlyLifesWordMats_' + embeddings_filekey_)
-
-    if not os.path.exists(outputDir_): os.mkdir(outputDir_)
-    inputFiles = glob.glob(os.path.join(PPL_DATA_DIR, 'earlyLifesTexts/*.txt'))
-
-    # === first pass: read occupations and use an even number of all occupations ===
-    firstPassNames = []    # list of (occupation, name, filename)
-
-    for filename in inputFiles:
-        name = filename2name(filename)
-        occupation = occReader_.get_occupation(name)
-
-        firstPassNames.append((occupation, name, filename))
-
-    shuffle(firstPassNames)
-
-    # get the least common occupation
-    rare_occ, rare_count = Counter([v[0] for v in firstPassNames]).most_common()[-1]
-    print('least common occupation and count: ', rare_occ, rare_count)
-
-    # remove extras for every other occupation
-    count_by_occ = {}
-    secondPassNames = []    # list of (occupation, name, filename)
-    for occ, name, fname in firstPassNames:
-
-        curCount = count_by_occ.get(occ, 0)
-
-        if curCount < rare_count:
-            secondPassNames.append((occ, name, fname))
-            count_by_occ[occ] = curCount + 1
-
-    # === second pass: convert texts to matrices ===
     for occupation, name, filename in secondPassNames:
 
         outputFname = os.path.join(outputDir_, name + '.json')

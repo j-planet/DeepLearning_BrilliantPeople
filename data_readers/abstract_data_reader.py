@@ -55,8 +55,6 @@ class AbstractDataReader(metaclass=ABCMeta):
         assert bucketingOrRandom=='bucketing' or bucketingOrRandom=='random'
         assert sum(train_valid_test_split_)==1. and np.all([v > 0 for v in train_valid_test_split_]), 'Invalid train-validation-test split values.'
 
-        self.OCCS_TO_SKIP = ['explorer', 'religion', 'royalty', 'social']
-
         self.inputSource = inputSource
         self.minimumWords = minimumWords
         self.trainBatchIndex = 0
