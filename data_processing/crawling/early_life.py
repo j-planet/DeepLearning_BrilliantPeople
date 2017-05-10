@@ -148,7 +148,7 @@ if __name__ == '__main__':
         except Exception as e:
             print('Error occurred:', e)
 
-
-    Parallel(n_jobs=8)(delayed(process_one_person)(name) for name in peopleData.keys())
+    numCores = multiprocessing.cpu_count() - 1
+    Parallel(n_jobs=numCores)(delayed(process_one_person)(name) for name in peopleData.keys())
 
 
