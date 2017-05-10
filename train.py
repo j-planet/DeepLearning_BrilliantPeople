@@ -83,7 +83,7 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
     loggerFactory = LoggerFactory(logDir)
     runConfig = RunConfig(runScale, loggerFactory)
     # dataReader = DataReader_Embeddings(dataDir, 'bucketing', runConfig.batchSize, 40, loggerFactory)
-    dataReader = dataReaderMaker(bucketingOrRandom='bucketing', batchSize_=runConfig.batchSize, minimumWords=40, loggerFactory=loggerFactory)
+    dataReader = dataReaderMaker(bucketingOrRandom='bucketing', batchSize_=runConfig.batchSize, minimumWords=0, loggerFactory=loggerFactory)
     model = modelMaker(dataReader.input, loggerFactory)
     initialLr = model.initialLearningRate
 
