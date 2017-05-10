@@ -1,5 +1,5 @@
 from pprint import pprint
-from data_processing.crawling.utilities import url_2_soup, clean_line, is_not_name
+from data_processing.crawling.utilities import url_2_soup, clean_line, is_not_name, crawl_wiki_list_of
 import os, json
 
 res = {}
@@ -31,9 +31,20 @@ def part2():
             name = line.split('(')[0]
             res[name] = {'occupation': ['olympian', 'athlete'], 'description': 'olympic medalist'}
 
+def part3():
+    for category in ['Commonwealth_Games_competitors_for_Australia',
+                     'Pan_American_Games_competitors_for_the_United_States',
+                     'American_Formula_One_drivers',
+                     'Commonwealth_Games_competitors_for_England',
+                     'Commonwealth_Games_competitors_for_Scotland',
+                     'Player-coaches',
+                     'Paralympic_athletes_of_Great_Britain']:
+        url = 'https://en.wikipedia.org/wiki/Category:' + category
+        res.update(crawl_wiki_list_of(url, 'athlete', ['athlete'], None))
 
 part1()
 part2()
+part3()
 print('%d athletes read.' % len(res))
 
 with open('../../data/peopleData/processed_names/athlete_processed_names.json', 'w', encoding='utf8') as outputFile:

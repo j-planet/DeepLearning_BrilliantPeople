@@ -6,33 +6,28 @@ PPL_DATA_DIR = '../../data/peopleData'
 
 res = {}
 
-for category in ['American_businesspeople',
-                 'Manufacturing_company_founders',
-                 'Retail_company_founders',
-                 'Real_estate_company_founders',
-                 'Technology_company_founders',
-                 'British_businesspeople',
-                 'Canadian_businesspeople',
-                 'Japanese_businesspeople',
-                 'Businesspeople_awarded_knighthoods',
-                 'Industrialists',
+for category in ['Leaders_of_political_parties',
+                 'Politicians_awarded_knighthoods',
+                 'Politicians_with_physical_disabilities',
+                 'Russian_politicians',
+                 'Austrian_politicians',
+                 'Albanian_politicians',
+                 'German_politicians',
+                 'French_politicians',
+                 'Turkish_politicians',
+                 'Polish_politicians',
+                 'Hungarian_politicians',
 
-                 'Investors',
-                 'Private_equity_and_venture_capital_investors',
-                 'Women_investors',
-                 'Women_business_executives',
-                 'Non-profit_executives',
-                 'Businesspeople_in_advertising',
-                 'Bankers',
-                 'Automotive_pioneers',
-                 'Businesspeople_in_real_estate',
-                 'Businesspeople_in_fashion',
-                 'Businesspeople_in_insurance']:
+                 'Chinese_politician_stubs',
+                 'Chinese_politicians_convicted_of_crimes',
+                 'North_Korean_politicians',
+                 'Norwegian_politicians',
+                 'Belgian_politicians']:
 
     url = 'https://en.wikipedia.org/wiki/Category:' + category
-    res.update(crawl_wiki_list_of(url, 'businessman', ['businessman'], None))
+    res.update(crawl_wiki_list_of(url, 'politician', ['politician'], None))
 
 
 print('Total:', len(res))
-with open('../../data/peopleData/processed_names/businessman_processed_names.json', 'w', encoding='utf8') as outputFile:
+with open('../../data/peopleData/processed_names/politicians_processed_names.json', 'w', encoding='utf8') as outputFile:
     json.dump(res, outputFile)
