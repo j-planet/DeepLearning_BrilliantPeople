@@ -185,7 +185,8 @@ def file2vec_mass(embeddings_filekey_='42B300d',
         name = filename2name(filename)
         occupation = occReader_.get_occupation(name)
 
-        if occupation[-1] in occs_to_skip: continue
+        if occupation is None or occupation[-1] in occs_to_skip:
+            continue
 
         firstPassNames.append((occupation, name, filename))
 
