@@ -137,16 +137,14 @@ if __name__ == '__main__':
 
     # read { name: occupation }
     peopleData = {}
-    # for filename in glob.glob(os.path.join(PPL_DATA_DIR, 'processed_names/*processed_names*.json')):
-
-    filename = os.path.join(PPL_DATA_DIR, 'processed_names/actor_processed_names.json')
-    with open(filename, encoding='utf8') as ifile:
-        peopleData.update(json.load(ifile))
+    for filename in glob.glob(os.path.join(PPL_DATA_DIR, 'processed_names/*processed_names*.json')):
+        with open(filename, encoding='utf8') as ifile:
+            peopleData.update(json.load(ifile))
 
     def process_one_person(name_):
         try:
             name_to_earlylife(name_,
-                              outputDir_ = os.path.join(PPL_DATA_DIR, 'earlyLifesTexts_actors'))
+                              outputDir_ = os.path.join(PPL_DATA_DIR, 'earlyLifesTexts'))
         except Exception as e:
             print('Error occurred:', e)
 
