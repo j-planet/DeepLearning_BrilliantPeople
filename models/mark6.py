@@ -140,27 +140,28 @@ class Mark6(AbstractModel):
 
         rnnConfigs = []
 
-        for pd in [0.6]:
-            for pd_pattern in ['inc']:
+        for pd in [0.5, 0.75, 1]:
+            for pd_pattern in ['inc', 'dec', 'constant']:
                 for numLayers in [2, 3, 4, 5]:
                     for c in [1024, 256, 64, 32, 16]:
-                        # for c_pattern in ['inc', 'dec', 'constant']:  # finished inc and dec for 1024, 2
-                        for c_pattern in ['constant']:
+                        for c_pattern in ['inc', 'dec', 'constant']:  # finished inc and dec for 1024, 2
 
                             if c == 1024 and (c_pattern=='inc' or numLayers > 3): continue
 
-                            rnnConfigs.append([RNNConfig(_c(c, numLayers, c_pattern), _p(pd, numLayers, pd_pattern))])
+                            numCells = _c(c, numLayers, c_pattern)
+                            probs = _p(pd, numLayers, pd_pattern)
+
+                            rnnConfigs.append([RNNConfig(numCells, probs)])
 
 
         params = [('initialLearningRate', [1e-3]),
                   ('l2RegLambda', [1e-6]),
-                  ('l2Scheme', ['overall', 'final_stage']),
+                  ('l2Scheme', ['final_stage', 'overall']),
 
                   ('rnnConfigs', rnnConfigs),
 
-                  # ('pooledKeepProb', [0.5, 0.9, 1]),
-                  ('pooledKeepProb', [0.9, 1]),
-                  ('pooledActivation', [None, 'relu'])
+                  ('pooledKeepProb', [0.8, 1]),
+                  ('pooledActivation', [None])
                   ]
 
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
