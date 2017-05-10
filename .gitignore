@@ -12,3 +12,4 @@ timeline*.json
 extracts/
 earlyLifesTexts*/
 earlyLifesWordMats*/
+nohup*.out
