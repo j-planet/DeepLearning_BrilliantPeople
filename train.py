@@ -128,7 +128,9 @@ def train(sess, dataReaderMaker, modelMaker, runScale, baseLogDir):
                 trainLogFunc('Avg training accuracy = %0.3f' % avgTrainingAcc)
 
                 if curValidC >= bestValidC and curValidAcc <= bestValidAcc:
-                    # lrDecayPerCycle *= 0.8
+                    if numValidWorse >= 2:
+                        lrDecayPerCycle *= 0.8
+
                     lr = _decrease_learning_rate(numDataPoints)
                     logValidationEvery = max(int(runConfig.logValidationEvery/3), int(0.8*logValidationEvery))
                     skipOneValid = True
@@ -184,7 +186,7 @@ class RunConfig(object):
             self.numSteps = 500
             self.batchSize = 60
             self.logValidationEvery = 15
-            self.failToImproveTolerance = 7
+            self.failToImproveTolerance = 5
 
         elif scale == 'full':
             self.numSteps = 300

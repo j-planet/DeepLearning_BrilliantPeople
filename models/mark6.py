@@ -81,6 +81,21 @@ class Mark6(AbstractModel):
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
     @classmethod
+    def one_case(cls, runScale='medium', dataScale='full', useCPU = True):
+        params = [('initialLearningRate', [1e-4]),
+                  ('l2RegLambda', [0]),
+                  ('l2Scheme', ['final_stage']),
+
+                  ('rnnConfigs', [[RNNConfig([64, 128, 256], [0.5, 0.6, 0.7]),
+                                   RNNConfig([64, 64, 64, 64], [0.5, 0.6, 0.7, 0.8])]]),
+
+                  ('pooledKeepProb', [1]),
+                  ('pooledActivation', [None])
+                  ]
+
+        cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
+
+    @classmethod
     def comparison_run(cls, runScale='small', dataScale='full_2occupations', useCPU = True):
         params = [('initialLearningRate', [5e-4]),
                   ('l2RegLambda', [1e-4]),
@@ -167,7 +182,7 @@ class Mark6(AbstractModel):
         cls.run_thru_data(EmbeddingDataReader, dataScale, make_params_dict(params), runScale, useCPU)
 
 if __name__ == '__main__':
-    Mark6.full_run()
+    Mark6.one_case()
     # Mark6.comparison_run()
     # Mark6.quick_run()
     # Mark6.quick_learn()

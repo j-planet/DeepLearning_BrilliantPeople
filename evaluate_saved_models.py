@@ -12,7 +12,7 @@ from data_readers.embedding_data_reader import EmbeddingDataReader
 from models.mark6 import Mark6, RNNConfig
 
 
-def evaluate(outputFpath = None):
+def evaluate_mark6(l2Scheme, rnnConfigs, pooledKeepProb, outputFpath = None):
 
     runConfig = RunConfig('medium')
 
@@ -23,11 +23,12 @@ def evaluate(outputFpath = None):
     # make model
     p = dict([('initialLearningRate', 1e-3),
               ('l2RegLambda', 1e-6),
-              ('l2Scheme', 'overall'),
+              ('l2Scheme', l2Scheme),
 
-              ('rnnConfigs', [RNNConfig([1024, 512], [0.6, 0.7])]),
+              # ('rnnConfigs', [RNNConfig([1024, 512], [0.6, 0.7])]),
+              ('rnnConfigs', rnnConfigs),
 
-              ('pooledKeepProb', 0.9),
+              ('pooledKeepProb', pooledKeepProb),
               ('pooledActivation', None)
               ])
 
@@ -93,6 +94,12 @@ def plot_confusion_matrix(cm_, classLabels_, wrongOnly_):
 
 fpath = 'metrics.bin'
 
+# evaluate_mark6('final_stage',
+#                [RNNConfig([64, 128, 256], [0.5, 0.6, 0.7]),
+#                 RNNConfig([64, 64, 64, 64], [0.5, 0.6, 0.7, 0.8])],
+#                1.,
+#                None)
+
 with open(fpath, 'rb') as ifile:
     data = pickle.load(ifile)
 
@@ -108,10 +115,23 @@ for vt in data:
         true_ys += list(d[2])
         pred_ys += list(d[3])
 
-cm = confusion_matrix(true_ys, pred_ys)
-labels = ['artist', 'athlete', 'author', 'businessman', 'entertainment', 'explorer', 'politician', 'religion', 'royalty', 'scientist', 'social']
+true_ys = np.array(true_ys)
+pred_ys = np.array(pred_ys)
+names = np.array(names)
+labels = ['artist', 'athlete', 'author', 'businessman', 'entertainment', 'politician', 'scientist']
 
-# Plot normalized confusion matrix
+print('%-30s%12s%12s' % ('Name', 'True', 'Predicted'))
+for t, p, n in zip(true_ys, pred_ys, names):
+    if t!=p:
+        print('%-30s%12s%12s' % (n, labels[t], labels[p]) )
+
+prec, rec, fs, _ = precision_recall_fscore_support(true_ys, pred_ys)
+
+for l, p, r, f in zip(labels, prec, rec, fs):
+    print('%s | %0.3f | %0.3f | %0.3f' % (l, p, r, f))
+
+
+cm = confusion_matrix(true_ys, pred_ys)
 plot_confusion_matrix(cm, labels, wrongOnly_=False)
 plot_confusion_matrix(cm, labels, wrongOnly_=True)
 
